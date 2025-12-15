@@ -3,6 +3,10 @@ export interface Profile {
   email: string;
   nombre: string;
   telefono: string | null;
+  direccion: string | null;
+  nif_cif: string | null;
+  nombre_empresa: string | null;
+  foto_url: string | null;
   created_at: string;
 }
 

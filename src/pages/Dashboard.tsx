@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MachineCard } from '@/components/dashboard/MachineCard';
+import { BottomNav } from '@/components/layout/BottomNav';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { Plus, Settings, IceCream, RefreshCw, Loader2 } from 'lucide-react';
@@ -27,7 +28,7 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="container flex items-center justify-between h-16 px-4">
@@ -111,9 +112,21 @@ export const Dashboard = () => {
 
       {/* FAB */}
       {maquinas.length > 0 && (
-        <div className="fixed bottom-6 right-6">
+        <div className="fixed bottom-24 right-6">
           <Button
             size="lg"
+            className="rounded-full shadow-lg h-14 w-14"
+            onClick={() => navigate('/add-machine')}
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </div>
+      )}
+
+      <BottomNav />
+    </div>
+  );
+};
             className="rounded-full shadow-lg h-14 w-14"
             onClick={() => navigate('/add-machine')}
           >
