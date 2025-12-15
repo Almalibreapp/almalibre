@@ -14,6 +14,181 @@ export type Database = {
   }
   public: {
     Tables: {
+      canjes_codigo: {
+        Row: {
+          codigo_id: string
+          descuento_aplicado: number | null
+          fecha_canje: string | null
+          id: string
+          maquina_id: string
+          monto_original: number | null
+        }
+        Insert: {
+          codigo_id: string
+          descuento_aplicado?: number | null
+          fecha_canje?: string | null
+          id?: string
+          maquina_id: string
+          monto_original?: number | null
+        }
+        Update: {
+          codigo_id?: string
+          descuento_aplicado?: number | null
+          fecha_canje?: string | null
+          id?: string
+          maquina_id?: string
+          monto_original?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canjes_codigo_codigo_id_fkey"
+            columns: ["codigo_id"]
+            isOneToOne: false
+            referencedRelation: "codigos_promocionales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canjes_codigo_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      codigos_promocionales: {
+        Row: {
+          codigo: string
+          created_at: string | null
+          estado: string
+          fecha_expiracion: string
+          fecha_inicio: string
+          id: string
+          maquinas: Json | null
+          nombre: string
+          tipo_descuento: string
+          usos_actuales: number | null
+          usos_maximos: number | null
+          usuario_id: string
+          valor_descuento: number
+        }
+        Insert: {
+          codigo: string
+          created_at?: string | null
+          estado?: string
+          fecha_expiracion: string
+          fecha_inicio: string
+          id?: string
+          maquinas?: Json | null
+          nombre: string
+          tipo_descuento: string
+          usos_actuales?: number | null
+          usos_maximos?: number | null
+          usuario_id: string
+          valor_descuento: number
+        }
+        Update: {
+          codigo?: string
+          created_at?: string | null
+          estado?: string
+          fecha_expiracion?: string
+          fecha_inicio?: string
+          id?: string
+          maquinas?: Json | null
+          nombre?: string
+          tipo_descuento?: string
+          usos_actuales?: number | null
+          usos_maximos?: number | null
+          usuario_id?: string
+          valor_descuento?: number
+        }
+        Relationships: []
+      }
+      incidencia_mensajes: {
+        Row: {
+          autor: string
+          created_at: string | null
+          id: string
+          incidencia_id: string
+          mensaje: string
+        }
+        Insert: {
+          autor: string
+          created_at?: string | null
+          id?: string
+          incidencia_id: string
+          mensaje: string
+        }
+        Update: {
+          autor?: string
+          created_at?: string | null
+          id?: string
+          incidencia_id?: string
+          mensaje?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incidencia_mensajes_incidencia_id_fkey"
+            columns: ["incidencia_id"]
+            isOneToOne: false
+            referencedRelation: "incidencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      incidencias: {
+        Row: {
+          created_at: string | null
+          descripcion: string
+          estado: string
+          fotos: Json | null
+          id: string
+          maquina_id: string
+          numero_ticket: string
+          prioridad: string
+          resolucion: string | null
+          tipo: string
+          updated_at: string | null
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          descripcion: string
+          estado?: string
+          fotos?: Json | null
+          id?: string
+          maquina_id: string
+          numero_ticket: string
+          prioridad?: string
+          resolucion?: string | null
+          tipo: string
+          updated_at?: string | null
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string | null
+          descripcion?: string
+          estado?: string
+          fotos?: Json | null
+          id?: string
+          maquina_id?: string
+          numero_ticket?: string
+          prioridad?: string
+          resolucion?: string | null
+          tipo?: string
+          updated_at?: string | null
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incidencias_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maquinas: {
         Row: {
           activa: boolean | null
@@ -44,27 +219,337 @@ export type Database = {
         }
         Relationships: []
       }
+      mensajes_soporte: {
+        Row: {
+          autor: string
+          created_at: string | null
+          id: string
+          mensaje: string
+          usuario_id: string
+        }
+        Insert: {
+          autor: string
+          created_at?: string | null
+          id?: string
+          mensaje: string
+          usuario_id: string
+        }
+        Update: {
+          autor?: string
+          created_at?: string | null
+          id?: string
+          mensaje?: string
+          usuario_id?: string
+        }
+        Relationships: []
+      }
+      metodos_pago: {
+        Row: {
+          created_at: string | null
+          id: string
+          nombre: string
+          predeterminado: boolean | null
+          tipo: string
+          ultimos_digitos: string | null
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nombre: string
+          predeterminado?: boolean | null
+          tipo: string
+          ultimos_digitos?: string | null
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nombre?: string
+          predeterminado?: boolean | null
+          tipo?: string
+          ultimos_digitos?: string | null
+          usuario_id?: string
+        }
+        Relationships: []
+      }
+      pagos_suscripcion: {
+        Row: {
+          estado: string
+          factura_url: string | null
+          fecha_pago: string | null
+          id: string
+          monto: number
+          suscripcion_id: string
+        }
+        Insert: {
+          estado?: string
+          factura_url?: string | null
+          fecha_pago?: string | null
+          id?: string
+          monto: number
+          suscripcion_id: string
+        }
+        Update: {
+          estado?: string
+          factura_url?: string | null
+          fecha_pago?: string | null
+          id?: string
+          monto?: number
+          suscripcion_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagos_suscripcion_suscripcion_id_fkey"
+            columns: ["suscripcion_id"]
+            isOneToOne: false
+            referencedRelation: "suscripciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pedido_items: {
+        Row: {
+          cantidad: number
+          id: string
+          pedido_id: string
+          precio_unitario: number
+          producto_id: string
+          subtotal: number
+        }
+        Insert: {
+          cantidad?: number
+          id?: string
+          pedido_id: string
+          precio_unitario: number
+          producto_id: string
+          subtotal: number
+        }
+        Update: {
+          cantidad?: number
+          id?: string
+          pedido_id?: string
+          precio_unitario?: number
+          producto_id?: string
+          subtotal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedido_items_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedido_items_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pedidos: {
+        Row: {
+          created_at: string | null
+          direccion_envio: string | null
+          envio: number
+          estado: string
+          id: string
+          metodo_pago: string | null
+          numero_pedido: string
+          subtotal: number
+          total: number
+          updated_at: string | null
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          direccion_envio?: string | null
+          envio?: number
+          estado?: string
+          id?: string
+          metodo_pago?: string | null
+          numero_pedido: string
+          subtotal?: number
+          total?: number
+          updated_at?: string | null
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string | null
+          direccion_envio?: string | null
+          envio?: number
+          estado?: string
+          id?: string
+          metodo_pago?: string | null
+          numero_pedido?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string | null
+          usuario_id?: string
+        }
+        Relationships: []
+      }
+      productos: {
+        Row: {
+          activo: boolean | null
+          categoria: string
+          created_at: string | null
+          descripcion: string | null
+          id: string
+          imagen_url: string | null
+          nombre: string
+          precio: number
+          stock_disponible: number | null
+        }
+        Insert: {
+          activo?: boolean | null
+          categoria: string
+          created_at?: string | null
+          descripcion?: string | null
+          id?: string
+          imagen_url?: string | null
+          nombre: string
+          precio: number
+          stock_disponible?: number | null
+        }
+        Update: {
+          activo?: boolean | null
+          categoria?: string
+          created_at?: string | null
+          descripcion?: string | null
+          id?: string
+          imagen_url?: string | null
+          nombre?: string
+          precio?: number
+          stock_disponible?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
+          direccion: string | null
           email: string
+          foto_url: string | null
           id: string
+          intereses: Json | null
+          nif_cif: string | null
           nombre: string
+          nombre_empresa: string | null
+          notificaciones: Json | null
           telefono: string | null
         }
         Insert: {
           created_at?: string | null
+          direccion?: string | null
           email: string
+          foto_url?: string | null
           id: string
+          intereses?: Json | null
+          nif_cif?: string | null
           nombre: string
+          nombre_empresa?: string | null
+          notificaciones?: Json | null
           telefono?: string | null
         }
         Update: {
           created_at?: string | null
+          direccion?: string | null
           email?: string
+          foto_url?: string | null
           id?: string
+          intereses?: Json | null
+          nif_cif?: string | null
           nombre?: string
+          nombre_empresa?: string | null
+          notificaciones?: Json | null
           telefono?: string | null
+        }
+        Relationships: []
+      }
+      suscripciones: {
+        Row: {
+          created_at: string | null
+          estado: string
+          fecha_inicio: string
+          fecha_renovacion: string | null
+          id: string
+          metodo_pago_id: string | null
+          plan: string
+          precio_mensual: number
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          estado?: string
+          fecha_inicio?: string
+          fecha_renovacion?: string | null
+          id?: string
+          metodo_pago_id?: string | null
+          plan: string
+          precio_mensual?: number
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string | null
+          estado?: string
+          fecha_inicio?: string
+          fecha_renovacion?: string | null
+          id?: string
+          metodo_pago_id?: string | null
+          plan?: string
+          precio_mensual?: number
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suscripciones_metodo_pago_id_fkey"
+            columns: ["metodo_pago_id"]
+            isOneToOne: false
+            referencedRelation: "metodos_pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_tutoriales: {
+        Row: {
+          activo: boolean | null
+          categoria: string
+          created_at: string | null
+          descripcion: string | null
+          duracion: string | null
+          id: string
+          orden: number | null
+          thumbnail_url: string | null
+          titulo: string
+          video_url: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          categoria: string
+          created_at?: string | null
+          descripcion?: string | null
+          duracion?: string | null
+          id?: string
+          orden?: number | null
+          thumbnail_url?: string | null
+          titulo: string
+          video_url?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          categoria?: string
+          created_at?: string | null
+          descripcion?: string | null
+          duracion?: string | null
+          id?: string
+          orden?: number | null
+          thumbnail_url?: string | null
+          titulo?: string
+          video_url?: string | null
         }
         Relationships: []
       }
@@ -73,7 +558,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_order_number: { Args: never; Returns: string }
+      generate_ticket_number: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
