@@ -17,7 +17,30 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, User, Mail, Phone, LogOut, Loader2, IceCream } from 'lucide-react';
+import { BottomNav } from '@/components/layout/BottomNav';
+import {
+  ArrowLeft,
+  User,
+  Mail,
+  Phone,
+  LogOut,
+  Loader2,
+  IceCream,
+  CreditCard,
+  Crown,
+  Headphones,
+  Tag,
+  ChevronRight,
+  Package,
+} from 'lucide-react';
+
+const menuItems = [
+  { path: '/subscription', icon: Crown, label: 'Mi Suscripción', description: 'Gestiona tu plan' },
+  { path: '/payment-methods', icon: CreditCard, label: 'Métodos de Pago', description: 'Tarjetas y cuentas' },
+  { path: '/orders', icon: Package, label: 'Mis Pedidos', description: 'Historial de compras' },
+  { path: '/promotions', icon: Tag, label: 'Promociones', description: 'Códigos de descuento' },
+  { path: '/support', icon: Headphones, label: 'Soporte', description: 'Chatea con nosotros' },
+];
 
 export const Settings = () => {
   const navigate = useNavigate();
@@ -70,7 +93,7 @@ export const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="container flex items-center h-16 px-4">
@@ -88,6 +111,7 @@ export const Settings = () => {
 
       {/* Main Content */}
       <main className="container px-4 py-6 space-y-6">
+        {/* Profile Card */}
         <Card className="animate-fade-in">
           <CardHeader>
             <CardTitle>Mi Perfil</CardTitle>
@@ -132,7 +156,7 @@ export const Settings = () => {
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="telefono"
-                  placeholder="+1 234 567 8900"
+                  placeholder="+34 612 345 678"
                   className="pl-10"
                   value={formData.telefono}
                   onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
@@ -150,14 +174,40 @@ export const Settings = () => {
           </CardContent>
         </Card>
 
+        {/* Menu Items */}
         <Card className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+          <CardHeader>
+            <CardTitle>Cuenta</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {menuItems.map((item, index) => (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-muted/50 transition-colors border-b last:border-b-0"
+              >
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <item.icon className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-medium">{item.label}</p>
+                  <p className="text-sm text-muted-foreground">{item.description}</p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Session Card */}
+        <Card className="animate-fade-in" style={{ animationDelay: '200ms' }}>
           <CardHeader>
             <CardTitle>Sesión</CardTitle>
           </CardHeader>
           <CardContent>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full text-destructive hover:text-destructive">
                   <LogOut className="h-4 w-4 mr-2" />
                   Cerrar Sesión
                 </Button>
@@ -184,7 +234,8 @@ export const Settings = () => {
           </CardContent>
         </Card>
 
-        <Card className="animate-fade-in" style={{ animationDelay: '200ms' }}>
+        {/* About Card */}
+        <Card className="animate-fade-in" style={{ animationDelay: '300ms' }}>
           <CardHeader>
             <CardTitle>Acerca de</CardTitle>
           </CardHeader>
@@ -204,6 +255,8 @@ export const Settings = () => {
           </CardContent>
         </Card>
       </main>
+
+      <BottomNav />
     </div>
   );
 };

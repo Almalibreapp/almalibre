@@ -16,6 +16,9 @@ import { NewIncident } from "./pages/NewIncident";
 import { Tutorials } from "./pages/Tutorials";
 import { Promotions } from "./pages/Promotions";
 import { NewPromotion } from "./pages/NewPromotion";
+import { Subscription } from "./pages/Subscription";
+import { PaymentMethods } from "./pages/PaymentMethods";
+import { Support } from "./pages/Support";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +43,9 @@ const App = () => (
           <Route path="/tutorials" element={<Tutorials />} />
           <Route path="/promotions" element={<Promotions />} />
           <Route path="/promotions/new" element={<NewPromotion />} />
+          <Route path="/subscription" element={<Subscription />} />
+          <Route path="/payment-methods" element={<PaymentMethods />} />
+          <Route path="/support" element={<Support />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
