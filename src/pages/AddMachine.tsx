@@ -8,11 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
-import { ArrowLeft, Cpu, MapPin, Tag, Loader2 } from 'lucide-react';
+import { ArrowLeft, Smartphone, MapPin, Tag, Loader2 } from 'lucide-react';
 
-const macSchema = z.object({
+const imeiSchema = z.object({
   mac_address: z.string()
-    .regex(/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/, 'Formato MAC inválido (XX:XX:XX:XX:XX:XX)'),
+    .regex(/^\d{15}$/, 'El IMEI debe tener exactamente 15 dígitos'),
   nombre_personalizado: z.string()
     .min(2, 'Nombre muy corto')
     .max(100, 'Nombre muy largo'),
@@ -35,14 +35,13 @@ export const AddMachine = () => {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const formatMac = (value: string) => {
-    const cleaned = value.replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
-    const parts = cleaned.match(/.{1,2}/g) || [];
-    return parts.slice(0, 6).join(':');
+  const formatImei = (value: string) => {
+    // Only allow digits, max 15
+    return value.replace(/\D/g, '').slice(0, 15);
   };
 
-  const handleMacChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatMac(e.target.value);
+  const handleImeiChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatImei(e.target.value);
     setFormData({ ...formData, mac_address: formatted });
   };
 
@@ -50,7 +49,7 @@ export const AddMachine = () => {
     e.preventDefault();
     setErrors({});
 
-    const result = macSchema.safeParse(formData);
+    const result = imeiSchema.safeParse(formData);
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
       result.error.errors.forEach((err) => {
@@ -73,8 +72,8 @@ export const AddMachine = () => {
     if (error) {
       if (error.message.includes('duplicate') || error.message.includes('unique')) {
         toast({
-          title: 'MAC ya registrada',
-          description: 'Esta dirección MAC ya está asociada a otra cuenta.',
+          title: 'IMEI ya registrado',
+          description: 'Este IMEI ya está asociado a otra cuenta.',
           variant: 'destructive',
         });
       } else {
@@ -118,23 +117,24 @@ export const AddMachine = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="mac">Dirección MAC</Label>
+                <Label htmlFor="imei">IMEI de la Máquina</Label>
                 <div className="relative">
-                  <Cpu className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="mac"
-                    placeholder="XX:XX:XX:XX:XX:XX"
-                    className="pl-10 font-mono uppercase"
+                    id="imei"
+                    placeholder="865622072045888"
+                    className="pl-10 font-mono tracking-wider"
                     value={formData.mac_address}
-                    onChange={handleMacChange}
-                    maxLength={17}
+                    onChange={handleImeiChange}
+                    maxLength={15}
+                    inputMode="numeric"
                   />
                 </div>
                 {errors.mac_address && (
                   <p className="text-sm text-destructive">{errors.mac_address}</p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Encuentra la MAC en la etiqueta de tu máquina
+                  Encuentra el IMEI de 15 dígitos en la etiqueta de tu máquina
                 </p>
               </div>
 

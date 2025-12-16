@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Maquina, StockResponse, TemperaturaResponse, VentasResponse } from '@/types';
 import { fetchStock, fetchTemperatura, fetchVentas } from '@/services/api';
-import { MapPin, Thermometer, DollarSign, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
+import { MapPin, Thermometer, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MachineCardProps {
@@ -87,9 +87,8 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
 
           <div className="bg-muted/50 rounded-lg p-3 text-center">
             <div className="flex items-center justify-center gap-1 text-primary">
-              <DollarSign className="h-4 w-4" />
               <span className="font-semibold">
-                {loading ? '--' : `$${ventas?.total_ingresos?.toFixed(2) || '0.00'}`}
+                {loading ? '--' : `${ventas?.total_ingresos?.toFixed(2) || '0.00'} €`}
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">Hoy</p>
