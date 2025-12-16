@@ -19,6 +19,7 @@ import { NewPromotion } from "./pages/NewPromotion";
 import { Subscription } from "./pages/Subscription";
 import { PaymentMethods } from "./pages/PaymentMethods";
 import { Support } from "./pages/Support";
+import { NotificationSettings } from "./pages/NotificationSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
           <Route path="/subscription" element={<Subscription />} />
           <Route path="/payment-methods" element={<PaymentMethods />} />
           <Route path="/support" element={<Support />} />
+          <Route path="/notifications" element={<NotificationSettings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

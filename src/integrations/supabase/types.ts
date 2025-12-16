@@ -104,6 +104,36 @@ export type Database = {
         }
         Relationships: []
       }
+      dispositivos_usuario: {
+        Row: {
+          activo: boolean | null
+          created_at: string | null
+          id: string
+          plataforma: string
+          token_push: string
+          updated_at: string | null
+          usuario_id: string
+        }
+        Insert: {
+          activo?: boolean | null
+          created_at?: string | null
+          id?: string
+          plataforma: string
+          token_push: string
+          updated_at?: string | null
+          usuario_id: string
+        }
+        Update: {
+          activo?: boolean | null
+          created_at?: string | null
+          id?: string
+          plataforma?: string
+          token_push?: string
+          updated_at?: string | null
+          usuario_id?: string
+        }
+        Relationships: []
+      }
       incidencia_mensajes: {
         Row: {
           autor: string
@@ -273,6 +303,45 @@ export type Database = {
         }
         Relationships: []
       }
+      notificaciones: {
+        Row: {
+          created_at: string | null
+          datos: Json | null
+          enviada: boolean | null
+          fecha_envio: string | null
+          id: string
+          leida: boolean | null
+          mensaje: string
+          tipo: string
+          titulo: string
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          datos?: Json | null
+          enviada?: boolean | null
+          fecha_envio?: string | null
+          id?: string
+          leida?: boolean | null
+          mensaje: string
+          tipo: string
+          titulo: string
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string | null
+          datos?: Json | null
+          enviada?: boolean | null
+          fecha_envio?: string | null
+          id?: string
+          leida?: boolean | null
+          mensaje?: string
+          tipo?: string
+          titulo?: string
+          usuario_id?: string
+        }
+        Relationships: []
+      }
       pagos_suscripcion: {
         Row: {
           estado: string
@@ -387,6 +456,51 @@ export type Database = {
           numero_pedido?: string
           subtotal?: number
           total?: number
+          updated_at?: string | null
+          usuario_id?: string
+        }
+        Relationships: []
+      }
+      preferencias_notificaciones: {
+        Row: {
+          canal_email: boolean | null
+          canal_push: boolean | null
+          id: string
+          incidencias: boolean | null
+          nuevas_ventas: boolean | null
+          pedidos: boolean | null
+          promociones: boolean | null
+          stock_bajo: boolean | null
+          temperatura_alerta: boolean | null
+          umbral_stock: number | null
+          updated_at: string | null
+          usuario_id: string
+        }
+        Insert: {
+          canal_email?: boolean | null
+          canal_push?: boolean | null
+          id?: string
+          incidencias?: boolean | null
+          nuevas_ventas?: boolean | null
+          pedidos?: boolean | null
+          promociones?: boolean | null
+          stock_bajo?: boolean | null
+          temperatura_alerta?: boolean | null
+          umbral_stock?: number | null
+          updated_at?: string | null
+          usuario_id: string
+        }
+        Update: {
+          canal_email?: boolean | null
+          canal_push?: boolean | null
+          id?: string
+          incidencias?: boolean | null
+          nuevas_ventas?: boolean | null
+          pedidos?: boolean | null
+          promociones?: boolean | null
+          stock_bajo?: boolean | null
+          temperatura_alerta?: boolean | null
+          umbral_stock?: number | null
           updated_at?: string | null
           usuario_id?: string
         }

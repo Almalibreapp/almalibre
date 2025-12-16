@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { MachineCard } from '@/components/dashboard/MachineCard';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
+import { initPushNotifications } from '@/services/pushNotifications';
 import { Plus, Settings, IceCream, RefreshCw, Loader2 } from 'lucide-react';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
 
@@ -14,6 +16,13 @@ export const Dashboard = () => {
   const { profile, user } = useAuth();
   const { maquinas, loading, refetch } = useMaquinas(user?.id);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Inicializar notificaciones push al cargar el dashboard
+  useEffect(() => {
+    if (user) {
+      initPushNotifications();
+    }
+  }, [user]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -49,6 +58,7 @@ export const Dashboard = () => {
             >
               <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
+            <NotificationCenter />
             <Button
               variant="ghost"
               size="icon"
