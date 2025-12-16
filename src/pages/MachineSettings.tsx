@@ -18,7 +18,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
-import { ArrowLeft, Tag, MapPin, Cpu, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Tag, MapPin, Smartphone, Trash2, Loader2 } from 'lucide-react';
 
 export const MachineSettings = () => {
   const navigate = useNavigate();
@@ -125,18 +125,18 @@ export const MachineSettings = () => {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="mac">Dirección MAC</Label>
+              <Label htmlFor="imei">IMEI de la Máquina</Label>
               <div className="relative">
-                <Cpu className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="mac"
+                  id="imei"
                   value={maquina.mac_address}
-                  className="pl-10 font-mono bg-muted"
+                  className="pl-10 font-mono tracking-wider bg-muted"
                   disabled
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                La dirección MAC no se puede modificar
+                El IMEI no se puede modificar
               </p>
             </div>
 

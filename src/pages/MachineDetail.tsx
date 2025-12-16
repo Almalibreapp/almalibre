@@ -18,7 +18,7 @@ import {
   ArrowLeft,
   Settings,
   Thermometer,
-  DollarSign,
+  Euro,
   Package,
   RefreshCw,
   Loader2,
@@ -186,14 +186,14 @@ export const MachineDetail = () => {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-primary" />
+                    <Euro className="h-4 w-4 text-primary" />
                     Ventas de Hoy
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-baseline gap-2 mb-2">
                     <span className="text-4xl font-bold text-primary">
-                      ${ventas?.total_ingresos?.toFixed(2) || '0.00'}
+                      {ventas?.total_ingresos?.toFixed(2) || '0.00'} €
                     </span>
                     <span className="text-sm text-muted-foreground">
                       ({ventas?.total_ventas || 0} ventas)
@@ -274,7 +274,7 @@ export const MachineDetail = () => {
                           </div>
                         </div>
                         <span className="font-semibold text-primary">
-                          ${venta.producto_monto.toFixed(2)}
+                          {venta.producto_monto.toFixed(2)} €
                         </span>
                       </div>
                     ))}
