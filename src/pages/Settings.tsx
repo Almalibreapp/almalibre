@@ -32,9 +32,11 @@ import {
   Tag,
   ChevronRight,
   Package,
+  Bell,
 } from 'lucide-react';
 
 const menuItems = [
+  { path: '/notifications', icon: Bell, label: 'Notificaciones', description: 'Configura tus alertas' },
   { path: '/subscription', icon: Crown, label: 'Mi Suscripción', description: 'Gestiona tu plan' },
   { path: '/payment-methods', icon: CreditCard, label: 'Métodos de Pago', description: 'Tarjetas y cuentas' },
   { path: '/orders', icon: Package, label: 'Mis Pedidos', description: 'Historial de compras' },
