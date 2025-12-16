@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { IceCream, Mail, Lock, User, Phone, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Phone, Loader2 } from 'lucide-react';
+import logoAlmalibre from '@/assets/logo-almalibre.png';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -123,8 +124,8 @@ export const AuthForm = () => {
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary-light to-background">
       <Card className="w-full max-w-md animate-fade-in">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4">
-            <IceCream className="h-8 w-8 text-primary-foreground" />
+          <div className="mx-auto mb-4">
+            <img src={logoAlmalibre} alt="Almalibre Logo" className="h-20 w-auto" />
           </div>
           <CardTitle className="text-2xl">Almalibre Franquicias</CardTitle>
           <CardDescription>
