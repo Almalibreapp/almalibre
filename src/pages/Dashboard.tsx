@@ -127,13 +127,3 @@ export const Dashboard = () => {
     </div>
   );
 };
-            className="rounded-full shadow-lg h-14 w-14"
-            onClick={() => navigate('/add-machine')}
-          >
-            <Plus className="h-6 w-6" />
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-};
