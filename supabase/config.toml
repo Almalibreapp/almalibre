@@ -1,1 +1,10 @@
 project_id = "lwruwpwdrkmtgcapnbzc"
+
+[functions.ai-stock-prediction]
+verify_jwt = false
+
+[functions.ai-profitability-analysis]
+verify_jwt = false
+
+[functions.ai-daily-summary]
+verify_jwt = false

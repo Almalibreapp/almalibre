@@ -20,6 +20,10 @@ import { Subscription } from "./pages/Subscription";
 import { PaymentMethods } from "./pages/PaymentMethods";
 import { Support } from "./pages/Support";
 import { NotificationSettings } from "./pages/NotificationSettings";
+import { AI } from "./pages/AI";
+import { StockPrediction } from "./pages/StockPrediction";
+import { ProfitabilityAnalysis } from "./pages/ProfitabilityAnalysis";
+import { DailySummary } from "./pages/DailySummary";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +52,10 @@ const App = () => (
           <Route path="/payment-methods" element={<PaymentMethods />} />
           <Route path="/support" element={<Support />} />
           <Route path="/notifications" element={<NotificationSettings />} />
+          <Route path="/ai" element={<AI />} />
+          <Route path="/ai/stock-prediction" element={<StockPrediction />} />
+          <Route path="/ai/profitability" element={<ProfitabilityAnalysis />} />
+          <Route path="/ai/daily-summary" element={<DailySummary />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
