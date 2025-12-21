@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,8 +8,7 @@ import { TemperatureChart } from '@/components/dashboard/TemperatureChart';
 import { SalesChart } from '@/components/dashboard/SalesChart';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
-import { fetchStock, fetchTemperatura, fetchVentas } from '@/services/api';
-import { StockResponse, TemperaturaResponse, VentasResponse } from '@/types';
+import { useMaquinaData } from '@/hooks/useMaquinaData';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -24,7 +22,7 @@ import {
   Loader2,
   MapPin,
   TrendingUp,
-  TrendingDown,
+  AlertCircle,
 } from 'lucide-react';
 
 export const MachineDetail = () => {
@@ -33,44 +31,8 @@ export const MachineDetail = () => {
   const { user } = useAuth();
   const { maquinas } = useMaquinas(user?.id);
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [temperatura, setTemperatura] = useState<TemperaturaResponse | null>(null);
-  const [ventas, setVentas] = useState<VentasResponse | null>(null);
-  const [stock, setStock] = useState<StockResponse | null>(null);
-
   const maquina = maquinas.find((m) => m.id === id);
-
-  const loadData = async () => {
-    if (!maquina) return;
-    
-    try {
-      const [tempData, ventasData, stockData] = await Promise.all([
-        fetchTemperatura(maquina.mac_address),
-        fetchVentas(maquina.mac_address),
-        fetchStock(maquina.mac_address),
-      ]);
-      setTemperatura(tempData);
-      setVentas(ventasData);
-      setStock(stockData);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (maquina) {
-      loadData();
-    }
-  }, [maquina]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  };
+  const { temperatura, ventas, stock, isLoading, hasError, error, refetchAll, isRefetching } = useMaquinaData(maquina?.mac_address);
 
   if (!maquina) {
     return (
@@ -98,7 +60,7 @@ export const MachineDetail = () => {
     }
   };
 
-  const lowStockToppings = stock?.toppings.filter(
+  const lowStockToppings = stock?.toppings?.filter(
     (t) => t.stock_actual / t.capacidad_maxima < 0.2
   ) || [];
 
@@ -130,10 +92,10 @@ export const MachineDetail = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleRefresh}
-              disabled={refreshing}
+              onClick={refetchAll}
+              disabled={isRefetching}
             >
-              <RefreshCw className={cn("h-5 w-5", refreshing && "animate-spin")} />
+              <RefreshCw className={cn("h-5 w-5", isRefetching && "animate-spin")} />
             </Button>
             <Button
               variant="ghost"
@@ -148,9 +110,24 @@ export const MachineDetail = () => {
 
       {/* Main Content */}
       <main className="container px-4 py-6 pb-8">
-        {loading ? (
+        {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : hasError ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <AlertCircle className="h-12 w-12 text-warning mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Sin datos disponibles</h3>
+            <p className="text-muted-foreground text-sm mb-4 max-w-sm">
+              {error?.message || 'No se pudieron obtener los datos de esta máquina. Verifica que la MAC address sea correcta.'}
+            </p>
+            <p className="text-xs text-muted-foreground mb-4">
+              MAC: {maquina.mac_address}
+            </p>
+            <Button onClick={refetchAll} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reintentar
+            </Button>
           </div>
         ) : (
           <Tabs defaultValue="overview" className="space-y-6">
@@ -176,9 +153,11 @@ export const MachineDetail = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-4xl font-bold text-primary mb-4">
-                    {temperatura?.temperatura_actual?.toFixed(1)}°C
+                    {temperatura?.temperatura_actual?.toFixed(1) ?? '--'}°C
                   </div>
-                  <TemperatureChart historial={temperatura?.historial || []} />
+                  {temperatura?.historial && temperatura.historial.length > 0 && (
+                    <TemperatureChart historial={temperatura.historial} />
+                  )}
                 </CardContent>
               </Card>
 
@@ -193,15 +172,15 @@ export const MachineDetail = () => {
                 <CardContent>
                   <div className="flex items-baseline gap-2 mb-2">
                     <span className="text-4xl font-bold text-primary">
-                      {ventas?.total_ingresos?.toFixed(2) || '0.00'} €
+                      {ventas?.total_ingresos?.toFixed(2) ?? '0.00'} €
                     </span>
                     <span className="text-sm text-muted-foreground">
-                      ({ventas?.total_ventas || 0} ventas)
+                      ({ventas?.total_ventas ?? 0} ventas)
                     </span>
                   </div>
                   <div className="flex items-center gap-1 text-sm text-success">
                     <TrendingUp className="h-4 w-4" />
-                    <span>+12% vs ayer</span>
+                    <span>Datos en tiempo real</span>
                   </div>
                 </CardContent>
               </Card>
@@ -250,35 +229,41 @@ export const MachineDetail = () => {
                   <CardTitle className="text-base">Ventas Recientes</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {ventas?.ventas.slice(0, 10).map((venta) => (
-                      <div
-                        key={venta.id}
-                        className="flex items-center justify-between py-2 border-b last:border-0"
-                      >
-                        <div>
-                          <p className="font-medium">{venta.producto_nombre}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(venta.fecha), "d MMM, HH:mm", { locale: es })}
-                          </p>
-                          <div className="flex gap-1 mt-1">
-                            {venta.toppings_usados.map((t) => (
-                              <Badge
-                                key={t.posicion}
-                                variant="secondary"
-                                className="text-xs"
-                              >
-                                {t.nombre}
-                              </Badge>
-                            ))}
+                  {ventas?.ventas && ventas.ventas.length > 0 ? (
+                    <div className="space-y-3">
+                      {ventas.ventas.slice(0, 10).map((venta) => (
+                        <div
+                          key={venta.id}
+                          className="flex items-center justify-between py-2 border-b last:border-0"
+                        >
+                          <div>
+                            <p className="font-medium">{venta.producto_nombre}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(venta.fecha), "d MMM, HH:mm", { locale: es })}
+                            </p>
+                            <div className="flex gap-1 mt-1">
+                              {venta.toppings_usados?.map((t) => (
+                                <Badge
+                                  key={t.posicion}
+                                  variant="secondary"
+                                  className="text-xs"
+                                >
+                                  {t.nombre}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
+                          <span className="font-semibold text-primary">
+                            {venta.producto_monto.toFixed(2)} €
+                          </span>
                         </div>
-                        <span className="font-semibold text-primary">
-                          {venta.producto_monto.toFixed(2)} €
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center text-muted-foreground py-8">
+                      No hay ventas registradas
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -298,15 +283,21 @@ export const MachineDetail = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-5">
-                  {stock?.toppings.map((topping) => (
-                    <StockBar
-                      key={topping.posicion}
-                      nombre={topping.nombre}
-                      posicion={topping.posicion}
-                      stockActual={topping.stock_actual}
-                      capacidadMaxima={topping.capacidad_maxima}
-                    />
-                  ))}
+                  {stock?.toppings && stock.toppings.length > 0 ? (
+                    stock.toppings.map((topping) => (
+                      <StockBar
+                        key={topping.posicion}
+                        nombre={topping.nombre}
+                        posicion={topping.posicion}
+                        stockActual={topping.stock_actual}
+                        capacidadMaxima={topping.capacidad_maxima}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-center text-muted-foreground py-8">
+                      No hay datos de stock disponibles
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -322,7 +313,7 @@ export const MachineDetail = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-5xl font-bold text-primary text-center py-6">
-                    {temperatura?.temperatura_actual?.toFixed(1)}°C
+                    {temperatura?.temperatura_actual?.toFixed(1) ?? '--'}°C
                   </div>
                 </CardContent>
               </Card>
@@ -332,7 +323,13 @@ export const MachineDetail = () => {
                   <CardTitle className="text-base">Historial 24 Horas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <TemperatureChart historial={temperatura?.historial || []} />
+                  {temperatura?.historial && temperatura.historial.length > 0 ? (
+                    <TemperatureChart historial={temperatura.historial} />
+                  ) : (
+                    <p className="text-center text-muted-foreground py-8">
+                      No hay historial disponible
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -341,22 +338,28 @@ export const MachineDetail = () => {
                   <CardTitle className="text-base">Registro de Temperatura</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {temperatura?.historial.slice(0, 12).map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between py-2 border-b last:border-0"
-                      >
-                        <span className="text-sm text-muted-foreground">
-                          {format(new Date(item.fecha), "d MMM, HH:mm", { locale: es })}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{item.temperatura.toFixed(1)}°C</span>
-                          {getTempStatusBadge(item.estado)}
+                  {temperatura?.historial && temperatura.historial.length > 0 ? (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {temperatura.historial.slice(0, 12).map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between py-2 border-b last:border-0"
+                        >
+                          <span className="text-sm text-muted-foreground">
+                            {format(new Date(item.fecha), "d MMM, HH:mm", { locale: es })}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{item.temperatura.toFixed(1)}°C</span>
+                            {getTempStatusBadge(item.estado)}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center text-muted-foreground py-8">
+                      No hay registros disponibles
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

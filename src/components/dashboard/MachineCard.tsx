@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Maquina, StockResponse, TemperaturaResponse, VentasResponse } from '@/types';
-import { fetchStock, fetchTemperatura, fetchVentas } from '@/services/api';
-import { MapPin, Thermometer, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
+import { Maquina } from '@/types';
+import { useMaquinaData } from '@/hooks/useMaquinaData';
+import { MapPin, Thermometer, AlertTriangle, Wifi, WifiOff, AlertCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MachineCardProps {
@@ -11,34 +10,10 @@ interface MachineCardProps {
 }
 
 export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
-  const [temperatura, setTemperatura] = useState<TemperaturaResponse | null>(null);
-  const [ventas, setVentas] = useState<VentasResponse | null>(null);
-  const [stock, setStock] = useState<StockResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { temperatura, ventas, stock, isLoading, hasError } = useMaquinaData(maquina.mac_address);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [tempData, ventasData, stockData] = await Promise.all([
-          fetchTemperatura(maquina.mac_address),
-          fetchVentas(maquina.mac_address),
-          fetchStock(maquina.mac_address),
-        ]);
-        setTemperatura(tempData);
-        setVentas(ventasData);
-        setStock(stockData);
-      } catch (error) {
-        console.error('Error loading machine data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [maquina.mac_address]);
-
-  const lowStockCount = stock?.toppings.filter(t => (t.stock_actual / t.capacidad_maxima) < 0.2).length || 0;
-  const isOnline = maquina.activa;
+  const lowStockCount = stock?.toppings?.filter(t => (t.stock_actual / t.capacidad_maxima) < 0.2).length || 0;
+  const isOnline = maquina.activa && !hasError;
 
   const getTempColor = (estado?: string) => {
     switch (estado) {
@@ -74,40 +49,61 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mt-4">
-          <div className="bg-muted/50 rounded-lg p-3 text-center">
-            <div className={cn("flex items-center justify-center gap-1", getTempColor(temperatura?.estado))}>
-              <Thermometer className="h-4 w-4" />
-              <span className="font-semibold">
-                {loading ? '--' : `${temperatura?.temperatura_actual?.toFixed(1)}°C`}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Temperatura</p>
+        {hasError ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-4 p-3 bg-muted/50 rounded-lg">
+            <AlertCircle className="h-4 w-4 text-warning" />
+            <span>Sin datos disponibles</span>
           </div>
-
-          <div className="bg-muted/50 rounded-lg p-3 text-center">
-            <div className="flex items-center justify-center gap-1 text-primary">
-              <span className="font-semibold">
-                {loading ? '--' : `${ventas?.total_ingresos?.toFixed(2) || '0.00'} €`}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Hoy</p>
-          </div>
-
-          <div className="bg-muted/50 rounded-lg p-3 text-center">
-            {lowStockCount > 0 ? (
-              <div className="flex items-center justify-center gap-1 text-warning">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="font-semibold">{lowStockCount}</span>
+        ) : (
+          <div className="grid grid-cols-3 gap-3 mt-4">
+            <div className="bg-muted/50 rounded-lg p-3 text-center">
+              <div className={cn("flex items-center justify-center gap-1", getTempColor(temperatura?.estado))}>
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Thermometer className="h-4 w-4" />
+                    <span className="font-semibold">
+                      {temperatura?.temperatura_actual?.toFixed(1) ?? '--'}°C
+                    </span>
+                  </>
+                )}
               </div>
-            ) : (
-              <div className="flex items-center justify-center gap-1 text-success">
-                <span className="font-semibold">OK</span>
+              <p className="text-xs text-muted-foreground mt-1">Temperatura</p>
+            </div>
+
+            <div className="bg-muted/50 rounded-lg p-3 text-center">
+              <div className="flex items-center justify-center gap-1 text-primary">
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <span className="font-semibold">
+                    {ventas?.total_ingresos?.toFixed(2) ?? '0.00'} €
+                  </span>
+                )}
               </div>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">Stock</p>
+              <p className="text-xs text-muted-foreground mt-1">Hoy</p>
+            </div>
+
+            <div className="bg-muted/50 rounded-lg p-3 text-center">
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              ) : lowStockCount > 0 ? (
+                <div className="flex items-center justify-center gap-1 text-warning">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="font-semibold">{lowStockCount}</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-1 text-success">
+                  <span className="font-semibold">OK</span>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">Stock</p>
+            </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
