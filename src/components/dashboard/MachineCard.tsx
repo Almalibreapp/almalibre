@@ -14,7 +14,7 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
   const imei = maquina.mac_address;
   const { temperatura, ventas, stock, isLoading, hasError } = useMaquinaData(imei);
 
-  const lowStockCount = stock?.toppings?.filter(t => (t.stock_actual / t.capacidad_maxima) < 0.2).length || 0;
+  const lowStockCount = stock?.toppings?.filter(t => t.capacidad_maxima > 0 && (t.stock_actual / t.capacidad_maxima) < 0.2).length || 0;
   const isOnline = maquina.activa && !hasError;
 
   const getTempColor = (estado?: string) => {
@@ -66,7 +66,7 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
                   <>
                     <Thermometer className="h-4 w-4" />
                     <span className="font-semibold">
-                      {temperatura?.temperatura_actual?.toFixed(1) ?? '--'}°C
+                      {temperatura?.temperatura !== undefined ? `${temperatura.temperatura}°${temperatura.unidad || 'C'}` : '--°C'}
                     </span>
                   </>
                 )}
@@ -80,7 +80,7 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <span className="font-semibold">
-                    {ventas?.total_ingresos?.toFixed(2) ?? '0.00'} €
+                    {ventas?.ventas_hoy?.total_euros?.toFixed(2) ?? '0.00'} €
                   </span>
                 )}
               </div>

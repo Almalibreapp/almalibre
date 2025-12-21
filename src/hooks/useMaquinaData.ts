@@ -7,6 +7,12 @@ import {
   fetchTemperatura,
   fetchEstadisticasToppings 
 } from '@/services/api';
+import { 
+  TemperaturaResponse, 
+  VentasResumenResponse, 
+  VentasDetalleResponse, 
+  ToppingsResponse 
+} from '@/types';
 
 export const useMiMaquina = (imei: string | undefined) => {
   return useQuery({
@@ -20,7 +26,7 @@ export const useMiMaquina = (imei: string | undefined) => {
 };
 
 export const useVentasResumen = (imei: string | undefined) => {
-  return useQuery({
+  return useQuery<VentasResumenResponse>({
     queryKey: ['ventas-resumen', imei],
     queryFn: () => fetchVentasResumen(imei!),
     enabled: !!imei && imei.length > 0,
@@ -31,7 +37,7 @@ export const useVentasResumen = (imei: string | undefined) => {
 };
 
 export const useVentasDetalle = (imei: string | undefined) => {
-  return useQuery({
+  return useQuery<VentasDetalleResponse>({
     queryKey: ['ventas-detalle', imei],
     queryFn: () => fetchVentasDetalle(imei!),
     enabled: !!imei && imei.length > 0,
@@ -42,7 +48,7 @@ export const useVentasDetalle = (imei: string | undefined) => {
 };
 
 export const useToppings = (imei: string | undefined) => {
-  return useQuery({
+  return useQuery<ToppingsResponse>({
     queryKey: ['toppings', imei],
     queryFn: () => fetchToppings(imei!),
     enabled: !!imei && imei.length > 0,
@@ -53,7 +59,7 @@ export const useToppings = (imei: string | undefined) => {
 };
 
 export const useTemperatura = (imei: string | undefined) => {
-  return useQuery({
+  return useQuery<TemperaturaResponse>({
     queryKey: ['temperatura', imei],
     queryFn: () => fetchTemperatura(imei!),
     enabled: !!imei && imei.length > 0,

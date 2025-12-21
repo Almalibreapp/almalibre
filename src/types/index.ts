@@ -20,22 +20,58 @@ export interface Maquina {
   created_at: string;
 }
 
-export interface Venta {
-  id: number;
-  producto_id: string;
-  producto_nombre: string;
-  producto_monto: number;
-  fecha: string;
-  estado: 'exitoso' | 'fallido' | 'cancelado';
-  toppings_usados?: ToppingUsado[];
+// Respuesta de temperatura - ESTRUCTURA REAL
+export interface TemperaturaResponse {
+  mac_addr: string;
+  temperatura: number;
+  unidad: string;
+  estado: 'normal' | 'alerta' | 'critico';
+  timestamp: string;
 }
 
-export interface ToppingUsado {
+// Respuesta de ventas-resumen - ESTRUCTURA REAL
+export interface VentasResumenResponse {
+  mac_addr: string;
+  ventas_hoy: {
+    cantidad: number;
+    total_euros: number;
+  };
+  ventas_ayer: {
+    cantidad: number;
+    total_euros: number;
+  };
+  ventas_mes: {
+    cantidad: number;
+    total_euros: number;
+  };
+}
+
+// Topping en una venta
+export interface ToppingVenta {
   posicion: string;
   nombre: string;
-  cantidad: number;
+  cantidad: string;
 }
 
+// Venta individual - ESTRUCTURA REAL
+export interface Venta {
+  id: string;
+  hora: string;
+  producto: string;
+  precio: number;
+  estado: string;
+  toppings: ToppingVenta[];
+}
+
+// Respuesta de ventas-detalle - ESTRUCTURA REAL
+export interface VentasDetalleResponse {
+  mac_addr: string;
+  fecha: string;
+  total_ventas: number;
+  ventas: Venta[];
+}
+
+// Topping en stock
 export interface Topping {
   posicion: string;
   nombre: string;
@@ -43,49 +79,16 @@ export interface Topping {
   capacidad_maxima: number;
 }
 
-export interface Temperatura {
-  temperatura: number;
-  unidad: string;
-  estado: 'normal' | 'alerta' | 'critico';
-  fecha: string;
-}
-
-// Respuesta de ventas-resumen
-export interface VentasResumenResponse {
-  imei: string;
-  total_ventas: number;
-  total_ingresos: number;
-  ticket_promedio: number;
-  periodo?: string;
-}
-
-// Respuesta de ventas-detalle
-export interface VentasDetalleResponse {
-  imei: string;
-  ventas: Venta[];
-  total_ventas: number;
-  total_ingresos: number;
-}
-
-// Respuesta de toppings
+// Respuesta de toppings - ESTRUCTURA REAL
 export interface ToppingsResponse {
-  imei: string;
+  mac_addr: string;
   toppings: Topping[];
-  fecha_actualizacion: string;
-}
-
-// Respuesta de temperatura
-export interface TemperaturaResponse {
-  imei: string;
-  temperatura_actual: number;
-  unidad: string;
-  estado: 'normal' | 'alerta' | 'critico';
-  historial?: Temperatura[];
+  total_toppings: number;
 }
 
 // Respuesta de mi-maquina
 export interface MiMaquinaResponse {
-  imei: string;
+  mac_addr: string;
   nombre?: string;
   ubicacion?: string;
   estado?: string;
@@ -94,29 +97,11 @@ export interface MiMaquinaResponse {
 
 // Respuesta de estadisticas-toppings
 export interface EstadisticasToppingsResponse {
-  imei: string;
+  mac_addr: string;
   estadisticas: {
     posicion: string;
     nombre: string;
     total_usado: number;
     porcentaje_uso: number;
   }[];
-}
-
-// Legacy types for backwards compatibility
-export interface VentasResponse {
-  status?: string;
-  mac?: string;
-  imei?: string;
-  ventas: Venta[];
-  total_ventas: number;
-  total_ingresos: number;
-}
-
-export interface StockResponse {
-  status?: string;
-  mac?: string;
-  imei?: string;
-  toppings: Topping[];
-  fecha_actualizacion: string;
 }
