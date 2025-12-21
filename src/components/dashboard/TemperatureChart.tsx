@@ -1,13 +1,41 @@
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { Temperatura } from '@/types';
+import { TemperaturaResponse } from '@/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-interface TemperatureChartProps {
-  historial: Temperatura[];
+interface TemperaturaHistorial {
+  temperatura: number;
+  estado: string;
+  fecha: string;
 }
 
-export const TemperatureChart = ({ historial }: TemperatureChartProps) => {
+interface TemperatureChartProps {
+  historial?: TemperaturaHistorial[];
+  temperaturaActual?: TemperaturaResponse;
+}
+
+export const TemperatureChart = ({ historial, temperaturaActual }: TemperatureChartProps) => {
+  // Si no hay historial pero hay temperatura actual, mostrar solo el punto actual
+  if (!historial || historial.length === 0) {
+    if (temperaturaActual) {
+      return (
+        <div className="h-48 w-full flex flex-col items-center justify-center">
+          <div className="text-4xl font-bold text-primary">
+            {temperaturaActual.temperatura}°{temperaturaActual.unidad}
+          </div>
+          <div className="text-sm text-muted-foreground mt-2">
+            Última lectura: {temperaturaActual.timestamp}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="h-48 w-full flex items-center justify-center text-muted-foreground">
+        Sin historial disponible
+      </div>
+    );
+  }
+
   const data = historial
     .slice(0, 24)
     .reverse()

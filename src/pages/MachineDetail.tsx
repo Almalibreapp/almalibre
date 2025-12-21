@@ -9,8 +9,6 @@ import { SalesChart } from '@/components/dashboard/SalesChart';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
   ArrowLeft,
@@ -51,6 +49,20 @@ export const MachineDetail = () => {
     );
   }
 
+  if (!imei) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-warning mx-auto mb-4" />
+          <p className="text-muted-foreground">Esta máquina no tiene IMEI configurado</p>
+          <Button variant="link" onClick={() => navigate('/')}>
+            Volver al inicio
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const getTempStatusBadge = (estado?: string) => {
     switch (estado) {
       case 'normal':
@@ -65,7 +77,7 @@ export const MachineDetail = () => {
   };
 
   const lowStockToppings = stock?.toppings?.filter(
-    (t) => t.stock_actual / t.capacidad_maxima < 0.2
+    (t) => t.capacidad_maxima > 0 && t.stock_actual / t.capacidad_maxima < 0.2
   ) || [];
 
   return (
@@ -156,35 +168,54 @@ export const MachineDetail = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-4xl font-bold text-primary mb-4">
-                    {temperatura?.temperatura_actual?.toFixed(1) ?? '--'}°C
+                  <div className="text-4xl font-bold text-primary mb-2">
+                    {temperatura?.temperatura !== undefined ? `${temperatura.temperatura}°${temperatura.unidad || 'C'}` : '--°C'}
                   </div>
-                  {temperatura?.historial && temperatura.historial.length > 0 && (
-                    <TemperatureChart historial={temperatura.historial} />
+                  {temperatura?.timestamp && (
+                    <p className="text-xs text-muted-foreground">
+                      Última lectura: {temperatura.timestamp}
+                    </p>
                   )}
                 </CardContent>
               </Card>
 
-              {/* Sales Card */}
+              {/* Sales Summary Card */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Euro className="h-4 w-4 text-primary" />
-                    Ventas de Hoy
+                    Resumen de Ventas
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="text-4xl font-bold text-primary">
-                      {ventas?.total_ingresos?.toFixed(2) ?? '0.00'} €
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      ({ventas?.total_ventas ?? 0} ventas)
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 text-sm text-success">
-                    <TrendingUp className="h-4 w-4" />
-                    <span>Datos en tiempo real</span>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground mb-1">Hoy</p>
+                      <p className="text-xl font-bold text-primary">
+                        {ventas?.ventas_hoy?.total_euros?.toFixed(2) ?? '0.00'}€
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {ventas?.ventas_hoy?.cantidad ?? 0} ventas
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground mb-1">Ayer</p>
+                      <p className="text-xl font-bold">
+                        {ventas?.ventas_ayer?.total_euros?.toFixed(2) ?? '0.00'}€
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {ventas?.ventas_ayer?.cantidad ?? 0} ventas
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground mb-1">Este mes</p>
+                      <p className="text-xl font-bold">
+                        {ventas?.ventas_mes?.total_euros?.toFixed(2) ?? '0.00'}€
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {ventas?.ventas_mes?.cantidad ?? 0} ventas
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -221,16 +252,23 @@ export const MachineDetail = () => {
             <TabsContent value="sales" className="space-y-4 animate-fade-in">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Ventas Últimos 7 Días</CardTitle>
+                  <CardTitle className="text-base">
+                    Ventas del Día {ventasDetalle?.fecha ? `- ${ventasDetalle.fecha}` : ''}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <SalesChart ventas={ventasDetalle?.ventas || []} />
+                  <SalesChart ventas={ventasDetalle?.ventas || []} fecha={ventasDetalle?.fecha} />
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Ventas Recientes</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Ventas Recientes</CardTitle>
+                    {ventasDetalle?.total_ventas !== undefined && (
+                      <Badge variant="secondary">{ventasDetalle.total_ventas} ventas hoy</Badge>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {ventasDetalle?.ventas && ventasDetalle.ventas.length > 0 ? (
@@ -241,15 +279,15 @@ export const MachineDetail = () => {
                           className="flex items-center justify-between py-2 border-b last:border-0"
                         >
                           <div>
-                            <p className="font-medium">{venta.producto_nombre}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(venta.fecha), "d MMM, HH:mm", { locale: es })}
-                            </p>
-                            {venta.toppings_usados && venta.toppings_usados.length > 0 && (
-                              <div className="flex gap-1 mt-1">
-                                {venta.toppings_usados.map((t) => (
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium capitalize">{venta.producto}</p>
+                              <span className="text-xs text-muted-foreground">{venta.hora}</span>
+                            </div>
+                            {venta.toppings && venta.toppings.length > 0 && (
+                              <div className="flex gap-1 mt-1 flex-wrap">
+                                {venta.toppings.map((t, idx) => (
                                   <Badge
-                                    key={t.posicion}
+                                    key={`${t.posicion}-${idx}`}
                                     variant="secondary"
                                     className="text-xs"
                                   >
@@ -259,15 +297,27 @@ export const MachineDetail = () => {
                               </div>
                             )}
                           </div>
-                          <span className="font-semibold text-primary">
-                            {venta.producto_monto.toFixed(2)} €
-                          </span>
+                          <div className="text-right">
+                            <span className="font-semibold text-primary">
+                              {venta.precio.toFixed(2)} €
+                            </span>
+                            <Badge 
+                              variant="outline" 
+                              className={cn(
+                                "ml-2 text-xs",
+                                venta.estado === 'exitoso' && "border-success/30 text-success",
+                                venta.estado === 'fallido' && "border-critical/30 text-critical"
+                              )}
+                            >
+                              {venta.estado}
+                            </Badge>
+                          </div>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <p className="text-center text-muted-foreground py-8">
-                      No hay ventas registradas
+                      No hay ventas registradas hoy
                     </p>
                   )}
                 </CardContent>
@@ -280,12 +330,9 @@ export const MachineDetail = () => {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base">Inventario de Toppings</CardTitle>
-                    <span className="text-xs text-muted-foreground">
-                      Actualizado: {stock?.fecha_actualizacion 
-                        ? format(new Date(stock.fecha_actualizacion), "d MMM, HH:mm", { locale: es })
-                        : '--'
-                      }
-                    </span>
+                    {stock?.total_toppings !== undefined && (
+                      <Badge variant="secondary">{stock.total_toppings} toppings</Badge>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -301,7 +348,7 @@ export const MachineDetail = () => {
                     ))
                   ) : (
                     <p className="text-center text-muted-foreground py-8">
-                      No hay datos de stock disponibles
+                      Sin datos de stock disponibles
                     </p>
                   )}
                 </CardContent>
@@ -319,21 +366,11 @@ export const MachineDetail = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-5xl font-bold text-primary text-center py-6">
-                    {temperatura?.temperatura_actual?.toFixed(1) ?? '--'}°C
+                    {temperatura?.temperatura !== undefined ? `${temperatura.temperatura}°${temperatura.unidad || 'C'}` : '--°C'}
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Historial 24 Horas</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {temperatura?.historial && temperatura.historial.length > 0 ? (
-                    <TemperatureChart historial={temperatura.historial} />
-                  ) : (
-                    <p className="text-center text-muted-foreground py-8">
-                      No hay historial disponible
+                  {temperatura?.timestamp && (
+                    <p className="text-center text-xs text-muted-foreground">
+                      Última lectura: {temperatura.timestamp}
                     </p>
                   )}
                 </CardContent>
@@ -341,31 +378,10 @@ export const MachineDetail = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Registro de Temperatura</CardTitle>
+                  <CardTitle className="text-base">Historial de Temperatura</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {temperatura?.historial && temperatura.historial.length > 0 ? (
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {temperatura.historial.slice(0, 12).map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between py-2 border-b last:border-0"
-                        >
-                          <span className="text-sm text-muted-foreground">
-                            {format(new Date(item.fecha), "d MMM, HH:mm", { locale: es })}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{item.temperatura.toFixed(1)}°C</span>
-                            {getTempStatusBadge(item.estado)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-muted-foreground py-8">
-                      No hay registros disponibles
-                    </p>
-                  )}
+                  <TemperatureChart temperaturaActual={temperatura} />
                 </CardContent>
               </Card>
             </TabsContent>
