@@ -8,7 +8,7 @@ import { TemperatureChart } from '@/components/dashboard/TemperatureChart';
 import { SalesChart } from '@/components/dashboard/SalesChart';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
-import { useMaquinaData } from '@/hooks/useMaquinaData';
+import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -32,7 +32,11 @@ export const MachineDetail = () => {
   const { maquinas } = useMaquinas(user?.id);
 
   const maquina = maquinas.find((m) => m.id === id);
-  const { temperatura, ventas, stock, isLoading, hasError, error, refetchAll, isRefetching } = useMaquinaData(maquina?.mac_address);
+  // mac_address field stores the IMEI
+  const imei = maquina?.mac_address;
+  
+  const { temperatura, ventas, stock, isLoading, hasError, error, refetchAll, isRefetching } = useMaquinaData(imei);
+  const { data: ventasDetalle } = useVentasDetalle(imei);
 
   if (!maquina) {
     return (
@@ -119,10 +123,10 @@ export const MachineDetail = () => {
             <AlertCircle className="h-12 w-12 text-warning mb-4" />
             <h3 className="text-lg font-semibold mb-2">Sin datos disponibles</h3>
             <p className="text-muted-foreground text-sm mb-4 max-w-sm">
-              {error?.message || 'No se pudieron obtener los datos de esta máquina. Verifica que la MAC address sea correcta.'}
+              {error?.message || 'No se pudieron obtener los datos de esta máquina. Verifica que el IMEI sea correcto.'}
             </p>
             <p className="text-xs text-muted-foreground mb-4">
-              MAC: {maquina.mac_address}
+              IMEI: {imei}
             </p>
             <Button onClick={refetchAll} variant="outline">
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -220,7 +224,7 @@ export const MachineDetail = () => {
                   <CardTitle className="text-base">Ventas Últimos 7 Días</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <SalesChart ventas={ventas?.ventas || []} />
+                  <SalesChart ventas={ventasDetalle?.ventas || []} />
                 </CardContent>
               </Card>
 
@@ -229,9 +233,9 @@ export const MachineDetail = () => {
                   <CardTitle className="text-base">Ventas Recientes</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {ventas?.ventas && ventas.ventas.length > 0 ? (
+                  {ventasDetalle?.ventas && ventasDetalle.ventas.length > 0 ? (
                     <div className="space-y-3">
-                      {ventas.ventas.slice(0, 10).map((venta) => (
+                      {ventasDetalle.ventas.slice(0, 10).map((venta) => (
                         <div
                           key={venta.id}
                           className="flex items-center justify-between py-2 border-b last:border-0"
@@ -241,17 +245,19 @@ export const MachineDetail = () => {
                             <p className="text-xs text-muted-foreground">
                               {format(new Date(venta.fecha), "d MMM, HH:mm", { locale: es })}
                             </p>
-                            <div className="flex gap-1 mt-1">
-                              {venta.toppings_usados?.map((t) => (
-                                <Badge
-                                  key={t.posicion}
-                                  variant="secondary"
-                                  className="text-xs"
-                                >
-                                  {t.nombre}
-                                </Badge>
-                              ))}
-                            </div>
+                            {venta.toppings_usados && venta.toppings_usados.length > 0 && (
+                              <div className="flex gap-1 mt-1">
+                                {venta.toppings_usados.map((t) => (
+                                  <Badge
+                                    key={t.posicion}
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    {t.nombre}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <span className="font-semibold text-primary">
                             {venta.producto_monto.toFixed(2)} €

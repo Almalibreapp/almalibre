@@ -1,63 +1,103 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchVentas, fetchStock, fetchTemperatura } from '@/services/api';
-import { VentasResponse, StockResponse, TemperaturaResponse } from '@/types';
+import { 
+  fetchMiMaquina,
+  fetchVentasResumen, 
+  fetchVentasDetalle, 
+  fetchToppings, 
+  fetchTemperatura,
+  fetchEstadisticasToppings 
+} from '@/services/api';
 
-export const useVentas = (macAddress: string | undefined, fechaInicio?: string, fechaFin?: string) => {
-  return useQuery<VentasResponse, Error>({
-    queryKey: ['ventas', macAddress, fechaInicio, fechaFin],
-    queryFn: () => fetchVentas(macAddress!, fechaInicio, fechaFin),
-    enabled: !!macAddress,
-    refetchInterval: 60000, // Refrescar cada minuto
-    retry: 1,
-    staleTime: 30000,
-  });
-};
-
-export const useStock = (macAddress: string | undefined) => {
-  return useQuery<StockResponse, Error>({
-    queryKey: ['stock', macAddress],
-    queryFn: () => fetchStock(macAddress!),
-    enabled: !!macAddress,
+export const useMiMaquina = (imei: string | undefined) => {
+  return useQuery({
+    queryKey: ['mi-maquina', imei],
+    queryFn: () => fetchMiMaquina(imei!),
+    enabled: !!imei && imei.length > 0,
     refetchInterval: 60000,
-    retry: 1,
+    retry: 2,
     staleTime: 30000,
   });
 };
 
-export const useTemperatura = (macAddress: string | undefined) => {
-  return useQuery<TemperaturaResponse, Error>({
-    queryKey: ['temperatura', macAddress],
-    queryFn: () => fetchTemperatura(macAddress!),
-    enabled: !!macAddress,
-    refetchInterval: 30000, // Refrescar cada 30 segundos
-    retry: 1,
+export const useVentasResumen = (imei: string | undefined) => {
+  return useQuery({
+    queryKey: ['ventas-resumen', imei],
+    queryFn: () => fetchVentasResumen(imei!),
+    enabled: !!imei && imei.length > 0,
+    refetchInterval: 60000,
+    retry: 2,
+    staleTime: 30000,
+  });
+};
+
+export const useVentasDetalle = (imei: string | undefined) => {
+  return useQuery({
+    queryKey: ['ventas-detalle', imei],
+    queryFn: () => fetchVentasDetalle(imei!),
+    enabled: !!imei && imei.length > 0,
+    refetchInterval: 60000,
+    retry: 2,
+    staleTime: 30000,
+  });
+};
+
+export const useToppings = (imei: string | undefined) => {
+  return useQuery({
+    queryKey: ['toppings', imei],
+    queryFn: () => fetchToppings(imei!),
+    enabled: !!imei && imei.length > 0,
+    refetchInterval: 60000,
+    retry: 2,
+    staleTime: 30000,
+  });
+};
+
+export const useTemperatura = (imei: string | undefined) => {
+  return useQuery({
+    queryKey: ['temperatura', imei],
+    queryFn: () => fetchTemperatura(imei!),
+    enabled: !!imei && imei.length > 0,
+    refetchInterval: 30000,
+    retry: 2,
     staleTime: 15000,
   });
 };
 
-export const useMaquinaData = (macAddress: string | undefined) => {
-  const ventas = useVentas(macAddress);
-  const stock = useStock(macAddress);
-  const temperatura = useTemperatura(macAddress);
+export const useEstadisticasToppings = (imei: string | undefined) => {
+  return useQuery({
+    queryKey: ['estadisticas-toppings', imei],
+    queryFn: () => fetchEstadisticasToppings(imei!),
+    enabled: !!imei && imei.length > 0,
+    refetchInterval: 60000,
+    retry: 2,
+    staleTime: 30000,
+  });
+};
 
-  const isLoading = ventas.isLoading || stock.isLoading || temperatura.isLoading;
-  const hasError = ventas.isError || stock.isError || temperatura.isError;
-  const error = ventas.error || stock.error || temperatura.error;
+// Hook combinado para datos de máquina
+export const useMaquinaData = (imei: string | undefined) => {
+  const ventasResumen = useVentasResumen(imei);
+  const toppings = useToppings(imei);
+  const temperatura = useTemperatura(imei);
+
+  const isLoading = ventasResumen.isLoading || toppings.isLoading || temperatura.isLoading;
+  const hasError = ventasResumen.isError || toppings.isError || temperatura.isError;
+  const error = ventasResumen.error || toppings.error || temperatura.error;
 
   const refetchAll = () => {
-    ventas.refetch();
-    stock.refetch();
+    ventasResumen.refetch();
+    toppings.refetch();
     temperatura.refetch();
   };
 
   return {
-    ventas: ventas.data,
-    stock: stock.data,
+    ventas: ventasResumen.data,
+    stock: toppings.data,
     temperatura: temperatura.data,
     isLoading,
     hasError,
     error,
     refetchAll,
-    isRefetching: ventas.isRefetching || stock.isRefetching || temperatura.isRefetching,
+    isRefetching: ventasResumen.isRefetching || toppings.isRefetching || temperatura.isRefetching,
   };
 };
