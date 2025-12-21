@@ -10,7 +10,9 @@ interface MachineCardProps {
 }
 
 export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
-  const { temperatura, ventas, stock, isLoading, hasError } = useMaquinaData(maquina.mac_address);
+  // mac_address field stores the IMEI
+  const imei = maquina.mac_address;
+  const { temperatura, ventas, stock, isLoading, hasError } = useMaquinaData(imei);
 
   const lowStockCount = stock?.toppings?.filter(t => (t.stock_actual / t.capacidad_maxima) < 0.2).length || 0;
   const isOnline = maquina.activa && !hasError;

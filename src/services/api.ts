@@ -1,50 +1,85 @@
-import { VentasResponse, StockResponse, TemperaturaResponse } from '@/types';
-
-const BASE_URL = 'https://nonstopmachine.com/wp-json/helados/v1';
-const AUTH_TOKEN = 'b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE';
+const API_BASE_URL = 'https://nonstopmachine.com/wp-json/helados/v1';
+const API_TOKEN = 'b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE';
 
 const headers = {
-  'Authorization': `Bearer ${AUTH_TOKEN}`,
+  'Authorization': `Bearer ${API_TOKEN}`,
   'Content-Type': 'application/json',
 };
 
-export const fetchVentas = async (
-  mac: string,
-  fechaInicio?: string,
-  fechaFin?: string
-): Promise<VentasResponse> => {
-  let url = `${BASE_URL}/ventas?mac=${encodeURIComponent(mac)}`;
-  if (fechaInicio) url += `&fecha_inicio=${fechaInicio}`;
-  if (fechaFin) url += `&fecha_fin=${fechaFin}`;
-
-  const response = await fetch(url, { headers });
+// Información general de la máquina
+export const fetchMiMaquina = async (imei: string) => {
+  const response = await fetch(`${API_BASE_URL}/mi-maquina/${imei}`, { headers });
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Error ${response.status}: No se pudieron obtener las ventas`);
+    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener la información de la máquina`);
   }
 
-  return await response.json();
+  return response.json();
 };
 
-export const fetchStock = async (mac: string): Promise<StockResponse> => {
-  const response = await fetch(`${BASE_URL}/stock?mac=${encodeURIComponent(mac)}`, { headers });
+// Resumen de ventas
+export const fetchVentasResumen = async (imei: string) => {
+  const response = await fetch(`${API_BASE_URL}/ventas-resumen/${imei}`, { headers });
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener el stock`);
+    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener el resumen de ventas`);
   }
 
-  return await response.json();
+  return response.json();
 };
 
-export const fetchTemperatura = async (mac: string): Promise<TemperaturaResponse> => {
-  const response = await fetch(`${BASE_URL}/temperatura?mac=${encodeURIComponent(mac)}`, { headers });
+// Detalle de ventas
+export const fetchVentasDetalle = async (imei: string) => {
+  const response = await fetch(`${API_BASE_URL}/ventas-detalle/${imei}`, { headers });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener el detalle de ventas`);
+  }
+
+  return response.json();
+};
+
+// Stock de toppings
+export const fetchToppings = async (imei: string) => {
+  const response = await fetch(`${API_BASE_URL}/toppings/${imei}`, { headers });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener el stock de toppings`);
+  }
+
+  return response.json();
+};
+
+// Temperatura
+export const fetchTemperatura = async (imei: string) => {
+  const response = await fetch(`${API_BASE_URL}/temperatura/${imei}`, { headers });
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener la temperatura`);
   }
 
-  return await response.json();
+  return response.json();
+};
+
+// Estadísticas de toppings
+export const fetchEstadisticasToppings = async (imei: string) => {
+  const response = await fetch(`${API_BASE_URL}/estadisticas-toppings/${imei}`, { headers });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `Error ${response.status}: No se pudieron obtener las estadísticas`);
+  }
+
+  return response.json();
+};
+
+// Validar IMEI (15 dígitos numéricos)
+export const validarIMEI = (imei: string): boolean => {
+  const soloNumeros = imei.replace(/\D/g, '');
+  return soloNumeros.length === 15;
 };
