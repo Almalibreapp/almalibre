@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -6,9 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { StockBar } from '@/components/dashboard/StockBar';
 import { TemperatureChart } from '@/components/dashboard/TemperatureChart';
 import { SalesChart } from '@/components/dashboard/SalesChart';
+import { ControlTab } from '@/components/control/ControlTab';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
+import { fetchVentasDetalle } from '@/services/api';
 import { cn } from '@/lib/utils';
 import {
   ArrowLeft,
@@ -21,6 +25,9 @@ import {
   MapPin,
   TrendingUp,
   AlertCircle,
+  Gamepad2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 export const MachineDetail = () => {
@@ -35,6 +42,23 @@ export const MachineDetail = () => {
   
   const { temperatura, ventas, stock, isLoading, hasError, error, refetchAll, isRefetching } = useMaquinaData(imei);
   const { data: ventasDetalle } = useVentasDetalle(imei);
+  
+  // State for viewing yesterday's sales
+  const [viewingYesterday, setViewingYesterday] = useState(false);
+  
+  // Calculate yesterday's date
+  const getYesterdayDate = () => {
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    return ayer.toISOString().split('T')[0];
+  };
+  
+  // Query for yesterday's sales
+  const { data: ventasAyer, isLoading: loadingAyer } = useQuery({
+    queryKey: ['ventas-detalle-ayer', imei, getYesterdayDate()],
+    queryFn: () => fetchVentasDetalle(imei!, getYesterdayDate()),
+    enabled: !!imei && viewingYesterday,
+  });
 
   if (!maquina) {
     return (
@@ -147,11 +171,15 @@ export const MachineDetail = () => {
           </div>
         ) : (
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview">General</TabsTrigger>
               <TabsTrigger value="sales">Ventas</TabsTrigger>
               <TabsTrigger value="stock">Stock</TabsTrigger>
               <TabsTrigger value="temp">Temp</TabsTrigger>
+              <TabsTrigger value="control" className="flex items-center gap-1">
+                <Gamepad2 className="h-3 w-3" />
+                <span className="hidden sm:inline">Control</span>
+              </TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -250,78 +278,110 @@ export const MachineDetail = () => {
 
             {/* Sales Tab */}
             <TabsContent value="sales" className="space-y-4 animate-fade-in">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    Ventas del Día {ventasDetalle?.fecha ? `- ${ventasDetalle.fecha}` : ''}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <SalesChart ventas={ventasDetalle?.ventas || []} fecha={ventasDetalle?.fecha} />
-                </CardContent>
-              </Card>
+              {/* Day Toggle */}
+              <div className="flex items-center justify-center gap-4">
+                <Button
+                  variant={!viewingYesterday ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewingYesterday(false)}
+                >
+                  Hoy
+                </Button>
+                <Button
+                  variant={viewingYesterday ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewingYesterday(true)}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Ayer
+                </Button>
+              </div>
 
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">Ventas Recientes</CardTitle>
-                    {ventasDetalle?.total_ventas !== undefined && (
-                      <Badge variant="secondary">{ventasDetalle.total_ventas} ventas hoy</Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {ventasDetalle?.ventas && ventasDetalle.ventas.length > 0 ? (
-                    <div className="space-y-3">
-                      {ventasDetalle.ventas.slice(0, 10).map((venta) => (
-                        <div
-                          key={venta.id}
-                          className="flex items-center justify-between py-2 border-b last:border-0"
-                        >
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium capitalize">{venta.producto}</p>
-                              <span className="text-xs text-muted-foreground">{venta.hora}</span>
-                            </div>
-                            {venta.toppings && venta.toppings.length > 0 && (
-                              <div className="flex gap-1 mt-1 flex-wrap">
-                                {venta.toppings.map((t, idx) => (
-                                  <Badge
-                                    key={`${t.posicion}-${idx}`}
-                                    variant="secondary"
-                                    className="text-xs"
-                                  >
-                                    {t.nombre}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <span className="font-semibold text-primary">
-                              {venta.precio.toFixed(2)} €
-                            </span>
-                            <Badge 
-                              variant="outline" 
-                              className={cn(
-                                "ml-2 text-xs",
-                                venta.estado === 'exitoso' && "border-success/30 text-success",
-                                venta.estado === 'fallido' && "border-critical/30 text-critical"
-                              )}
+              {viewingYesterday && loadingAyer ? (
+                <div className="flex items-center justify-center h-48">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">
+                        Ventas {viewingYesterday ? 'de Ayer' : 'del Día'} {(viewingYesterday ? ventasAyer?.fecha : ventasDetalle?.fecha) ? `- ${viewingYesterday ? ventasAyer?.fecha : ventasDetalle?.fecha}` : ''}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <SalesChart 
+                        ventas={(viewingYesterday ? ventasAyer?.ventas : ventasDetalle?.ventas) || []} 
+                        fecha={(viewingYesterday ? ventasAyer?.fecha : ventasDetalle?.fecha)} 
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base">Ventas Recientes</CardTitle>
+                        {(viewingYesterday ? ventasAyer?.total_ventas : ventasDetalle?.total_ventas) !== undefined && (
+                          <Badge variant="secondary">
+                            {viewingYesterday ? ventasAyer?.total_ventas : ventasDetalle?.total_ventas} ventas {viewingYesterday ? 'ayer' : 'hoy'}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {((viewingYesterday ? ventasAyer?.ventas : ventasDetalle?.ventas) || []).length > 0 ? (
+                        <div className="space-y-3">
+                          {((viewingYesterday ? ventasAyer?.ventas : ventasDetalle?.ventas) || []).slice(0, 10).map((venta) => (
+                            <div
+                              key={venta.id}
+                              className="flex items-center justify-between py-2 border-b last:border-0"
                             >
-                              {venta.estado}
-                            </Badge>
-                          </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium capitalize">{venta.producto}</p>
+                                  <span className="text-xs text-muted-foreground">{venta.hora}</span>
+                                </div>
+                                {venta.toppings && venta.toppings.length > 0 && (
+                                  <div className="flex gap-1 mt-1 flex-wrap">
+                                    {venta.toppings.map((t, idx) => (
+                                      <Badge
+                                        key={`${t.posicion}-${idx}`}
+                                        variant="secondary"
+                                        className="text-xs"
+                                      >
+                                        {t.nombre}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <span className="font-semibold text-primary">
+                                  {venta.precio.toFixed(2)} €
+                                </span>
+                                <Badge 
+                                  variant="outline" 
+                                  className={cn(
+                                    "ml-2 text-xs",
+                                    venta.estado === 'exitoso' && "border-success/30 text-success",
+                                    venta.estado === 'fallido' && "border-critical/30 text-critical"
+                                  )}
+                                >
+                                  {venta.estado}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-muted-foreground py-8">
-                      No hay ventas registradas hoy
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+                      ) : (
+                        <p className="text-center text-muted-foreground py-8">
+                          No hay ventas registradas {viewingYesterday ? 'ayer' : 'hoy'}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </TabsContent>
 
             {/* Stock Tab */}
@@ -384,6 +444,11 @@ export const MachineDetail = () => {
                   <TemperatureChart temperaturaActual={temperatura} />
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Control Tab */}
+            <TabsContent value="control" className="space-y-4">
+              <ControlTab imei={imei!} ubicacion={maquina.ubicacion || ''} />
             </TabsContent>
           </Tabs>
         )}

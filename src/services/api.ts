@@ -31,8 +31,13 @@ export const fetchVentasResumen = async (imei: string) => {
 };
 
 // Detalle de ventas
-export const fetchVentasDetalle = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/ventas-detalle/${imei}`, { headers });
+export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
+  let url = `${API_BASE_URL}/ventas-detalle/${imei}`;
+  if (fecha) {
+    url += `?fecha=${fecha}`;
+  }
+  
+  const response = await fetch(url, { headers });
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
