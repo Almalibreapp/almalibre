@@ -76,7 +76,12 @@ export const ProductManagement = ({ imei }: ProductManagementProps) => {
                     src={producto.imagePath} 
                     alt={producto.goodsName}
                     className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
                     onError={(e) => {
+                      console.log('[ProductManagement] Image failed to load:', producto.imagePath);
                       (e.target as HTMLImageElement).src = '/placeholder.svg';
                     }}
                   />
@@ -331,7 +336,19 @@ const ImageTabs = ({
                 onClick={() => imageMutation.mutate(img.url)}
                 disabled={imageMutation.isPending}
               >
-                <img src={img.url} alt={img.nombre} className="w-full h-full object-cover" />
+                <img
+                  src={img.url}
+                  alt={img.nombre}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
+                  onError={(e) => {
+                    console.log('[ProductManagement] Gallery image failed to load:', img.url);
+                    (e.target as HTMLImageElement).src = '/placeholder.svg';
+                  }}
+                />
               </button>
             ))}
           </div>
