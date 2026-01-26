@@ -25,8 +25,44 @@ import { StockPrediction } from "./pages/StockPrediction";
 import { ProfitabilityAnalysis } from "./pages/ProfitabilityAnalysis";
 import { DailySummary } from "./pages/DailySummary";
 import NotFound from "./pages/NotFound";
+import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
 
 const queryClient = new QueryClient();
+
+// Wrapper component to use hooks inside Router
+const AppContent = () => {
+  // Handle Android back button
+  useAndroidBackButton();
+  
+  return (
+    <div className="min-h-screen safe-area-top safe-area-bottom">
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/add-machine" element={<AddMachine />} />
+        <Route path="/machine/:id" element={<MachineDetail />} />
+        <Route path="/machine/:id/settings" element={<MachineSettings />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/store" element={<Store />} />
+        <Route path="/checkout" element={<Checkout />} />
+        <Route path="/orders" element={<Orders />} />
+        <Route path="/incidents" element={<Incidents />} />
+        <Route path="/incidents/new" element={<NewIncident />} />
+        <Route path="/tutorials" element={<Tutorials />} />
+        <Route path="/promotions" element={<Promotions />} />
+        <Route path="/promotions/new" element={<NewPromotion />} />
+        <Route path="/subscription" element={<Subscription />} />
+        <Route path="/payment-methods" element={<PaymentMethods />} />
+        <Route path="/support" element={<Support />} />
+        <Route path="/notifications" element={<NotificationSettings />} />
+        <Route path="/ai" element={<AI />} />
+        <Route path="/ai/stock-prediction" element={<StockPrediction />} />
+        <Route path="/ai/profitability" element={<ProfitabilityAnalysis />} />
+        <Route path="/ai/daily-summary" element={<DailySummary />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </div>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -34,30 +70,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/add-machine" element={<AddMachine />} />
-          <Route path="/machine/:id" element={<MachineDetail />} />
-          <Route path="/machine/:id/settings" element={<MachineSettings />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/store" element={<Store />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/incidents" element={<Incidents />} />
-          <Route path="/incidents/new" element={<NewIncident />} />
-          <Route path="/tutorials" element={<Tutorials />} />
-          <Route path="/promotions" element={<Promotions />} />
-          <Route path="/promotions/new" element={<NewPromotion />} />
-          <Route path="/subscription" element={<Subscription />} />
-          <Route path="/payment-methods" element={<PaymentMethods />} />
-          <Route path="/support" element={<Support />} />
-          <Route path="/notifications" element={<NotificationSettings />} />
-          <Route path="/ai" element={<AI />} />
-          <Route path="/ai/stock-prediction" element={<StockPrediction />} />
-          <Route path="/ai/profitability" element={<ProfitabilityAnalysis />} />
-          <Route path="/ai/daily-summary" element={<DailySummary />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AppContent />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
