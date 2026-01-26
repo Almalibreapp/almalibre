@@ -38,7 +38,7 @@ const ProductImage = ({
 
   if (!src || hasError) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground">
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted text-muted-foreground">
         <ImageOff className="h-8 w-8 mb-1 opacity-50" />
         <span className="text-xs text-center px-2">Imagen no disponible</span>
       </div>
@@ -46,35 +46,37 @@ const ProductImage = ({
   }
 
   return (
-    <div 
-      className={`relative group ${onClick ? 'cursor-pointer' : ''}`}
-      onClick={onClick}
-    >
+    <>
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-muted">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       )}
-      <img 
-        src={src} 
-        alt={alt}
-        className={className}
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
-        onLoad={() => setIsLoading(false)}
-        onError={() => {
-          console.log('[ProductImage] Failed to load:', src);
-          setHasError(true);
-          setIsLoading(false);
-        }}
-      />
-      {showZoomHint && onClick && !isLoading && (
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-          <ZoomIn className="h-6 w-6 text-white drop-shadow-lg" />
-        </div>
-      )}
-    </div>
+      <div 
+        className={`absolute inset-0 ${onClick ? 'cursor-pointer group' : ''}`}
+        onClick={onClick}
+      >
+        <img 
+          src={src} 
+          alt={alt}
+          className={className}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onLoad={() => setIsLoading(false)}
+          onError={() => {
+            console.log('[ProductImage] Failed to load:', src);
+            setHasError(true);
+            setIsLoading(false);
+          }}
+        />
+        {showZoomHint && onClick && !isLoading && (
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <ZoomIn className="h-6 w-6 text-white drop-shadow-lg" />
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 
