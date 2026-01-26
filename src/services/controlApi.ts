@@ -249,7 +249,18 @@ export const fetchCodigosCupon = async (cuponId: string): Promise<CodigoCupon[]>
   }
 
   const data = await response.json();
-  return data.codigos || data || [];
+
+  // Normaliza respuesta para evitar crashes (a veces viene anidado)
+  // Posibles formas:
+  // - { codigos: [...] }
+  // - { codigos: { list: [...] } }
+  // - { list: [...] }
+  // - [...]
+  if (Array.isArray(data?.codigos)) return data.codigos;
+  if (data?.codigos && Array.isArray(data.codigos.list)) return data.codigos.list;
+  if (Array.isArray(data?.list)) return data.list;
+  if (Array.isArray(data)) return data;
+  return [];
 };
 
 // === CONTROL REMOTO ===

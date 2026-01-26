@@ -39,6 +39,9 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
     enabled: !!imei,
   });
 
+  // Protección extra ante respuestas inesperadas para evitar pantalla en blanco
+  const cuponesList: CuponDescuento[] = Array.isArray(cupones) ? cupones : [];
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -68,7 +71,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
             <p className="text-warning">Error al cargar cupones: {(error as Error).message}</p>
           </CardContent>
         </Card>
-      ) : (cupones || []).length === 0 ? (
+      ) : cuponesList.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             <Ticket className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -78,7 +81,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
         </Card>
       ) : (
         <div className="grid gap-4">
-          {(cupones || []).map((cupon) => (
+          {cuponesList.map((cupon) => (
             <Card key={cupon.id}>
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
@@ -334,6 +337,8 @@ const CouponCodes = ({ cuponId }: CouponCodesProps) => {
     enabled: !!cuponId,
   });
 
+  const codigosList: CodigoCupon[] = Array.isArray(codigos) ? codigos : [];
+
   const copyToClipboard = async (codigo: string, id: string) => {
     try {
       await navigator.clipboard.writeText(codigo);
@@ -363,7 +368,7 @@ const CouponCodes = ({ cuponId }: CouponCodesProps) => {
     );
   }
 
-  if (!codigos || codigos.length === 0) {
+  if (codigosList.length === 0) {
     return (
       <p className="text-center text-muted-foreground py-4">
         No hay códigos disponibles
@@ -373,7 +378,7 @@ const CouponCodes = ({ cuponId }: CouponCodesProps) => {
 
   return (
     <div className="space-y-2 max-h-96 overflow-y-auto">
-      {codigos.map((codigo) => (
+      {codigosList.map((codigo) => (
         <div 
           key={codigo.id}
           className={cn(
