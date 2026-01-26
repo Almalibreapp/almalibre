@@ -17,7 +17,54 @@ import {
   subirImagen,
   Producto 
 } from '@/services/controlApi';
-import { Pencil, Loader2, Image, Euro, Type, Upload, Link, Check } from 'lucide-react';
+import { Pencil, Loader2, Image as ImageIcon, Euro, Type, Upload, Link, Check, ImageOff } from 'lucide-react';
+
+// Componente para cargar imágenes con fallback robusto
+const ProductImage = ({ 
+  src, 
+  alt, 
+  className = "w-full h-full object-cover" 
+}: { 
+  src: string | undefined; 
+  alt: string; 
+  className?: string;
+}) => {
+  const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  if (!src || hasError) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground">
+        <ImageOff className="h-8 w-8 mb-1 opacity-50" />
+        <span className="text-xs text-center px-2">Imagen no disponible</span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      <img 
+        src={src} 
+        alt={alt}
+        className={className}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onLoad={() => setIsLoading(false)}
+        onError={() => {
+          console.log('[ProductImage] Failed to load:', src);
+          setHasError(true);
+          setIsLoading(false);
+        }}
+      />
+    </>
+  );
+};
 
 interface ProductManagementProps {
   imei: string;
@@ -71,25 +118,10 @@ export const ProductManagement = ({ imei }: ProductManagementProps) => {
           {productos.map((producto) => (
             <Card key={producto.position} className="overflow-hidden">
               <div className="aspect-square relative bg-muted">
-                {producto.imagePath ? (
-                  <img 
-                    src={producto.imagePath} 
-                    alt={producto.goodsName}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                    referrerPolicy="no-referrer"
-                    crossOrigin="anonymous"
-                    onError={(e) => {
-                      console.log('[ProductManagement] Image failed to load:', producto.imagePath);
-                      (e.target as HTMLImageElement).src = '/placeholder.svg';
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Image className="h-12 w-12 text-muted-foreground" />
-                  </div>
-                )}
+                <ProductImage 
+                  src={producto.imagePath} 
+                  alt={producto.goodsName}
+                />
                 <div className="absolute top-2 left-2 bg-background/90 px-2 py-1 rounded text-xs font-medium">
                   #{producto.position}
                 </div>
@@ -208,7 +240,7 @@ const ProductEditTabs = ({ producto, imei, onSuccess }: ProductEditTabsProps) =>
           Nombre
         </TabsTrigger>
         <TabsTrigger value="imagen" className="text-xs">
-          <Image className="h-3 w-3 mr-1" />
+          <ImageIcon className="h-3 w-3 mr-1" />
           Imagen
         </TabsTrigger>
       </TabsList>
@@ -332,22 +364,13 @@ const ImageTabs = ({
             {(imagenes || []).map((img, idx) => (
               <button
                 key={idx}
-                className="aspect-square rounded border-2 border-transparent hover:border-primary overflow-hidden"
+                className="aspect-square rounded border-2 border-transparent hover:border-primary overflow-hidden relative bg-muted"
                 onClick={() => imageMutation.mutate(img.url)}
                 disabled={imageMutation.isPending}
               >
-                <img
-                  src={img.url}
+                <ProductImage 
+                  src={img.url} 
                   alt={img.nombre}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                  crossOrigin="anonymous"
-                  onError={(e) => {
-                    console.log('[ProductManagement] Gallery image failed to load:', img.url);
-                    (e.target as HTMLImageElement).src = '/placeholder.svg';
-                  }}
                 />
               </button>
             ))}
