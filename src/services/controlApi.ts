@@ -230,7 +230,14 @@ export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
   }
 
   const data = await response.json();
-  return data.cupones || data || [];
+  // API returns { cupones: { list: [...] } }
+  if (data.cupones && Array.isArray(data.cupones.list)) {
+    return data.cupones.list;
+  }
+  if (Array.isArray(data.cupones)) {
+    return data.cupones;
+  }
+  return [];
 };
 
 export const fetchCodigosCupon = async (cuponId: string): Promise<CodigoCupon[]> => {
