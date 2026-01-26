@@ -17,17 +17,21 @@ import {
   subirImagen,
   Producto 
 } from '@/services/controlApi';
-import { Pencil, Loader2, Image as ImageIcon, Euro, Type, Upload, Link, Check, ImageOff } from 'lucide-react';
+import { Pencil, Loader2, Image as ImageIcon, Euro, Type, Upload, Link, Check, ImageOff, X, ZoomIn } from 'lucide-react';
 
 // Componente para cargar imágenes con fallback robusto
 const ProductImage = ({ 
   src, 
   alt, 
-  className = "w-full h-full object-cover" 
+  className = "w-full h-full object-cover",
+  onClick,
+  showZoomHint = false
 }: { 
   src: string | undefined; 
   alt: string; 
   className?: string;
+  onClick?: () => void;
+  showZoomHint?: boolean;
 }) => {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,7 +46,10 @@ const ProductImage = ({
   }
 
   return (
-    <>
+    <div 
+      className={`relative group ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-muted">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -62,7 +69,56 @@ const ProductImage = ({
           setIsLoading(false);
         }}
       />
-    </>
+      {showZoomHint && onClick && !isLoading && (
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <ZoomIn className="h-6 w-6 text-white drop-shadow-lg" />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Modal de zoom para imágenes
+const ImageZoomModal = ({ 
+  isOpen, 
+  onClose, 
+  src, 
+  alt 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  src: string | undefined; 
+  alt: string;
+}) => {
+  if (!isOpen || !src) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 animate-fade-in"
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+        aria-label="Cerrar"
+      >
+        <X className="h-6 w-6 text-white" />
+      </button>
+      <div 
+        className="relative max-w-[90vw] max-h-[90vh] animate-fade-in-up"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={src}
+          alt={alt}
+          className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+          referrerPolicy="no-referrer"
+        />
+        <p className="absolute bottom-0 left-0 right-0 text-center text-white bg-black/50 py-2 px-4 rounded-b-lg text-sm">
+          {alt}
+        </p>
+      </div>
+    </div>
   );
 };
 
@@ -74,6 +130,7 @@ export const ProductManagement = ({ imei }: ProductManagementProps) => {
   const queryClient = useQueryClient();
   const [selectedProduct, setSelectedProduct] = useState<Producto | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [zoomImage, setZoomImage] = useState<{ src: string; alt: string } | null>(null);
   
   const { data, isLoading, error } = useQuery({
     queryKey: ['productos', imei],
@@ -121,8 +178,13 @@ export const ProductManagement = ({ imei }: ProductManagementProps) => {
                 <ProductImage 
                   src={producto.imagePath} 
                   alt={producto.goodsName}
+                  onClick={() => producto.imagePath && setZoomImage({ 
+                    src: producto.imagePath, 
+                    alt: producto.goodsName 
+                  })}
+                  showZoomHint={true}
                 />
-                <div className="absolute top-2 left-2 bg-background/90 px-2 py-1 rounded text-xs font-medium">
+                <div className="absolute top-2 left-2 bg-background/90 px-2 py-1 rounded text-xs font-medium z-10">
                   #{producto.position}
                 </div>
               </div>
@@ -164,6 +226,14 @@ export const ProductManagement = ({ imei }: ProductManagementProps) => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal de zoom */}
+      <ImageZoomModal 
+        isOpen={!!zoomImage}
+        onClose={() => setZoomImage(null)}
+        src={zoomImage?.src}
+        alt={zoomImage?.alt || ''}
+      />
     </div>
   );
 };
