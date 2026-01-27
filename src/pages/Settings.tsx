@@ -52,7 +52,6 @@ const supportItems = [
 
 const toolItems = [
   { path: '/tutorials', icon: GraduationCap, label: 'Video Tutoriales', description: 'Aprende a usar tu máquina' },
-  { path: '/promotions', icon: Tag, label: 'Generador de Códigos', description: 'Códigos promocionales' },
 ];
 
 export const Settings = () => {
