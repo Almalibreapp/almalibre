@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ShoppingCart, Search, Plus, Minus, Loader2, Package } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { ProductImage } from '@/components/store/ProductImage';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Product {
   id: string;
@@ -35,32 +37,59 @@ const categories = [
   { value: 'merchandising', label: 'Merchandising' },
 ];
 
+const PRODUCTS_PER_PAGE = 12;
+
 export const Store = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
+  
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    setProducts([]);
+    setPage(1);
+    setHasMore(true);
+    fetchProducts(1, true);
+  }, [activeCategory]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (pageNum: number, reset: boolean = false) => {
+    if (reset) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+    
     try {
-      // Fetch from WooCommerce via edge function
-      const { data, error } = await supabase.functions.invoke('woocommerce-products');
+      const { data, error } = await supabase.functions.invoke('woocommerce-products', {
+        body: null,
+        headers: {},
+      });
 
-      if (error) throw error;
+      // Add query params to the URL
+      const response = await supabase.functions.invoke('woocommerce-products?page=' + pageNum + '&per_page=' + PRODUCTS_PER_PAGE);
       
-      if (data?.products) {
-        setProducts(data.products);
-      } else {
-        setProducts([]);
+      if (response.error) throw response.error;
+      
+      const responseData = response.data;
+      
+      if (responseData?.products) {
+        if (reset) {
+          setProducts(responseData.products);
+        } else {
+          setProducts(prev => [...prev, ...responseData.products]);
+        }
+        setHasMore(responseData.hasMore ?? false);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -71,12 +100,48 @@ export const Store = () => {
       });
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      fetchProducts(nextPage, false);
+    }
+  }, [loadingMore, hasMore, page]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observerRef.current.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [hasMore, loadingMore, loading, loadMore]);
+
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.nombre.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = activeCategory === 'all' || product.categoria === activeCategory;
+    const matchesCategory = activeCategory === 'all' || 
+      product.categoria.toLowerCase().includes(activeCategory.toLowerCase());
     return matchesSearch && matchesCategory;
   });
 
@@ -122,11 +187,46 @@ export const Store = () => {
     navigate('/checkout', { state: { cart } });
   };
 
+  // Skeleton loader for products grid
+  const ProductSkeleton = () => (
+    <Card className="overflow-hidden">
+      <div className="aspect-square">
+        <Skeleton className="w-full h-full" />
+      </div>
+      <CardContent className="p-3 space-y-2">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-3 w-2/3" />
+        <div className="flex items-center justify-between pt-1">
+          <Skeleton className="h-5 w-16" />
+          <Skeleton className="h-8 w-8 rounded" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Cargando productos...</p>
+      <div className="min-h-screen bg-background pb-32">
+        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+          <div className="container px-4 py-4">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-xl font-bold">Tienda</h1>
+              <Skeleton className="h-9 w-9" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="px-4 pb-2">
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </header>
+        <main className="container px-4 py-6">
+          <div className="grid grid-cols-2 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <ProductSkeleton key={i} />
+            ))}
+          </div>
+        </main>
+        <BottomNav />
       </div>
     );
   }
@@ -226,53 +326,57 @@ export const Store = () => {
 
       {/* Products Grid */}
       <main className="container px-4 py-6">
-        {filteredProducts.length === 0 ? (
+        {filteredProducts.length === 0 && !loadingMore ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Package className="h-16 w-16 text-muted-foreground mb-4" />
             <p className="text-muted-foreground">No se encontraron productos</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {filteredProducts.map((product) => (
-              <Card key={product.id} className="overflow-hidden animate-fade-in">
-                <div className="aspect-square bg-muted flex items-center justify-center relative">
-                  {product.imagen_url ? (
-                    <img
-                      src={product.imagen_url}
-                      alt={product.nombre}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              {filteredProducts.map((product) => (
+                <Card key={product.id} className="overflow-hidden animate-fade-in">
+                  <div className="aspect-square bg-muted">
+                    <ProductImage 
+                      src={product.imagen_url} 
+                      alt={product.nombre} 
                     />
-                  ) : (
-                    <Package className="h-12 w-12 text-muted-foreground" />
-                  )}
-                </div>
-                <CardContent className="p-3">
-                  <h3 className="font-medium text-sm line-clamp-2 mb-1">
-                    {product.nombre}
-                  </h3>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                    {product.descripcion}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-primary">
-                      €{product.precio.toFixed(2)}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 w-8 p-0"
-                      onClick={() => addToCart(product)}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  <CardContent className="p-3">
+                    <h3 className="font-medium text-sm line-clamp-2 mb-1">
+                      {product.nombre}
+                    </h3>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                      {product.descripcion}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-primary">
+                        €{product.precio.toFixed(2)}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => addToCart(product)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Infinite scroll trigger */}
+            <div ref={loadMoreRef} className="py-8 flex justify-center">
+              {loadingMore && (
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              )}
+              {!hasMore && products.length > 0 && (
+                <p className="text-sm text-muted-foreground">No hay más productos</p>
+              )}
+            </div>
+          </>
         )}
       </main>
 

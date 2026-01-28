@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.woocommerce-products]
 verify_jwt = false
+
+[functions.woocommerce-checkout]
+verify_jwt = false

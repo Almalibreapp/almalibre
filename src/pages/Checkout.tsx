@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, ExternalLink, CreditCard } from 'lucide-react';
 
 interface CartItem {
   product: {
@@ -27,11 +27,21 @@ export const Checkout = () => {
   
   const cart = (location.state?.cart as CartItem[]) || [];
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [orderNumber, setOrderNumber] = useState('');
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  
+  // Parse name from profile
+  const nameParts = (profile?.nombre || '').split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
   
   const [formData, setFormData] = useState({
-    direccion: profile?.direccion || '',
+    first_name: firstName,
+    last_name: lastName,
+    email: profile?.email || user?.email || '',
+    phone: profile?.telefono || '',
+    address_1: profile?.direccion || '',
+    city: '',
+    postcode: '',
     notas: '',
   });
 
@@ -42,63 +52,82 @@ export const Checkout = () => {
   const envio = subtotal > 50 ? 0 : 5.99;
   const total = subtotal + envio;
 
-  const handleSubmit = async () => {
-    if (!user) return;
-    if (!formData.direccion.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Por favor ingresa una dirección de envío',
-        variant: 'destructive',
-      });
-      return;
+  const validateForm = () => {
+    if (!formData.first_name.trim()) {
+      toast({ title: 'Error', description: 'Por favor ingresa tu nombre', variant: 'destructive' });
+      return false;
     }
+    if (!formData.email.trim()) {
+      toast({ title: 'Error', description: 'Por favor ingresa tu email', variant: 'destructive' });
+      return false;
+    }
+    if (!formData.address_1.trim()) {
+      toast({ title: 'Error', description: 'Por favor ingresa tu dirección', variant: 'destructive' });
+      return false;
+    }
+    if (!formData.city.trim()) {
+      toast({ title: 'Error', description: 'Por favor ingresa tu ciudad', variant: 'destructive' });
+      return false;
+    }
+    if (!formData.postcode.trim()) {
+      toast({ title: 'Error', description: 'Por favor ingresa tu código postal', variant: 'destructive' });
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
 
     setLoading(true);
     try {
-      // Generate order number
-      const { data: orderNumberData, error: orderNumberError } = await supabase
-        .rpc('generate_order_number');
-      
-      if (orderNumberError) throw orderNumberError;
-
-      // Create order
-      const { data: orderData, error: orderError } = await supabase
-        .from('pedidos')
-        .insert({
-          usuario_id: user.id,
-          numero_pedido: orderNumberData,
-          subtotal,
-          envio,
-          total,
-          direccion_envio: formData.direccion,
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Create order items
-      const orderItems = cart.map((item) => ({
-        pedido_id: orderData.id,
-        producto_id: item.product.id,
-        cantidad: item.quantity,
-        precio_unitario: item.product.precio,
-        subtotal: item.product.precio * item.quantity,
+      // Prepare items for WooCommerce
+      const items = cart.map((item) => ({
+        product_id: item.product.id,
+        quantity: item.quantity,
+        name: item.product.nombre,
+        price: item.product.precio,
       }));
 
-      const { error: itemsError } = await supabase
-        .from('pedido_items')
-        .insert(orderItems);
+      // Create order in WooCommerce
+      const { data, error } = await supabase.functions.invoke('woocommerce-checkout', {
+        body: {
+          items,
+          billing: {
+            first_name: formData.first_name,
+            last_name: formData.last_name,
+            email: formData.email,
+            phone: formData.phone,
+            address_1: formData.address_1,
+            city: formData.city,
+            postcode: formData.postcode,
+            country: 'ES',
+          },
+          customer_note: formData.notas,
+        },
+      });
 
-      if (itemsError) throw itemsError;
+      if (error) throw error;
 
-      setOrderNumber(orderNumberData);
-      setSuccess(true);
+      if (data?.payment_url) {
+        setPaymentUrl(data.payment_url);
+        toast({
+          title: '¡Pedido creado!',
+          description: `Pedido #${data.order_number} - Redirigiendo al pago...`,
+        });
+        
+        // Auto-redirect after a short delay
+        setTimeout(() => {
+          window.open(data.payment_url, '_blank');
+        }, 1500);
+      } else {
+        throw new Error('No se recibió la URL de pago');
+      }
     } catch (error) {
       console.error('Error creating order:', error);
       toast({
         title: 'Error',
-        description: 'No se pudo crear el pedido',
+        description: error instanceof Error ? error.message : 'No se pudo crear el pedido',
         variant: 'destructive',
       });
     } finally {
@@ -106,29 +135,46 @@ export const Checkout = () => {
     }
   };
 
-  if (cart.length === 0 && !success) {
+  if (cart.length === 0 && !paymentUrl) {
     navigate('/store');
     return null;
   }
 
-  if (success) {
+  if (paymentUrl) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md animate-fade-in">
           <CardContent className="pt-8 pb-6 text-center">
-            <div className="w-20 h-20 bg-success-light rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="h-10 w-10 text-success" />
+            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CreditCard className="h-10 w-10 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">¡Pedido Realizado!</h2>
-            <p className="text-muted-foreground mb-4">
-              Tu pedido ha sido registrado exitosamente
+            <h2 className="text-2xl font-bold mb-2">¡Pedido Creado!</h2>
+            <p className="text-muted-foreground mb-6">
+              Tu pedido ha sido creado. Haz clic en el botón para completar el pago de forma segura.
             </p>
-            <p className="text-lg font-semibold text-primary mb-6">
-              {orderNumber}
+            
+            <div className="space-y-3">
+              <Button 
+                onClick={() => window.open(paymentUrl, '_blank')} 
+                className="w-full gap-2"
+                size="lg"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Ir a Pagar
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/store')} 
+                className="w-full"
+              >
+                Volver a la Tienda
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground mt-4">
+              Serás redirigido a la pasarela de pago segura de Almalibre
             </p>
-            <Button onClick={() => navigate('/orders')} className="w-full">
-              Ver Mis Pedidos
-            </Button>
           </CardContent>
         </Card>
       </div>
@@ -152,7 +198,7 @@ export const Checkout = () => {
         </div>
       </header>
 
-      <main className="container px-4 py-6 space-y-6">
+      <main className="container px-4 py-6 space-y-6 pb-32">
         {/* Order Summary */}
         <Card>
           <CardHeader>
@@ -184,6 +230,55 @@ export const Checkout = () => {
           </CardContent>
         </Card>
 
+        {/* Customer Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Datos de Contacto</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="first_name">Nombre *</Label>
+                <Input
+                  id="first_name"
+                  value={formData.first_name}
+                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                  placeholder="Juan"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="last_name">Apellidos</Label>
+                <Input
+                  id="last_name"
+                  value={formData.last_name}
+                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                  placeholder="García"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="tu@email.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Teléfono</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="+34 600 000 000"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Shipping Address */}
         <Card>
           <CardHeader>
@@ -191,20 +286,40 @@ export const Checkout = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="direccion">Dirección completa</Label>
+              <Label htmlFor="address_1">Dirección *</Label>
               <Textarea
-                id="direccion"
-                placeholder="Calle, número, piso, ciudad, código postal..."
-                value={formData.direccion}
-                onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-                rows={3}
+                id="address_1"
+                placeholder="Calle, número, piso, puerta..."
+                value={formData.address_1}
+                onChange={(e) => setFormData({ ...formData, address_1: e.target.value })}
+                rows={2}
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="city">Ciudad *</Label>
+                <Input
+                  id="city"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder="Valencia"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="postcode">Código Postal *</Label>
+                <Input
+                  id="postcode"
+                  value={formData.postcode}
+                  onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
+                  placeholder="46000"
+                />
+              </div>
+            </div>
             <div className="space-y-2">
-              <Label htmlFor="notas">Notas adicionales (opcional)</Label>
+              <Label htmlFor="notas">Notas del pedido (opcional)</Label>
               <Input
                 id="notas"
-                placeholder="Instrucciones de entrega..."
+                placeholder="Instrucciones de entrega, horarios..."
                 value={formData.notas}
                 onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
               />
@@ -214,11 +329,21 @@ export const Checkout = () => {
 
         <Button onClick={handleSubmit} className="w-full" size="lg" disabled={loading}>
           {loading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <>
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              Procesando...
+            </>
           ) : (
-            `Confirmar Pedido - €${total.toFixed(2)}`
+            <>
+              <CreditCard className="h-5 w-5 mr-2" />
+              Continuar al Pago - €{total.toFixed(2)}
+            </>
           )}
         </Button>
+        
+        <p className="text-xs text-center text-muted-foreground">
+          Al continuar, serás redirigido a la pasarela de pago segura de Almalibre para completar tu compra.
+        </p>
       </main>
     </div>
   );
