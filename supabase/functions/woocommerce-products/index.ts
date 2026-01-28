@@ -24,8 +24,8 @@ serve(async (req) => {
     const category = url.searchParams.get('category');
     const perPage = url.searchParams.get('per_page') || '100';
 
-    // Build WooCommerce API URL - Using nonstopmachine.com store
-    const baseUrl = 'https://nonstopmachine.com/wp-json/wc/v3/products';
+    // Build WooCommerce API URL - Using almalibreacaihouse.com store
+    const baseUrl = 'https://www.almalibreacaihouse.com/wp-json/wc/v3/products';
     const params = new URLSearchParams({
       consumer_key: consumerKey,
       consumer_secret: consumerSecret,
