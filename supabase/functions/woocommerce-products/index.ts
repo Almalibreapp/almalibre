@@ -24,26 +24,35 @@ serve(async (req) => {
       throw new Error('WooCommerce credentials not configured');
     }
 
-    // Check cache first
+    // Parse query params
+    const url = new URL(req.url);
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const perPage = parseInt(url.searchParams.get('per_page') || '12');
+    const category = url.searchParams.get('category');
+
+    // For first page, check cache
+    const cacheKey = `${page}-${perPage}-${category || 'all'}`;
     const now = Date.now();
-    if (cachedProducts && (now - cacheTimestamp) < CACHE_DURATION_MS) {
-      console.log('Returning cached products');
-      return new Response(JSON.stringify({ products: cachedProducts, cached: true }), {
+    
+    if (page === 1 && cachedProducts && (now - cacheTimestamp) < CACHE_DURATION_MS) {
+      console.log('Returning cached products for page 1');
+      return new Response(JSON.stringify({ 
+        products: cachedProducts.slice(0, perPage), 
+        hasMore: cachedProducts.length > perPage,
+        total: cachedProducts.length,
+        cached: true 
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Parse query params for category filter
-    const url = new URL(req.url);
-    const category = url.searchParams.get('category');
-    const perPage = url.searchParams.get('per_page') || '50'; // Reduced from 100 to 50
-
-    // Build WooCommerce API URL - Using almalibreacaihouse.com store
+    // Build WooCommerce API URL
     const baseUrl = 'https://www.almalibreacaihouse.com/wp-json/wc/v3/products';
     const params = new URLSearchParams({
       consumer_key: consumerKey,
       consumer_secret: consumerSecret,
-      per_page: perPage,
+      per_page: '100', // Fetch all for caching
+      page: '1',
       status: 'publish',
     });
 
@@ -69,7 +78,7 @@ serve(async (req) => {
 
     const products = await response.json();
 
-    // Transform products to match our interface
+    // Transform products
     const transformedProducts = products.map((product: any) => ({
       id: product.id.toString(),
       nombre: product.name,
@@ -88,7 +97,18 @@ serve(async (req) => {
     cacheTimestamp = now;
     console.log(`Cached ${transformedProducts.length} products`);
 
-    return new Response(JSON.stringify({ products: transformedProducts, cached: false }), {
+    // Return paginated results
+    const startIndex = (page - 1) * perPage;
+    const endIndex = startIndex + perPage;
+    const paginatedProducts = transformedProducts.slice(startIndex, endIndex);
+
+    return new Response(JSON.stringify({ 
+      products: paginatedProducts, 
+      hasMore: endIndex < transformedProducts.length,
+      total: transformedProducts.length,
+      page,
+      cached: false 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
@@ -104,7 +124,7 @@ serve(async (req) => {
   }
 });
 
-// Helper function to strip HTML tags from description
+// Helper function to strip HTML tags
 function stripHtml(html: string): string {
   return html
     .replace(/<[^>]*>/g, '')
@@ -112,5 +132,5 @@ function stripHtml(html: string): string {
     .replace(/&#8211;/g, '-')
     .replace(/&amp;/g, '&')
     .trim()
-    .substring(0, 200); // Limit description length
+    .substring(0, 200);
 }
