@@ -124,8 +124,9 @@ export const Store = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Cargando productos...</p>
       </div>
     );
   }
@@ -234,12 +235,15 @@ export const Store = () => {
           <div className="grid grid-cols-2 gap-4">
             {filteredProducts.map((product) => (
               <Card key={product.id} className="overflow-hidden animate-fade-in">
-                <div className="aspect-square bg-muted flex items-center justify-center">
+                <div className="aspect-square bg-muted flex items-center justify-center relative">
                   {product.imagen_url ? (
                     <img
                       src={product.imagen_url}
                       alt={product.nombre}
                       className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
                     />
                   ) : (
                     <Package className="h-12 w-12 text-muted-foreground" />

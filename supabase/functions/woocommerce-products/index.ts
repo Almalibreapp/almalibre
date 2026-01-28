@@ -5,6 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Simple in-memory cache
+let cachedProducts: any = null;
+let cacheTimestamp: number = 0;
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -19,10 +24,19 @@ serve(async (req) => {
       throw new Error('WooCommerce credentials not configured');
     }
 
+    // Check cache first
+    const now = Date.now();
+    if (cachedProducts && (now - cacheTimestamp) < CACHE_DURATION_MS) {
+      console.log('Returning cached products');
+      return new Response(JSON.stringify({ products: cachedProducts, cached: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Parse query params for category filter
     const url = new URL(req.url);
     const category = url.searchParams.get('category');
-    const perPage = url.searchParams.get('per_page') || '100';
+    const perPage = url.searchParams.get('per_page') || '50'; // Reduced from 100 to 50
 
     // Build WooCommerce API URL - Using almalibreacaihouse.com store
     const baseUrl = 'https://www.almalibreacaihouse.com/wp-json/wc/v3/products';
@@ -39,6 +53,7 @@ serve(async (req) => {
 
     const wooUrl = `${baseUrl}?${params.toString()}`;
     
+    console.log('Fetching fresh products from WooCommerce...');
     const response = await fetch(wooUrl, {
       method: 'GET',
       headers: {
@@ -58,7 +73,7 @@ serve(async (req) => {
     const transformedProducts = products.map((product: any) => ({
       id: product.id.toString(),
       nombre: product.name,
-      descripcion: product.short_description || product.description || null,
+      descripcion: stripHtml(product.short_description || product.description || ''),
       precio: parseFloat(product.price) || 0,
       categoria: product.categories?.[0]?.name || 'general',
       categoria_id: product.categories?.[0]?.id || null,
@@ -68,7 +83,12 @@ serve(async (req) => {
       sku: product.sku || null,
     }));
 
-    return new Response(JSON.stringify({ products: transformedProducts }), {
+    // Update cache
+    cachedProducts = transformedProducts;
+    cacheTimestamp = now;
+    console.log(`Cached ${transformedProducts.length} products`);
+
+    return new Response(JSON.stringify({ products: transformedProducts, cached: false }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
@@ -83,3 +103,14 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper function to strip HTML tags from description
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#8211;/g, '-')
+    .replace(/&amp;/g, '&')
+    .trim()
+    .substring(0, 200); // Limit description length
+}
