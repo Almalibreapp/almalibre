@@ -19,6 +19,7 @@ interface Product {
   categoria: string;
   imagen_url: string | null;
   stock_disponible: number | null;
+  en_stock?: boolean;
 }
 
 interface CartItem {
@@ -51,14 +52,16 @@ export const Store = () => {
 
   const fetchProducts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('productos')
-        .select('*')
-        .eq('activo', true)
-        .order('categoria', { ascending: true });
+      // Fetch from WooCommerce via edge function
+      const { data, error } = await supabase.functions.invoke('woocommerce-products');
 
       if (error) throw error;
-      setProducts(data || []);
+      
+      if (data?.products) {
+        setProducts(data.products);
+      } else {
+        setProducts([]);
+      }
     } catch (error) {
       console.error('Error fetching products:', error);
       toast({
