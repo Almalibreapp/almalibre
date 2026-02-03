@@ -8,7 +8,36 @@ const corsHeaders = {
 // Simple in-memory cache
 let cachedProducts: any = null;
 let cacheTimestamp: number = 0;
-const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes (extended for resilience)
+
+// Retry fetch with exponential backoff
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // If we get a 5xx error, retry
+      if (response.status >= 500 && attempt < maxRetries - 1) {
+        console.log(`Attempt ${attempt + 1} failed with ${response.status}, retrying...`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.log(`Attempt ${attempt + 1} failed with error:`, lastError.message);
+      
+      if (attempt < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+      }
+    }
+  }
+  
+  throw lastError || new Error('Fetch failed after retries');
+}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -50,16 +79,20 @@ serve(async (req) => {
       category = url.searchParams.get('category');
     }
 
-    // For first page, check cache
-    const cacheKey = `${page}-${perPage}-${category || 'all'}`;
     const now = Date.now();
     
-    if (page === 1 && cachedProducts && (now - cacheTimestamp) < CACHE_DURATION_MS) {
-      console.log('Returning cached products for page 1');
+    // Check cache first - return cached data if available
+    if (cachedProducts && (now - cacheTimestamp) < CACHE_DURATION_MS) {
+      console.log('Returning cached products');
+      const startIndex = (page - 1) * perPage;
+      const endIndex = startIndex + perPage;
+      const paginatedProducts = cachedProducts.slice(startIndex, endIndex);
+      
       return new Response(JSON.stringify({ 
-        products: cachedProducts.slice(0, perPage), 
-        hasMore: cachedProducts.length > perPage,
+        products: paginatedProducts, 
+        hasMore: endIndex < cachedProducts.length,
         total: cachedProducts.length,
+        page,
         cached: true 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -83,16 +116,60 @@ serve(async (req) => {
     const wooUrl = `${baseUrl}?${params.toString()}`;
     
     console.log('Fetching fresh products from WooCommerce...');
-    const response = await fetch(wooUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    
+    let response: Response;
+    try {
+      response = await fetchWithRetry(wooUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }, 3);
+    } catch (fetchError) {
+      // If fetch fails but we have stale cache, return it
+      if (cachedProducts && cachedProducts.length > 0) {
+        console.log('Returning stale cache due to fetch error');
+        const startIndex = (page - 1) * perPage;
+        const endIndex = startIndex + perPage;
+        const paginatedProducts = cachedProducts.slice(startIndex, endIndex);
+        
+        return new Response(JSON.stringify({ 
+          products: paginatedProducts, 
+          hasMore: endIndex < cachedProducts.length,
+          total: cachedProducts.length,
+          page,
+          cached: true,
+          stale: true
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      throw fetchError;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('WooCommerce API error:', response.status, errorText);
+      
+      // Return stale cache if available
+      if (cachedProducts && cachedProducts.length > 0) {
+        console.log('Returning stale cache due to API error');
+        const startIndex = (page - 1) * perPage;
+        const endIndex = startIndex + perPage;
+        const paginatedProducts = cachedProducts.slice(startIndex, endIndex);
+        
+        return new Response(JSON.stringify({ 
+          products: paginatedProducts, 
+          hasMore: endIndex < cachedProducts.length,
+          total: cachedProducts.length,
+          page,
+          cached: true,
+          stale: true
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       throw new Error(`WooCommerce API error: ${response.status}`);
     }
 
