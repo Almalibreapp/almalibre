@@ -24,11 +24,31 @@ serve(async (req) => {
       throw new Error('WooCommerce credentials not configured');
     }
 
-    // Parse query params
-    const url = new URL(req.url);
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const perPage = parseInt(url.searchParams.get('per_page') || '12');
-    const category = url.searchParams.get('category');
+    // Parse params from body or query string
+    let page = 1;
+    let perPage = 12;
+    let category: string | null = null;
+    
+    // Try to get params from body first (POST/GET with body)
+    if (req.method === 'POST' || req.body) {
+      try {
+        const body = await req.json();
+        page = body.page || 1;
+        perPage = body.per_page || 12;
+        category = body.category || null;
+      } catch {
+        // If body parsing fails, use query params
+        const url = new URL(req.url);
+        page = parseInt(url.searchParams.get('page') || '1');
+        perPage = parseInt(url.searchParams.get('per_page') || '12');
+        category = url.searchParams.get('category');
+      }
+    } else {
+      const url = new URL(req.url);
+      page = parseInt(url.searchParams.get('page') || '1');
+      perPage = parseInt(url.searchParams.get('per_page') || '12');
+      category = url.searchParams.get('category');
+    }
 
     // For first page, check cache
     const cacheKey = `${page}-${perPage}-${category || 'all'}`;
