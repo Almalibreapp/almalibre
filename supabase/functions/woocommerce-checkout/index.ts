@@ -2,8 +2,66 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function stripHtml(input: string) {
+  return input
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function truncate(input: string, max = 300) {
+  if (input.length <= max) return input;
+  return `${input.slice(0, max)}…`;
+}
+
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// Retry POST with exponential backoff for transient upstream failures (5xx / timeouts)
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3) {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetchWithTimeout(url, options, 20000);
+
+      // Retry on transient upstream errors
+      if (response.status >= 500 && attempt < maxRetries - 1) {
+        const peek = await response.clone().text().catch(() => '');
+        console.log(`Attempt ${attempt + 1} failed with ${response.status}. ${truncate(stripHtml(peek), 120)}`);
+        await sleep(1000 * (attempt + 1));
+        continue;
+      }
+
+      return response;
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      lastError = error;
+      const isAbort = error.name === 'AbortError';
+      console.log(`Attempt ${attempt + 1} failed (${isAbort ? 'timeout' : 'error'}):`, error.message);
+
+      if (attempt < maxRetries - 1) {
+        await sleep(1000 * (attempt + 1));
+      }
+    }
+  }
+
+  throw lastError || new Error('Fetch failed after retries');
+}
 
 interface CartItem {
   product_id: string;
@@ -108,18 +166,48 @@ serve(async (req) => {
       consumer_secret: consumerSecret,
     });
 
-    const response = await fetch(`${baseUrl}?${params.toString()}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(orderData),
-    });
+    let response: Response;
+    try {
+      response = await fetchWithRetry(`${baseUrl}?${params.toString()}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      }, 3);
+    } catch (fetchError: unknown) {
+      const message = fetchError instanceof Error ? fetchError.message : 'Failed to reach WooCommerce';
+      console.error('WooCommerce request failed after retries:', fetchError);
+      return new Response(
+        JSON.stringify({
+          error: 'El servidor de pago está tardando en responder. Intenta de nuevo en unos segundos.',
+          retryable: true,
+          upstream_error: truncate(message, 200),
+        }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('WooCommerce API error:', response.status, errorText);
-      throw new Error(`WooCommerce API error: ${response.status} - ${errorText}`);
+      const cleaned = truncate(stripHtml(errorText), 400);
+      console.error('WooCommerce API error:', response.status, cleaned);
+
+      const isRetryable = response.status >= 500 || response.status === 429;
+      const status = isRetryable ? 503 : 400;
+      const friendly = isRetryable
+        ? 'El servidor de pago no está disponible temporalmente. Intenta de nuevo en unos segundos.'
+        : 'No se pudo crear el pedido. Revisa tus datos e inténtalo de nuevo.';
+
+      return new Response(
+        JSON.stringify({
+          error: friendly,
+          retryable: isRetryable,
+          upstream_status: response.status,
+          upstream_message: cleaned,
+        }),
+        { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const order = await response.json();
