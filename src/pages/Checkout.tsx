@@ -107,7 +107,22 @@ export const Checkout = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Try to extract backend-provided message (503/400 etc.) when available
+        const anyErr = error as any;
+        const response = anyErr?.context?.response;
+        if (response && typeof response.json === 'function') {
+          try {
+            const payload = await response.json();
+            if (payload?.error) {
+              throw new Error(payload.error);
+            }
+          } catch {
+            // fall through
+          }
+        }
+        throw new Error('No se pudo crear el pedido. Intenta de nuevo en unos segundos.');
+      }
 
       if (data?.payment_url) {
         setPaymentUrl(data.payment_url);
