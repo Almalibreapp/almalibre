@@ -63,7 +63,7 @@ export const Store = () => {
     fetchProducts(1, true);
   }, [activeCategory]);
 
-  const fetchProducts = async (pageNum: number, reset: boolean = false) => {
+  const fetchProducts = async (pageNum: number, reset: boolean = false, retryCount = 0) => {
     if (reset) {
       setLoading(true);
     } else {
@@ -72,30 +72,34 @@ export const Store = () => {
     
     try {
       const { data, error } = await supabase.functions.invoke('woocommerce-products', {
-        body: null,
-        headers: {},
+        body: { page: pageNum, per_page: PRODUCTS_PER_PAGE },
       });
-
-      // Add query params to the URL
-      const response = await supabase.functions.invoke('woocommerce-products?page=' + pageNum + '&per_page=' + PRODUCTS_PER_PAGE);
       
-      if (response.error) throw response.error;
+      if (error) throw error;
       
-      const responseData = response.data;
-      
-      if (responseData?.products) {
+      if (data?.products) {
         if (reset) {
-          setProducts(responseData.products);
+          setProducts(data.products);
         } else {
-          setProducts(prev => [...prev, ...responseData.products]);
+          setProducts(prev => [...prev, ...data.products]);
         }
-        setHasMore(responseData.hasMore ?? false);
+        setHasMore(data.hasMore ?? false);
+      } else if (data?.error) {
+        throw new Error(data.error);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
+      
+      // Retry up to 2 times on failure (for 502 errors)
+      if (retryCount < 2) {
+        console.log(`Retrying... attempt ${retryCount + 1}`);
+        setTimeout(() => fetchProducts(pageNum, reset, retryCount + 1), 1000);
+        return;
+      }
+      
       toast({
         title: 'Error',
-        description: 'No se pudieron cargar los productos',
+        description: 'No se pudieron cargar los productos. Intenta de nuevo.',
         variant: 'destructive',
       });
     } finally {
