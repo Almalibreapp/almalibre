@@ -1,23 +1,19 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
 import { 
   controlOrigen,
-  controlDeshielo,
   controlPausarVentas,
   controlReanudarVentas,
-  controlHacerHelado,
   controlRefrigeracionOn,
+  controlRefrigeracionOff,
 } from '@/services/controlApi';
 import { 
   RotateCcw, 
   Snowflake,
-  PauseCircle, 
   PlayCircle, 
-  TestTube2,
+  ThermometerSnowflake,
   Loader2 
 } from 'lucide-react';
 
@@ -39,37 +35,25 @@ interface ControlAction {
 
 const controlActions: ControlAction[] = [
   {
-    id: 'origen',
-    label: 'Volver a Origen',
-    description: 'Reinicia la máquina a su estado inicial',
-    icon: RotateCcw,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100 hover:bg-blue-200',
-    needsConfirmation: true,
-    confirmMessage: '¿Reiniciar máquina a estado inicial?',
-    action: controlOrigen,
+    id: 'refrigeracion-on',
+    label: 'Activar Refrigeración',
+    description: 'Activa el sistema de refrigeración',
+    icon: Snowflake,
+    color: 'text-cyan-600',
+    bgColor: 'bg-cyan-100 hover:bg-cyan-200',
+    needsConfirmation: false,
+    action: controlRefrigeracionOn,
   },
   {
-    id: 'deshielo',
-    label: 'Activar Deshielo',
-    description: 'Desactiva refrigeración para mantenimiento',
-    icon: Snowflake,
+    id: 'refrigeracion-off',
+    label: 'Desactivar Refrigeración',
+    description: 'Desactiva el sistema de refrigeración',
+    icon: ThermometerSnowflake,
     color: 'text-orange-600',
     bgColor: 'bg-orange-100 hover:bg-orange-200',
     needsConfirmation: true,
     confirmMessage: '¿Desactivar refrigeración? Solo para mantenimiento',
-    action: controlDeshielo,
-  },
-  {
-    id: 'pausar',
-    label: 'Pausar Ventas',
-    description: 'Marca máquina como agotada temporalmente',
-    icon: PauseCircle,
-    color: 'text-red-600',
-    bgColor: 'bg-red-100 hover:bg-red-200',
-    needsConfirmation: true,
-    confirmMessage: '¿Pausar ventas en esta máquina?',
-    action: controlPausarVentas,
+    action: controlRefrigeracionOff,
   },
   {
     id: 'reanudar',
@@ -82,25 +66,15 @@ const controlActions: ControlAction[] = [
     action: controlReanudarVentas,
   },
   {
-    id: 'helado',
-    label: 'Hacer Helado de Prueba',
-    description: 'Fabrica un helado remotamente para testing',
-    icon: TestTube2,
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-100 hover:bg-purple-200',
+    id: 'origen',
+    label: 'Volver a Origen',
+    description: 'Reinicia la máquina a su estado inicial',
+    icon: RotateCcw,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-100 hover:bg-blue-200',
     needsConfirmation: true,
-    confirmMessage: '¿Fabricar un helado de prueba?',
-    action: controlHacerHelado,
-  },
-  {
-    id: 'refrigeracion',
-    label: 'Activar Refrigeración',
-    description: 'Activa el sistema de refrigeración',
-    icon: Snowflake,
-    color: 'text-cyan-600',
-    bgColor: 'bg-cyan-100 hover:bg-cyan-200',
-    needsConfirmation: false,
-    action: controlRefrigeracionOn,
+    confirmMessage: '¿Reiniciar máquina a estado inicial?',
+    action: controlOrigen,
   },
 ];
 

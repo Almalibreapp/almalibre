@@ -27,7 +27,22 @@ import { DailySummary } from "./pages/DailySummary";
 import NotFound from "./pages/NotFound";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Mantener datos en caché por 5 minutos
+      staleTime: 5 * 60 * 1000,
+      // Mantener caché por 10 minutos incluso si no se usa
+      gcTime: 10 * 60 * 1000,
+      // No refetch automático al cambiar de ventana
+      refetchOnWindowFocus: false,
+      // No refetch al reconectar red (el usuario puede hacerlo manualmente)
+      refetchOnReconnect: false,
+      // Reintentar solo 1 vez
+      retry: 1,
+    },
+  },
+});
 
 // Wrapper component to use hooks inside Router
 const AppContent = () => {

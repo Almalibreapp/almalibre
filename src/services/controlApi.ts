@@ -354,3 +354,39 @@ export const controlRefrigeracionOn = async (imei: string) => {
 
   return response.json();
 };
+
+export const controlRefrigeracionOff = async (imei: string) => {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/refrigeracion/off`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ imei }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Error al desactivar refrigeración');
+  }
+
+  return response.json();
+};
+
+// === REPOSICIÓN DE STOCK ===
+
+export const actualizarStockTopping = async (imei: string, posiciones: string[]) => {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/stock/reponer`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ 
+      imei,
+      posiciones,
+      llenar_completo: true 
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Error al actualizar stock');
+  }
+
+  return response.json();
+};

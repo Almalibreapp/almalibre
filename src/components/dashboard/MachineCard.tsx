@@ -14,16 +14,21 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
   const imei = maquina.mac_address;
   const { temperatura, ventas, stock, isLoading, hasError } = useMaquinaData(imei);
 
-  const lowStockCount = stock?.toppings?.filter(t => t.capacidad_maxima > 0 && (t.stock_actual / t.capacidad_maxima) < 0.2).length || 0;
+  // Alerta de stock crítico al 25%
+  const lowStockCount = stock?.toppings?.filter(t => t.capacidad_maxima > 0 && (t.stock_actual / t.capacidad_maxima) <= 0.25).length || 0;
   const isOnline = maquina.activa && !hasError;
+  
+  // Temperatura crítica a partir de 10 grados
+  const isTempCritical = temperatura?.temperatura !== undefined && temperatura.temperatura >= 10;
 
-  const getTempColor = (estado?: string) => {
-    switch (estado) {
-      case 'normal': return 'text-success';
-      case 'alerta': return 'text-warning';
-      case 'critico': return 'text-critical';
-      default: return 'text-muted-foreground';
-    }
+  const getTempColor = () => {
+    if (temperatura?.temperatura === undefined) return 'text-muted-foreground';
+    // Crítico >= 10°C
+    if (temperatura.temperatura >= 10) return 'text-critical';
+    // Alerta entre 5 y 10°C
+    if (temperatura.temperatura >= 5) return 'text-warning';
+    // Normal < 5°C
+    return 'text-success';
   };
 
   return (
@@ -59,7 +64,7 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
         ) : (
           <div className="grid grid-cols-3 gap-3 mt-4">
             <div className="bg-muted/50 rounded-lg p-3 text-center">
-              <div className={cn("flex items-center justify-center gap-1", getTempColor(temperatura?.estado))}>
+              <div className={cn("flex items-center justify-center gap-1", getTempColor())}>
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (

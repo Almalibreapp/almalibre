@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { StockBar } from '@/components/dashboard/StockBar';
 import { TemperatureChart } from '@/components/dashboard/TemperatureChart';
+import { StockReplenishment } from '@/components/stock/StockReplenishment';
 import { SalesChart } from '@/components/dashboard/SalesChart';
 import { ControlTab } from '@/components/control/ControlTab';
 import { useAuth } from '@/hooks/useAuth';
@@ -100,8 +100,9 @@ export const MachineDetail = () => {
     }
   };
 
+  // Stock crítico al 25%
   const lowStockToppings = stock?.toppings?.filter(
-    (t) => t.capacidad_maxima > 0 && t.stock_actual / t.capacidad_maxima < 0.2
+    (t) => t.capacidad_maxima > 0 && t.stock_actual / t.capacidad_maxima <= 0.25
   ) || [];
 
   return (
@@ -386,33 +387,7 @@ export const MachineDetail = () => {
 
             {/* Stock Tab */}
             <TabsContent value="stock" className="space-y-4 animate-fade-in">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">Inventario de Toppings</CardTitle>
-                    {stock?.total_toppings !== undefined && (
-                      <Badge variant="secondary">{stock.total_toppings} toppings</Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  {stock?.toppings && stock.toppings.length > 0 ? (
-                    stock.toppings.map((topping) => (
-                      <StockBar
-                        key={topping.posicion}
-                        nombre={topping.nombre}
-                        posicion={topping.posicion}
-                        stockActual={topping.stock_actual}
-                        capacidadMaxima={topping.capacidad_maxima}
-                      />
-                    ))
-                  ) : (
-                    <p className="text-center text-muted-foreground py-8">
-                      Sin datos de stock disponibles
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+              <StockReplenishment imei={imei!} stock={stock} />
             </TabsContent>
 
             {/* Temperature Tab */}

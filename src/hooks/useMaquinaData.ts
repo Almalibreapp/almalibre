@@ -19,9 +19,11 @@ export const useMiMaquina = (imei: string | undefined) => {
     queryKey: ['mi-maquina', imei],
     queryFn: () => fetchMiMaquina(imei!),
     enabled: !!imei && imei.length > 0,
-    refetchInterval: 60000,
+    // No refetch automático - usuario controla con botón
+    refetchInterval: false,
     retry: 2,
-    staleTime: 30000,
+    // Mantener datos frescos por 5 minutos
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -30,9 +32,10 @@ export const useVentasResumen = (imei: string | undefined) => {
     queryKey: ['ventas-resumen', imei],
     queryFn: () => fetchVentasResumen(imei!),
     enabled: !!imei && imei.length > 0,
-    refetchInterval: 60000,
+    // Solo refetch cada 5 minutos para ventas
+    refetchInterval: 5 * 60 * 1000,
     retry: 2,
-    staleTime: 30000,
+    staleTime: 3 * 60 * 1000,
   });
 };
 
@@ -41,9 +44,10 @@ export const useVentasDetalle = (imei: string | undefined) => {
     queryKey: ['ventas-detalle', imei],
     queryFn: () => fetchVentasDetalle(imei!),
     enabled: !!imei && imei.length > 0,
-    refetchInterval: 60000,
+    // Detalle de ventas: refetch cada 3 minutos
+    refetchInterval: 3 * 60 * 1000,
     retry: 2,
-    staleTime: 30000,
+    staleTime: 2 * 60 * 1000,
   });
 };
 
@@ -52,9 +56,10 @@ export const useToppings = (imei: string | undefined) => {
     queryKey: ['toppings', imei],
     queryFn: () => fetchToppings(imei!),
     enabled: !!imei && imei.length > 0,
-    refetchInterval: 60000,
+    // Stock: refetch cada 5 minutos
+    refetchInterval: 5 * 60 * 1000,
     retry: 2,
-    staleTime: 30000,
+    staleTime: 3 * 60 * 1000,
   });
 };
 
@@ -63,9 +68,10 @@ export const useTemperatura = (imei: string | undefined) => {
     queryKey: ['temperatura', imei],
     queryFn: () => fetchTemperatura(imei!),
     enabled: !!imei && imei.length > 0,
-    refetchInterval: 30000,
+    // Temperatura: refetch cada 2 minutos (dato más crítico)
+    refetchInterval: 2 * 60 * 1000,
     retry: 2,
-    staleTime: 15000,
+    staleTime: 60 * 1000,
   });
 };
 
@@ -74,9 +80,10 @@ export const useEstadisticasToppings = (imei: string | undefined) => {
     queryKey: ['estadisticas-toppings', imei],
     queryFn: () => fetchEstadisticasToppings(imei!),
     enabled: !!imei && imei.length > 0,
-    refetchInterval: 60000,
+    // Estadísticas: refetch cada 10 minutos
+    refetchInterval: 10 * 60 * 1000,
     retry: 2,
-    staleTime: 30000,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
