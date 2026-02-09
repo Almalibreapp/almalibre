@@ -212,9 +212,11 @@ serve(async (req) => {
 
     const order = await response.json();
     console.log('Order created:', order.id, order.order_key);
+    console.log('WooCommerce payment URL from API:', order.payment_url);
 
-    // Generate payment URL - WooCommerce checkout page
-    const paymentUrl = `https://www.almalibreacaihouse.com/checkout/order-pay/${order.id}/?pay_for_order=true&key=${order.order_key}`;
+    // Use the payment URL provided by WooCommerce API if available, otherwise construct it
+    const paymentUrl = order.payment_url 
+      || `https://www.almalibreacaihouse.com/checkout/order-pay/${order.id}/?pay_for_order=true&key=${order.order_key}`;
 
     return new Response(JSON.stringify({
       success: true,
