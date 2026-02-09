@@ -95,7 +95,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
                       <span>{cupon.cantidad_codigos} códigos</span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Válido: {cupon.fecha_inicio.split(' ')[0]} - {cupon.fecha_fin.split(' ')[0]}
+                      Válido: {cupon.fecha_inicio?.split(' ')[0] ?? '—'} - {cupon.fecha_fin?.split(' ')[0] ?? '—'}
                     </p>
                   </div>
                   <Button 
