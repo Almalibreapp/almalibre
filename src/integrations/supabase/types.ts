@@ -219,6 +219,41 @@ export type Database = {
           },
         ]
       }
+      lecturas_temperatura: {
+        Row: {
+          created_at: string
+          estado: string
+          id: string
+          maquina_id: string
+          temperatura: number
+          unidad: string
+        }
+        Insert: {
+          created_at?: string
+          estado?: string
+          id?: string
+          maquina_id: string
+          temperatura: number
+          unidad?: string
+        }
+        Update: {
+          created_at?: string
+          estado?: string
+          id?: string
+          maquina_id?: string
+          temperatura?: number
+          unidad?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lecturas_temperatura_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maquinas: {
         Row: {
           activa: boolean | null
