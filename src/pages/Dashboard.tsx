@@ -8,7 +8,7 @@ import { NotificationCenter } from '@/components/notifications/NotificationCente
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { initPushNotifications } from '@/services/pushNotifications';
-import { Plus, Settings, IceCream, RefreshCw, Loader2 } from 'lucide-react';
+import { Plus, Settings, IceCream, RefreshCw, Loader2, Network } from 'lucide-react';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
 
 export const Dashboard = () => {
@@ -96,6 +96,24 @@ export const Dashboard = () => {
           </Card>
         ) : (
           <div className="space-y-4">
+            {/* Network Dashboard Button */}
+            {maquinas.length > 0 && (
+              <Card 
+                className="cursor-pointer hover:shadow-soft hover:border-primary/30 transition-all duration-200 active:scale-[0.98] border-primary/20 bg-primary/5"
+                onClick={() => navigate('/network')}
+              >
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Network className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold">Dashboard de Red</h3>
+                    <p className="text-xs text-muted-foreground">Ver ventas y temperatura de todas las máquinas</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Mis Máquinas</h2>
               <span className="text-sm text-muted-foreground">{maquinas.length} máquina(s)</span>

@@ -24,6 +24,7 @@ import { AI } from "./pages/AI";
 import { StockPrediction } from "./pages/StockPrediction";
 import { ProfitabilityAnalysis } from "./pages/ProfitabilityAnalysis";
 import { DailySummary } from "./pages/DailySummary";
+import { NetworkDashboard } from "./pages/NetworkDashboard";
 import NotFound from "./pages/NotFound";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
 
@@ -73,6 +74,7 @@ const AppContent = () => {
         <Route path="/ai/stock-prediction" element={<StockPrediction />} />
         <Route path="/ai/profitability" element={<ProfitabilityAnalysis />} />
         <Route path="/ai/daily-summary" element={<DailySummary />} />
+        <Route path="/network" element={<NetworkDashboard />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
