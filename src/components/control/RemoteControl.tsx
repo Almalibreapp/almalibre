@@ -8,12 +8,14 @@ import {
   controlReanudarVentas,
   controlRefrigeracionOn,
   controlRefrigeracionOff,
+  controlDeshielo,
 } from '@/services/controlApi';
 import { 
   RotateCcw, 
   Snowflake,
   PlayCircle, 
   ThermometerSnowflake,
+  Droplets,
   Loader2 
 } from 'lucide-react';
 
@@ -54,6 +56,17 @@ const controlActions: ControlAction[] = [
     needsConfirmation: true,
     confirmMessage: '¿Desactivar refrigeración? Solo para mantenimiento',
     action: controlRefrigeracionOff,
+  },
+  {
+    id: 'deshielo',
+    label: 'Activar Descongelación',
+    description: 'Inicia el ciclo de descongelación',
+    icon: Droplets,
+    color: 'text-sky-600',
+    bgColor: 'bg-sky-100 hover:bg-sky-200',
+    needsConfirmation: true,
+    confirmMessage: '¿Activar el ciclo de descongelación?',
+    action: controlDeshielo,
   },
   {
     id: 'reanudar',
