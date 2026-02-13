@@ -20,6 +20,8 @@ import {
   ChevronLeft,
   ChevronRight,
   BarChart3,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 
@@ -236,37 +238,49 @@ export const NetworkDashboard = () => {
               </Card>
             )}
 
-            {/* Temperature overview */}
+            {/* Machine Status & Temperature */}
             {tempData && tempData.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Thermometer className="h-4 w-4 text-primary" />
-                    Temperaturas de la Red
+                    Estado de la Red
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {tempData.map(t => (
                       <div key={t.maquinaId} className="flex items-center justify-between py-2 border-b last:border-0">
-                        <span className="font-medium text-sm">{t.nombre}</span>
+                        <div className="flex items-center gap-2">
+                          {t.isOnline ? (
+                            <Wifi className="h-4 w-4 text-success flex-shrink-0" />
+                          ) : (
+                            <WifiOff className="h-4 w-4 text-critical flex-shrink-0" />
+                          )}
+                          <div>
+                            <span className="font-medium text-sm">{t.nombre}</span>
+                            <p className="text-xs text-muted-foreground">
+                              {t.isOnline ? 'Online' : 'Sin conexión'}
+                            </p>
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2">
                           <span className={cn(
                             "font-bold text-lg",
-                            !t.temperatura ? 'text-muted-foreground' :
+                            !t.temperatura || t.temperatura.temperatura === null ? 'text-muted-foreground' :
                             t.temperatura.temperatura >= 10 ? 'text-critical' :
                             t.temperatura.temperatura >= 5 ? 'text-warning' : 'text-success'
                           )}>
-                            {t.temperatura ? `${t.temperatura.temperatura}°${t.temperatura.unidad || 'C'}` : '--°C'}
+                            {t.temperatura && t.temperatura.temperatura !== null ? `${t.temperatura.temperatura}°${t.temperatura.unidad || 'C'}` : '--°C'}
                           </span>
-                          {t.temperatura && (
+                          {t.temperatura && t.temperatura.temperatura !== null && (
                             <Badge variant="outline" className={cn(
                               "text-xs",
-                              t.temperatura.estado === 'normal' && "border-success/30 text-success",
-                              t.temperatura.estado === 'alerta' && "border-warning/30 text-warning",
-                              t.temperatura.estado === 'critico' && "border-critical/30 text-critical",
+                              t.temperatura.temperatura >= 10 && "border-critical/30 text-critical",
+                              t.temperatura.temperatura >= 5 && t.temperatura.temperatura < 10 && "border-warning/30 text-warning",
+                              t.temperatura.temperatura < 5 && "border-success/30 text-success",
                             )}>
-                              {t.temperatura.estado}
+                              {t.temperatura.temperatura >= 10 ? 'Crítico' : t.temperatura.temperatura >= 5 ? 'Alerta' : 'Normal'}
                             </Badge>
                           )}
                         </div>
@@ -277,27 +291,51 @@ export const NetworkDashboard = () => {
               </Card>
             )}
 
-            {/* All sales detail */}
+            {/* All sales detail with toppings */}
             {period !== 'mes' && detailData?.todasLasVentas && detailData.todasLasVentas.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">Todas las Ventas</CardTitle>
+                    <CardTitle className="text-base">Ventas Detalladas</CardTitle>
                     <Badge variant="secondary">{detailData.todasLasVentas.length} ventas</Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                  <div className="space-y-3 max-h-[500px] overflow-y-auto">
                     {detailData.todasLasVentas.map((v, i) => (
-                      <div key={`${v.id}-${i}`} className="flex items-center justify-between py-2 border-b last:border-0 text-sm">
-                        <div>
-                          <p className="font-medium capitalize">{v.producto}</p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>{v.hora}</span>
-                            <Badge variant="outline" className="text-xs">{v.maquina}</Badge>
+                      <div key={`${v.id}-${i}`} className="py-3 border-b last:border-0">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium capitalize text-sm">{v.producto}</p>
+                              <Badge 
+                                variant="outline" 
+                                className={cn(
+                                  "text-xs",
+                                  v.estado === 'exitoso' && "border-success/30 text-success",
+                                  v.estado === 'fallido' && "border-critical/30 text-critical"
+                                )}
+                              >
+                                {v.estado}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              <span>{v.hora}h</span>
+                              <Badge variant="outline" className="text-xs">{v.maquina}</Badge>
+                            </div>
+                            {v.toppings && v.toppings.length > 0 && (
+                              <div className="flex gap-1 mt-2 flex-wrap">
+                                {v.toppings.map((t, idx) => (
+                                  <Badge key={`${t.posicion}-${idx}`} variant="secondary" className="text-xs">
+                                    {t.nombre} x{t.cantidad}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                           </div>
+                          <span className="font-semibold text-primary ml-3">{v.precio.toFixed(2)}€</span>
                         </div>
-                        <span className="font-semibold text-primary">{v.precio.toFixed(2)}€</span>
                       </div>
                     ))}
                   </div>

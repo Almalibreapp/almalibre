@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchVentasResumen, fetchVentasDetalle, fetchTemperatura } from '@/services/api';
-import { VentasResumenResponse, VentasDetalleResponse, TemperaturaResponse } from '@/types';
+import { VentasResumenResponse, VentasDetalleResponse, TemperaturaResponse, ToppingVenta } from '@/types';
 
 // Fetch ventas detalle for a specific machine and date
 const fetchMachineVentasDetalle = async (imei: string, fecha?: string) => {
@@ -41,7 +41,7 @@ export interface NetworkSalesData {
 export interface NetworkDetailData {
   detallePorMaquina: { maquinaId: string; nombre: string; imei: string; detalle: VentasDetalleResponse | null }[];
   horaCaliente: { hora: string; ventas: number; ingresos: number } | null;
-  todasLasVentas: { maquina: string; id: string; hora: string; producto: string; precio: number; estado: string }[];
+  todasLasVentas: { maquina: string; id: string; hora: string; producto: string; precio: number; estado: string; toppings: ToppingVenta[] }[];
 }
 
 export const useNetworkSales = () => {
@@ -106,7 +106,7 @@ export const useNetworkDetail = (fecha?: string) => {
         }))
       );
 
-      // Aggregate all sales with machine name
+      // Aggregate all sales with machine name and toppings
       const todasLasVentas = results
         .flatMap(r =>
           (r.detalle?.ventas ?? []).map(v => ({
@@ -116,6 +116,7 @@ export const useNetworkDetail = (fecha?: string) => {
             producto: v.producto,
             precio: v.precio,
             estado: v.estado,
+            toppings: v.toppings || [],
           }))
         )
         .sort((a, b) => b.hora.localeCompare(a.hora));
@@ -149,18 +150,24 @@ export const useNetworkTemperatures = () => {
   const { user } = useAuth();
   const { maquinas } = useMaquinas(user?.id);
 
-  const imeis = maquinas.map(m => ({ id: m.id, nombre: m.nombre_personalizado, imei: m.mac_address }));
+  const imeis = maquinas.map(m => ({ id: m.id, nombre: m.nombre_personalizado, imei: m.mac_address, activa: m.activa }));
 
   return useQuery({
     queryKey: ['network-temperatures', imeis.map(m => m.imei).join(',')],
     queryFn: async () => {
       const results = await Promise.all(
-        imeis.map(async (m) => ({
-          maquinaId: m.id,
-          nombre: m.nombre,
-          imei: m.imei,
-          temperatura: await fetchMachineTemperatura(m.imei),
-        }))
+        imeis.map(async (m) => {
+          const temperatura = await fetchMachineTemperatura(m.imei);
+          // Machine is online if API returns valid temperature data (not null)
+          const isOnline = temperatura !== null && temperatura.temperatura !== null && temperatura.temperatura !== undefined;
+          return {
+            maquinaId: m.id,
+            nombre: m.nombre,
+            imei: m.imei,
+            temperatura,
+            isOnline,
+          };
+        })
       );
       return results;
     },
