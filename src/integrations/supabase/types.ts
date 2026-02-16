@@ -619,6 +619,108 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_config: {
+        Row: {
+          alerta_minimo: number
+          capacidad_maxima: number
+          created_at: string
+          id: string
+          machine_imei: string
+          topping_name: string
+          topping_position: string
+          unidades_actuales: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alerta_minimo?: number
+          capacidad_maxima?: number
+          created_at?: string
+          id?: string
+          machine_imei: string
+          topping_name?: string
+          topping_position: string
+          unidades_actuales?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alerta_minimo?: number
+          capacidad_maxima?: number
+          created_at?: string
+          id?: string
+          machine_imei?: string
+          topping_name?: string
+          topping_position?: string
+          unidades_actuales?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stock_history: {
+        Row: {
+          accion: string
+          created_at: string
+          id: string
+          machine_imei: string
+          topping_name: string
+          topping_position: string
+          unidades_anteriores: number
+          unidades_nuevas: number
+          user_id: string
+        }
+        Insert: {
+          accion?: string
+          created_at?: string
+          id?: string
+          machine_imei: string
+          topping_name?: string
+          topping_position: string
+          unidades_anteriores?: number
+          unidades_nuevas?: number
+          user_id: string
+        }
+        Update: {
+          accion?: string
+          created_at?: string
+          id?: string
+          machine_imei?: string
+          topping_name?: string
+          topping_position?: string
+          unidades_anteriores?: number
+          unidades_nuevas?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stock_sync_log: {
+        Row: {
+          id: string
+          machine_imei: string
+          ultima_sincronizacion: string
+          ultima_venta_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          machine_imei: string
+          ultima_sincronizacion?: string
+          ultima_venta_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          machine_imei?: string
+          ultima_sincronizacion?: string
+          ultima_venta_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       suscripciones: {
         Row: {
           created_at: string | null
@@ -662,6 +764,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
       }
       video_tutoriales: {
         Row: {
@@ -709,9 +832,16 @@ export type Database = {
     Functions: {
       generate_order_number: { Args: never; Returns: string }
       generate_ticket_number: { Args: never; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -838,6 +968,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
