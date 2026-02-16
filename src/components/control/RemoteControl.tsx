@@ -60,12 +60,12 @@ const controlActions: ControlAction[] = [
   {
     id: 'deshielo',
     label: 'Activar Descongelación',
-    description: 'Inicia el ciclo de descongelación',
-    icon: Droplets,
-    color: 'text-sky-600',
-    bgColor: 'bg-sky-100 hover:bg-sky-200',
+    description: 'Inicia el ciclo de descongelación de la máquina',
+    icon: ThermometerSnowflake,
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-100 hover:bg-orange-200',
     needsConfirmation: true,
-    confirmMessage: '¿Activar el ciclo de descongelación?',
+    confirmMessage: '¿Iniciar ciclo de descongelación? Solo usar para mantenimiento',
     action: controlDeshielo,
   },
   {
