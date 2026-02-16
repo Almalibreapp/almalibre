@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { TemperatureChart } from '@/components/dashboard/TemperatureChart';
 import { StockReplenishment } from '@/components/stock/StockReplenishment';
 import { SalesChart } from '@/components/dashboard/SalesChart';
-import { ControlTab } from '@/components/control/ControlTab';
+import { useStockSync } from '@/hooks/useStockSync';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
@@ -27,9 +27,7 @@ import {
   RefreshCw,
   Loader2,
   MapPin,
-  TrendingUp,
   AlertCircle,
-  Gamepad2,
   ChevronLeft,
   ChevronRight,
   Flame,
@@ -50,6 +48,9 @@ export const MachineDetail = () => {
   
   const { temperatura, ventas, stock, isLoading, hasError, error, refetchAll, isRefetching } = useMaquinaData(imei);
   const { data: ventasDetalle } = useVentasDetalle(imei);
+  
+  // Auto-sync stock from sales
+  useStockSync(imei);
   
   // State for date navigation  
   const [selectedDate, setSelectedDate] = useState<string | null>(null); // null = today
@@ -243,15 +244,11 @@ export const MachineDetail = () => {
           </div>
         ) : (
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">General</TabsTrigger>
               <TabsTrigger value="sales">Ventas</TabsTrigger>
               <TabsTrigger value="stock">Stock</TabsTrigger>
               <TabsTrigger value="temp">Temp</TabsTrigger>
-              <TabsTrigger value="control" className="flex items-center gap-1">
-                <Gamepad2 className="h-3 w-3" />
-                <span className="hidden sm:inline">Control</span>
-              </TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -659,10 +656,7 @@ export const MachineDetail = () => {
               )}
             </TabsContent>
 
-            {/* Control Tab */}
-            <TabsContent value="control" className="space-y-4">
-              <ControlTab imei={imei!} ubicacion={maquina.ubicacion || ''} />
-            </TabsContent>
+            {/* Control tab removed for regular users */}
           </Tabs>
         )}
       </main>
