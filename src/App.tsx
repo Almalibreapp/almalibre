@@ -28,31 +28,37 @@ import { NetworkDashboard } from "./pages/NetworkDashboard";
 import NotFound from "./pages/NotFound";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
 
+// Admin
+import { AdminRoute } from "./components/admin/AdminRoute";
+import { AdminLayout } from "./pages/admin/AdminLayout";
+import { AdminDashboard } from "./pages/admin/AdminDashboard";
+import { AdminMachines } from "./pages/admin/AdminMachines";
+import { AdminMachineDetail } from "./pages/admin/AdminMachineDetail";
+import { AdminFranchisees } from "./pages/admin/AdminFranchisees";
+import { AdminStock } from "./pages/admin/AdminStock";
+import { AdminSales } from "./pages/admin/AdminSales";
+import { AdminAnalytics } from "./pages/admin/AdminAnalytics";
+import { AdminOrders } from "./pages/admin/AdminOrders";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Mantener datos en caché por 5 minutos
       staleTime: 5 * 60 * 1000,
-      // Mantener caché por 10 minutos incluso si no se usa
       gcTime: 10 * 60 * 1000,
-      // No refetch automático al cambiar de ventana
       refetchOnWindowFocus: false,
-      // No refetch al reconectar red (el usuario puede hacerlo manualmente)
       refetchOnReconnect: false,
-      // Reintentar solo 1 vez
       retry: 1,
     },
   },
 });
 
-// Wrapper component to use hooks inside Router
 const AppContent = () => {
-  // Handle Android back button
   useAndroidBackButton();
   
   return (
     <div className="min-h-screen safe-area-top safe-area-bottom">
       <Routes>
+        {/* User routes */}
         <Route path="/" element={<Index />} />
         <Route path="/add-machine" element={<AddMachine />} />
         <Route path="/machine/:id" element={<MachineDetail />} />
@@ -75,6 +81,19 @@ const AppContent = () => {
         <Route path="/ai/profitability" element={<ProfitabilityAnalysis />} />
         <Route path="/ai/daily-summary" element={<DailySummary />} />
         <Route path="/network" element={<NetworkDashboard />} />
+
+        {/* Admin routes */}
+        <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="machines" element={<AdminMachines />} />
+          <Route path="machine/:id" element={<AdminMachineDetail />} />
+          <Route path="franchisees" element={<AdminFranchisees />} />
+          <Route path="stock" element={<AdminStock />} />
+          <Route path="sales" element={<AdminSales />} />
+          <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="orders" element={<AdminOrders />} />
+        </Route>
+
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
