@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 
 const Index = () => {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole(user?.id);
   const navigate = useNavigate();
 
@@ -17,8 +17,8 @@ const Index = () => {
     }
   }, [user, isAdmin, roleLoading, navigate]);
 
-  // Show splash while auth initializes, or while role is being resolved for an authenticated user
-  if (loading || (user && roleLoading)) {
+  // Only block on auth loading (role loads fast and doesn't need to block)
+  if (authLoading) {
     return <SplashScreen />;
   }
 
@@ -29,7 +29,4 @@ const Index = () => {
   return <Dashboard />;
 };
 
-
-
 export default Index;
-
