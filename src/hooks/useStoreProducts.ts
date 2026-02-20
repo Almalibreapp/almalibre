@@ -27,12 +27,13 @@ async function fetchProducts(): Promise<StoreProduct[]> {
 
 export function useStoreProducts() {
   return useQuery<StoreProduct[]>({
-    queryKey: ['store-products-v2'], // v2 forces cache invalidation after category filter fix
+    queryKey: ['store-products-v2'],
     queryFn: fetchProducts,
-    staleTime: 15 * 60 * 1000, // 15 min — matches server cache
-    gcTime: 60 * 60 * 1000,    // keep in memory 1 hour
+    staleTime: 15 * 60 * 1000,  // 15 min — matches server cache
+    gcTime: 60 * 60 * 1000,     // keep in memory 1 hour
     retry: 2,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,      // Don't re-fetch if cache is fresh when navigating back
+    refetchOnMount: true,        // Allow mount refetch so navigation back works
+    refetchOnReconnect: false,
   });
 }

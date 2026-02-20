@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Profile } from '@/types';
@@ -8,6 +8,7 @@ export const useAuth = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const initializedRef = useRef(false);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -27,43 +28,54 @@ export const useAuth = () => {
   useEffect(() => {
     let isMounted = true;
 
-    // ── ONGOING auth changes (does NOT control loading state) ────────────
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+    // Step 1: Get the current session immediately (synchronous-ish)
+    // This prevents the flash of "no session" before onAuthStateChange fires
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
         if (!isMounted) return;
 
-        setSession(session);
-        setUser(session?.user ?? null);
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
 
-        if (session?.user) {
-          // Dispatch after callback to avoid Supabase deadlock on token refresh
+        if (currentSession?.user) {
+          await fetchProfile(currentSession.user.id);
+        }
+      } catch (err) {
+        console.error('Error initializing auth:', err);
+      } finally {
+        if (isMounted) {
+          initializedRef.current = true;
+          setLoading(false);
+        }
+      }
+    };
+
+    // Step 2: Listen for ongoing auth changes AFTER initialization
+    // IMPORTANT: We do NOT set loading here to avoid flickering
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, newSession) => {
+        if (!isMounted) return;
+
+        // Ignore SIGNED_OUT events during the initial load window
+        // (Supabase sometimes fires these spuriously during token refresh)
+        if (event === 'SIGNED_OUT' && !initializedRef.current) {
+          return;
+        }
+
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+
+        if (newSession?.user) {
+          // Use setTimeout to avoid potential deadlocks during token refresh
           setTimeout(() => {
-            if (isMounted) fetchProfile(session.user.id);
+            if (isMounted) fetchProfile(newSession.user.id);
           }, 0);
         } else {
           setProfile(null);
         }
       }
     );
-
-    // ── INITIAL load (controls loading state) ───────────────────────────
-    const initializeAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!isMounted) return;
-
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        }
-      } catch (err) {
-        console.error('Error initializing auth:', err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
 
     initializeAuth();
 
