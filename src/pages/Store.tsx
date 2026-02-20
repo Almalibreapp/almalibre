@@ -3,66 +3,43 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingCart, Search, Plus, Minus, Loader2, Package } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { ShoppingCart, Search, Plus, Minus, Package, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ProductImage } from '@/components/store/ProductImage';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useStoreProducts } from '@/hooks/useStoreProducts';
-
-interface Product {
-  id: string;
-  nombre: string;
-  descripcion: string | null;
-  precio: number;
-  categoria: string;
-  imagen_url: string | null;
-  stock_disponible: number | null;
-  en_stock?: boolean;
-}
+import { useStoreProducts, type StoreProduct } from '@/hooks/useStoreProducts';
 
 interface CartItem {
-  product: Product;
+  product: StoreProduct;
   quantity: number;
 }
 
-const categories = [
-  { value: 'all', label: 'Todos' },
-  { value: 'acai', label: 'Açaí' },
-  { value: 'toppings', label: 'Toppings' },
-  { value: 'consumibles', label: 'Consumibles' },
-  { value: 'merchandising', label: 'Merchandising' },
-];
-
 export const Store = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { data: products = [], isLoading: loading } = useStoreProducts();
+  const { data: products = [], isLoading, isError } = useStoreProducts();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('all');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
 
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      const matchesSearch = product.nombre.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory =
-        activeCategory === 'all' ||
-        product.categoria.toLowerCase().includes(activeCategory.toLowerCase());
-      return matchesSearch && matchesCategory;
-    });
-  }, [products, searchQuery, activeCategory]);
+    if (!searchQuery.trim()) return products;
+    const q = searchQuery.toLowerCase();
+    return products.filter(p =>
+      p.nombre.toLowerCase().includes(q) ||
+      p.descripcion?.toLowerCase().includes(q) ||
+      p.categoria.toLowerCase().includes(q)
+    );
+  }, [products, searchQuery]);
 
-  const addToCart = (product: Product) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
+  const addToCart = (product: StoreProduct) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
-        return prev.map((item) =>
+        return prev.map(item =>
           item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item,
         );
       }
@@ -72,14 +49,14 @@ export const Store = () => {
   };
 
   const updateQuantity = (productId: string, delta: number) => {
-    setCart((prev) =>
+    setCart(prev =>
       prev
-        .map((item) =>
+        .map(item =>
           item.product.id === productId
             ? { ...item, quantity: Math.max(0, item.quantity + delta) }
             : item,
         )
-        .filter((item) => item.quantity > 0),
+        .filter(item => item.quantity > 0),
     );
   };
 
@@ -91,7 +68,6 @@ export const Store = () => {
     navigate('/checkout', { state: { cart } });
   };
 
-  // Skeleton loader for products grid
   const ProductSkeleton = () => (
     <Card className="overflow-hidden">
       <div className="aspect-square">
@@ -107,33 +83,6 @@ export const Store = () => {
       </CardContent>
     </Card>
   );
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background pb-32">
-        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-          <div className="container px-4 py-4">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-xl font-bold">Tienda</h1>
-              <Skeleton className="h-9 w-9" />
-            </div>
-            <Skeleton className="h-10 w-full" />
-          </div>
-          <div className="px-4 pb-2">
-            <Skeleton className="h-10 w-full" />
-          </div>
-        </header>
-        <main className="container px-4 py-6">
-          <div className="grid grid-cols-2 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <ProductSkeleton key={i} />
-            ))}
-          </div>
-        </main>
-        <BottomNav />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background pb-32">
@@ -163,37 +112,27 @@ export const Store = () => {
               placeholder="Buscar productos..."
               className="pl-10"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
         </div>
-
-        <Tabs value={activeCategory} onValueChange={setActiveCategory} className="px-4 pb-2">
-          <TabsList className="w-full justify-start overflow-x-auto">
-            {categories.map((cat) => (
-              <TabsTrigger key={cat.value} value={cat.value} className="flex-shrink-0">
-                {cat.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
       </header>
 
       {/* Cart Drawer */}
       {showCart && cart.length > 0 && (
-        <div className="fixed inset-x-0 top-[140px] z-20 bg-background border-b shadow-lg animate-slide-up">
+        <div className="fixed inset-x-0 top-[109px] z-20 bg-background border-b shadow-lg animate-slide-up">
           <div className="container px-4 py-4 max-h-[300px] overflow-y-auto">
             <h3 className="font-semibold mb-3">Tu Carrito</h3>
             <div className="space-y-3">
-              {cart.map((item) => (
+              {cart.map(item => (
                 <div key={item.product.id} className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{item.product.nombre}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{item.product.nombre}</p>
                     <p className="text-sm text-muted-foreground">
                       €{item.product.precio.toFixed(2)} x {item.quantity}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 ml-2">
                     <Button
                       variant="outline"
                       size="icon"
@@ -202,7 +141,7 @@ export const Store = () => {
                     >
                       <Minus className="h-4 w-4" />
                     </Button>
-                    <span className="w-8 text-center">{item.quantity}</span>
+                    <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
                     <Button
                       variant="outline"
                       size="icon"
@@ -230,38 +169,61 @@ export const Store = () => {
 
       {/* Products Grid */}
       <main className="container px-4 py-6">
-        {filteredProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-4">
+            {[...Array(6)].map((_, i) => <ProductSkeleton key={i} />)}
+          </div>
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <AlertCircle className="h-12 w-12 text-destructive" />
+            <p className="text-muted-foreground text-center">
+              No se pudo cargar la tienda.<br />Comprueba tu conexión e inténtalo de nuevo.
+            </p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16">
             <Package className="h-16 w-16 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">No se encontraron productos</p>
+            <p className="text-muted-foreground">
+              {searchQuery ? 'No se encontraron productos' : 'La tienda está vacía'}
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {filteredProducts.map((product) => (
-              <Card key={product.id} className="overflow-hidden animate-fade-in">
-                <div className="aspect-square bg-muted">
-                  <ProductImage src={product.imagen_url} alt={product.nombre} />
-                </div>
-                <CardContent className="p-3">
-                  <h3 className="font-medium text-sm line-clamp-2 mb-1">{product.nombre}</h3>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                    {product.descripcion}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-primary">€{product.precio.toFixed(2)}</span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 w-8 p-0"
-                      onClick={() => addToCart(product)}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
+          <>
+            {products.length > 0 && (
+              <p className="text-xs text-muted-foreground mb-4">
+                {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''}
+                {searchQuery ? ` para "${searchQuery}"` : ''}
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              {filteredProducts.map(product => (
+                <Card key={product.id} className="overflow-hidden">
+                  <div className="aspect-square bg-muted">
+                    <ProductImage src={product.imagen_url} alt={product.nombre} />
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  <CardContent className="p-3">
+                    <h3 className="font-medium text-sm line-clamp-2 mb-1">{product.nombre}</h3>
+                    {product.descripcion && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                        {product.descripcion}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-primary">€{product.precio.toFixed(2)}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => addToCart(product)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
         )}
       </main>
 
