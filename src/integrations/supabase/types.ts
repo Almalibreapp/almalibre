@@ -104,6 +104,57 @@ export type Database = {
         }
         Relationships: []
       }
+      direcciones_guardadas: {
+        Row: {
+          address_1: string
+          apellidos_contacto: string
+          city: string
+          country: string
+          created_at: string
+          email_contacto: string
+          es_favorita: boolean
+          id: string
+          nombre: string
+          nombre_contacto: string
+          postcode: string
+          telefono_contacto: string
+          updated_at: string
+          usuario_id: string
+        }
+        Insert: {
+          address_1?: string
+          apellidos_contacto?: string
+          city?: string
+          country?: string
+          created_at?: string
+          email_contacto?: string
+          es_favorita?: boolean
+          id?: string
+          nombre?: string
+          nombre_contacto?: string
+          postcode?: string
+          telefono_contacto?: string
+          updated_at?: string
+          usuario_id: string
+        }
+        Update: {
+          address_1?: string
+          apellidos_contacto?: string
+          city?: string
+          country?: string
+          created_at?: string
+          email_contacto?: string
+          es_favorita?: boolean
+          id?: string
+          nombre?: string
+          nombre_contacto?: string
+          postcode?: string
+          telefono_contacto?: string
+          updated_at?: string
+          usuario_id?: string
+        }
+        Relationships: []
+      }
       dispositivos_usuario: {
         Row: {
           activo: boolean | null
