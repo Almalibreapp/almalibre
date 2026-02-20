@@ -1,8 +1,9 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect, useRef } from "react";
 import Index from "./pages/Index";
 import { AddMachine } from "./pages/AddMachine";
 import { MachineDetail } from "./pages/MachineDetail";
@@ -27,6 +28,11 @@ import { DailySummary } from "./pages/DailySummary";
 import { NetworkDashboard } from "./pages/NetworkDashboard";
 import NotFound from "./pages/NotFound";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchVentasResumen,
+  fetchTemperatura,
+} from "@/services/api";
 
 // Admin
 import { AdminRoute } from "./components/admin/AdminRoute";
@@ -52,11 +58,71 @@ const queryClient = new QueryClient({
   },
 });
 
+// Prefetch store products via edge function
+async function prefetchStoreProducts() {
+  const { data, error } = await supabase.functions.invoke('woocommerce-products', { body: {} });
+  if (error || data?.error) return [];
+  return data?.products ?? [];
+}
+
+// Fired once per session when auth is confirmed — prefetches store + machine data
+const GlobalPrefetch = () => {
+  const queryClientRef = useQueryClient();
+  const prefetchedRef = useRef(false);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!session?.user || prefetchedRef.current) return;
+      if (event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION') return;
+
+      prefetchedRef.current = true;
+      const userId = session.user.id;
+
+      // 1. Prefetch store products (background, fire-and-forget)
+      queryClientRef.prefetchQuery({
+        queryKey: ['store-products-v2'],
+        queryFn: prefetchStoreProducts,
+        staleTime: 15 * 60 * 1000,
+      });
+
+      // 2. Fetch user's machines, then prefetch ventas + temperatura for each
+      try {
+        const { data: maquinas } = await supabase
+          .from('maquinas')
+          .select('mac_address')
+          .eq('usuario_id', userId);
+
+        if (maquinas && maquinas.length > 0) {
+          maquinas.forEach(({ mac_address }) => {
+            queryClientRef.prefetchQuery({
+              queryKey: ['ventas-resumen', mac_address],
+              queryFn: () => fetchVentasResumen(mac_address),
+              staleTime: 3 * 60 * 1000,
+            });
+            queryClientRef.prefetchQuery({
+              queryKey: ['temperatura', mac_address],
+              queryFn: () => fetchTemperatura(mac_address),
+              staleTime: 60 * 1000,
+            });
+          });
+        }
+      } catch {
+        // Prefetch failures are silent — the components will fetch on mount as fallback
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [queryClientRef]);
+
+  return null;
+};
+
 const AppContent = () => {
   useAndroidBackButton();
-  
+
   return (
     <div className="min-h-screen safe-area-top safe-area-bottom">
+      <GlobalPrefetch />
       <Routes>
         {/* User routes */}
         <Route path="/" element={<Index />} />
@@ -113,3 +179,4 @@ const App = () => (
 );
 
 export default App;
+
