@@ -10,11 +10,11 @@ const Index = () => {
   const { user, loading } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole(user?.id);
   const navigate = useNavigate();
-  // Safety timeout: never show splash for more than 5 seconds
+  // Safety timeout: never show splash for more than 6 seconds regardless of any loading state
   const [safetyTimeout, setSafetyTimeout] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setSafetyTimeout(true), 5000);
+    const timer = setTimeout(() => setSafetyTimeout(true), 6000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -24,8 +24,8 @@ const Index = () => {
     }
   }, [user, isAdmin, roleLoading, navigate]);
 
-  // Show splash only while auth is loading, or while checking role (with safety timeout)
-  const isStillLoading = loading || (user && roleLoading && !safetyTimeout);
+  // Show splash only while genuinely loading, but never more than 6s (safetyTimeout)
+  const isStillLoading = !safetyTimeout && (loading || (user && roleLoading));
 
   if (isStillLoading) {
     return <SplashScreen />;
@@ -37,6 +37,7 @@ const Index = () => {
 
   return <Dashboard />;
 };
+
 
 export default Index;
 
