@@ -27,7 +27,7 @@ async function fetchProducts(): Promise<StoreProduct[]> {
 
 export function useStoreProducts() {
   return useQuery<StoreProduct[]>({
-    queryKey: ['store-products'],
+    queryKey: ['store-products-v2'], // v2 forces cache invalidation after category filter fix
     queryFn: fetchProducts,
     staleTime: 15 * 60 * 1000, // 15 min — matches server cache
     gcTime: 60 * 60 * 1000,    // keep in memory 1 hour
