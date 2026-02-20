@@ -71,44 +71,50 @@ const GlobalPrefetch = () => {
   const prefetchedRef = useRef(false);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session?.user || prefetchedRef.current) return;
       if (event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION') return;
 
       prefetchedRef.current = true;
       const userId = session.user.id;
 
-      // 1. Prefetch store products (background, fire-and-forget)
-      queryClientRef.prefetchQuery({
-        queryKey: ['store-products-v2'],
-        queryFn: prefetchStoreProducts,
-        staleTime: 15 * 60 * 1000,
-      });
+      // CRITICAL: Use setTimeout to avoid Supabase deadlock when calling DB inside onAuthStateChange
+      setTimeout(() => {
+        // 1. Prefetch store products (background, fire-and-forget)
+        queryClientRef.prefetchQuery({
+          queryKey: ['store-products-v2'],
+          queryFn: prefetchStoreProducts,
+          staleTime: 15 * 60 * 1000,
+        });
 
-      // 2. Fetch user's machines, then prefetch ventas + temperatura for each
-      try {
-        const { data: maquinas } = await supabase
-          .from('maquinas')
-          .select('mac_address')
-          .eq('usuario_id', userId);
+        // 2. Fetch user's machines, then prefetch ventas + temperatura for each
+        const fetchAndPrefetch = async () => {
+          try {
+            const { data: maquinas } = await supabase
+              .from('maquinas')
+              .select('mac_address')
+              .eq('usuario_id', userId);
 
-        if (maquinas && maquinas.length > 0) {
-          maquinas.forEach(({ mac_address }) => {
-            queryClientRef.prefetchQuery({
-              queryKey: ['ventas-resumen', mac_address],
-              queryFn: () => fetchVentasResumen(mac_address),
-              staleTime: 3 * 60 * 1000,
-            });
-            queryClientRef.prefetchQuery({
-              queryKey: ['temperatura', mac_address],
-              queryFn: () => fetchTemperatura(mac_address),
-              staleTime: 60 * 1000,
-            });
-          });
-        }
-      } catch {
-        // Prefetch failures are silent — the components will fetch on mount as fallback
-      }
+            if (maquinas && maquinas.length > 0) {
+              maquinas.forEach(({ mac_address }) => {
+                queryClientRef.prefetchQuery({
+                  queryKey: ['ventas-resumen', mac_address],
+                  queryFn: () => fetchVentasResumen(mac_address),
+                  staleTime: 3 * 60 * 1000,
+                });
+                queryClientRef.prefetchQuery({
+                  queryKey: ['temperatura', mac_address],
+                  queryFn: () => fetchTemperatura(mac_address),
+                  staleTime: 60 * 1000,
+                });
+              });
+            }
+          } catch {
+            // Prefetch failures are silent — the components will fetch on mount as fallback
+          }
+        };
+        fetchAndPrefetch();
+      }, 0);
     });
 
     return () => subscription.unsubscribe();
