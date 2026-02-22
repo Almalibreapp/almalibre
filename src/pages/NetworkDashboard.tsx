@@ -268,19 +268,17 @@ export const NetworkDashboard = () => {
                           <span className={cn(
                             "font-bold text-lg",
                             !t.temperatura || t.temperatura.temperatura === null ? 'text-muted-foreground' :
-                            t.temperatura.temperatura >= 10 ? 'text-critical' :
-                            t.temperatura.temperatura >= 5 ? 'text-warning' : 'text-success'
+                            t.temperatura.temperatura >= 11 ? 'text-critical' : 'text-success'
                           )}>
                             {t.temperatura && t.temperatura.temperatura !== null ? `${t.temperatura.temperatura}°${t.temperatura.unidad || 'C'}` : '--°C'}
                           </span>
                           {t.temperatura && t.temperatura.temperatura !== null && (
                             <Badge variant="outline" className={cn(
                               "text-xs",
-                              t.temperatura.temperatura >= 10 && "border-critical/30 text-critical",
-                              t.temperatura.temperatura >= 5 && t.temperatura.temperatura < 10 && "border-warning/30 text-warning",
-                              t.temperatura.temperatura < 5 && "border-success/30 text-success",
+                              t.temperatura.temperatura >= 11 && "border-critical/30 text-critical",
+                              t.temperatura.temperatura <= 10 && "border-success/30 text-success",
                             )}>
-                              {t.temperatura.temperatura >= 10 ? 'Crítico' : t.temperatura.temperatura >= 5 ? 'Alerta' : 'Normal'}
+                              {t.temperatura.temperatura >= 11 ? 'Crítico' : 'Normal'}
                             </Badge>
                           )}
                         </div>

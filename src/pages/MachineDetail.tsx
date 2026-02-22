@@ -594,8 +594,7 @@ export const MachineDetail = () => {
                             contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
                             formatter={(value: number) => [`${value.toFixed(1)}°C`, 'Temperatura']}
                           />
-                          <ReferenceLine y={10} stroke="hsl(var(--critical))" strokeDasharray="5 5" label={{ value: 'Crítico 10°C', fill: 'hsl(var(--critical))', fontSize: 10 }} />
-                          <ReferenceLine y={5} stroke="hsl(var(--warning))" strokeDasharray="5 5" label={{ value: 'Alerta 5°C', fill: 'hsl(var(--warning))', fontSize: 10 }} />
+                          <ReferenceLine y={11} stroke="hsl(var(--critical))" strokeDasharray="5 5" label={{ value: 'Crítico 11°C', fill: 'hsl(var(--critical))', fontSize: 10 }} />
                           <Line
                             type="monotone"
                             dataKey="temperatura"
@@ -640,8 +639,7 @@ export const MachineDetail = () => {
                       <div className="text-center p-3 bg-muted/50 rounded-lg">
                         <p className={cn(
                           "text-lg font-bold",
-                          Math.max(...tempLog.map(r => Number(r.temperatura))) >= 10 ? 'text-critical' : 
-                          Math.max(...tempLog.map(r => Number(r.temperatura))) >= 5 ? 'text-warning' : 'text-success'
+                          Math.max(...tempLog.map(r => Number(r.temperatura))) >= 11 ? 'text-critical' : 'text-success'
                         )}>
                           {Math.max(...tempLog.map(r => Number(r.temperatura))).toFixed(1)}°C
                         </p>
