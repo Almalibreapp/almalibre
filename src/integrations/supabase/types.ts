@@ -837,6 +837,100 @@ export type Database = {
         }
         Relationships: []
       }
+      ventas_historico: {
+        Row: {
+          cantidad_unidades: number
+          created_at: string
+          estado: string
+          fecha: string
+          hora: string
+          id: string
+          imei: string
+          maquina_id: string
+          metodo_pago: string
+          numero_orden: string | null
+          precio: number
+          producto: string
+          toppings: Json
+          venta_api_id: string
+        }
+        Insert: {
+          cantidad_unidades?: number
+          created_at?: string
+          estado?: string
+          fecha: string
+          hora: string
+          id?: string
+          imei: string
+          maquina_id: string
+          metodo_pago?: string
+          numero_orden?: string | null
+          precio?: number
+          producto: string
+          toppings?: Json
+          venta_api_id: string
+        }
+        Update: {
+          cantidad_unidades?: number
+          created_at?: string
+          estado?: string
+          fecha?: string
+          hora?: string
+          id?: string
+          imei?: string
+          maquina_id?: string
+          metodo_pago?: string
+          numero_orden?: string | null
+          precio?: number
+          producto?: string
+          toppings?: Json
+          venta_api_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ventas_historico_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ventas_sync_log: {
+        Row: {
+          id: string
+          imei: string
+          maquina_id: string
+          ultima_fecha_sync: string
+          ultima_venta_api_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          imei: string
+          maquina_id: string
+          ultima_fecha_sync?: string
+          ultima_venta_api_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          imei?: string
+          maquina_id?: string
+          ultima_fecha_sync?: string
+          ultima_venta_api_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ventas_sync_log_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: true
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_tutoriales: {
         Row: {
           activo: boolean | null
