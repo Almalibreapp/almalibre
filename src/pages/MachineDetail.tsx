@@ -159,17 +159,12 @@ export const MachineDetail = () => {
     );
   }
 
-  const getTempStatusBadge = (estado?: string) => {
-    switch (estado) {
-      case 'normal':
-        return <Badge className="bg-success-light text-success border-success/30">Normal</Badge>;
-      case 'alerta':
-        return <Badge className="bg-warning-light text-warning border-warning/30">Alerta</Badge>;
-      case 'critico':
-        return <Badge className="bg-critical-light text-critical border-critical/30">Crítico</Badge>;
-      default:
-        return null;
+  const getTempStatusBadge = () => {
+    if (temperatura?.temperatura === undefined) return null;
+    if (temperatura.temperatura >= 11) {
+      return <Badge className="bg-critical-light text-critical border-critical/30">Crítico</Badge>;
     }
+    return <Badge className="bg-success-light text-success border-success/30">Normal</Badge>;
   };
 
   // Stock crítico al 25%
@@ -261,7 +256,7 @@ export const MachineDetail = () => {
                       <Thermometer className="h-4 w-4 text-primary" />
                       Temperatura
                     </CardTitle>
-                    {getTempStatusBadge(temperatura?.estado)}
+                    {getTempStatusBadge()}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -532,7 +527,7 @@ export const MachineDetail = () => {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base">Temperatura Actual</CardTitle>
-                    {getTempStatusBadge(temperatura?.estado)}
+                    {getTempStatusBadge()}
                   </div>
                 </CardHeader>
                 <CardContent>
