@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { fetchVentasDetalle } from '@/services/api';
 import { cn } from '@/lib/utils';
+import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -49,8 +50,39 @@ export const AdminMachineDetail = () => {
   }, [id]);
 
   const imei = maquina?.mac_address;
+  const machineId = maquina?.id;
   const { temperatura, ventas, stock, isLoading, hasError, error, refetchAll, isRefetching } = useMaquinaData(imei);
   const { data: ventasDetalle } = useVentasDetalle(imei);
+
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const chinaDates = getChinaDatesForSpainDate(todayStr);
+
+  // Fetch today's sales from DB for accurate Spain-time grouping
+  const { data: ventasHoyDB } = useQuery({
+    queryKey: ['admin-machine-ventas-hoy', machineId, todayStr],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('ventas_historico')
+        .select('precio, hora, fecha, cantidad_unidades')
+        .eq('maquina_id', machineId!)
+        .in('fecha', chinaDates);
+      return data || [];
+    },
+    enabled: !!machineId,
+  });
+
+  const ventasHoySpain = useMemo(() => {
+    if (!ventasHoyDB) return { euros: 0, cantidad: 0 };
+    let euros = 0, cantidad = 0;
+    ventasHoyDB.forEach(v => {
+      const converted = convertChinaToSpainFull(v.hora, v.fecha);
+      if (converted.fecha === todayStr) {
+        euros += Number(v.precio);
+        cantidad += (v.cantidad_unidades || 1);
+      }
+    });
+    return { euros, cantidad };
+  }, [ventasHoyDB, todayStr]);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showAllSales, setShowAllSales] = useState(false);
@@ -153,8 +185,8 @@ export const AdminMachineDetail = () => {
               <Card>
                 <CardContent className="p-4 text-center">
                   <Euro className="h-5 w-5 text-primary mx-auto mb-2" />
-                  <p className="text-3xl font-bold text-primary">{ventas?.ventas_hoy?.total_euros?.toFixed(2) ?? '0.00'}€</p>
-                  <p className="text-xs text-muted-foreground">{ventas?.ventas_hoy?.cantidad ?? 0} ventas hoy</p>
+                  <p className="text-3xl font-bold text-primary">{ventasHoySpain.euros.toFixed(2)}€</p>
+                  <p className="text-xs text-muted-foreground">{ventasHoySpain.cantidad} ventas hoy</p>
                 </CardContent>
               </Card>
               <Card>
