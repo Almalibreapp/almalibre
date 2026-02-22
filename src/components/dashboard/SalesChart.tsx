@@ -1,7 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Venta } from '@/types';
-import { format, subDays } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { convertChinaToSpain } from '@/lib/timezone';
 
 interface SalesChartProps {
   ventas: Venta[];
@@ -12,12 +11,13 @@ export const SalesChart = ({ ventas, fecha }: SalesChartProps) => {
   // La API devuelve ventas del día actual con hora, no historial de 7 días
   // Agrupamos por hora para mostrar actividad del día
   const ventasPorHora = ventas.reduce((acc, venta) => {
-    const hora = venta.hora.split(':')[0] + ':00';
-    if (!acc[hora]) {
-      acc[hora] = { cantidad: 0, ingresos: 0 };
+    const horaSpain = convertChinaToSpain(venta.hora, fecha);
+    const horaKey = horaSpain.split(':')[0] + ':00';
+    if (!acc[horaKey]) {
+      acc[horaKey] = { cantidad: 0, ingresos: 0 };
     }
-    acc[hora].cantidad += 1;
-    acc[hora].ingresos += venta.precio;
+    acc[horaKey].cantidad += 1;
+    acc[horaKey].ingresos += venta.precio;
     return acc;
   }, {} as Record<string, { cantidad: number; ingresos: number }>);
 

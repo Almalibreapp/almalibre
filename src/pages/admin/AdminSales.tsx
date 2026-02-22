@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { format, subDays, addDays, isToday as isTodayFn } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
+import { convertChinaToSpain } from '@/lib/timezone';
 import {
   Euro, TrendingUp, Calendar, Loader2, ChevronLeft, ChevronRight,
   Clock, CreditCard, List, BarChart3,
@@ -86,7 +87,8 @@ export const AdminSales = () => {
     // By hour
     const byHour: Record<string, { ventas: number; euros: number }> = {};
     ventasDia.forEach(v => {
-      const h = v.hora.split(':')[0] + ':00';
+      const horaSpain = convertChinaToSpain(v.hora, dateStr);
+      const h = horaSpain.split(':')[0] + ':00';
       if (!byHour[h]) byHour[h] = { ventas: 0, euros: 0 };
       byHour[h].ventas++;
       byHour[h].euros += Number(v.precio);
@@ -344,7 +346,7 @@ export const AdminSales = () => {
                       <TableBody>
                         {ventasDia?.map(v => (
                           <TableRow key={v.id}>
-                            <TableCell className="font-mono text-xs">{v.hora}</TableCell>
+                            <TableCell className="font-mono text-xs">{convertChinaToSpain(v.hora, dateStr)}</TableCell>
                             {selectedMachine === 'all' && (
                               <TableCell className="text-xs">{getMachineName(v.maquina_id)}</TableCell>
                             )}

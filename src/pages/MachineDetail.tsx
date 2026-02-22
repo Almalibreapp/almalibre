@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
+import { convertChinaToSpain } from '@/lib/timezone';
 import {
   ArrowLeft,
   Settings,
@@ -117,7 +118,8 @@ export const MachineDetail = () => {
     if (ventas.length === 0) return null;
     const porHora: Record<string, { ventas: number; ingresos: number }> = {};
     ventas.forEach(v => {
-      const hora = v.hora.split(':')[0] + ':00';
+      const horaSpain = convertChinaToSpain(v.hora, currentVentas?.fecha);
+      const hora = horaSpain.split(':')[0] + ':00';
       if (!porHora[hora]) porHora[hora] = { ventas: 0, ingresos: 0 };
       porHora[hora].ventas += 1;
       porHora[hora].ingresos += v.precio;
@@ -467,7 +469,7 @@ export const MachineDetail = () => {
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <p className="font-medium capitalize">{venta.producto}</p>
-                                    <span className="text-xs text-muted-foreground">{venta.hora}</span>
+                                    <span className="text-xs text-muted-foreground">{convertChinaToSpain(venta.hora, currentVentas?.fecha)}</span>
                                   </div>
                                   {venta.toppings && venta.toppings.length > 0 && (
                                     <div className="flex gap-1 mt-1 flex-wrap">
