@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchVentasResumen, fetchTemperatura } from '@/services/api';
+import { fetchTemperatura } from '@/services/api';
+import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
+import { format } from 'date-fns';
 import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface MachineWithUser {
@@ -17,14 +19,12 @@ interface MachineWithUser {
 export const AdminDashboard = () => {
   const [machines, setMachines] = useState<MachineWithUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [metrics, setMetrics] = useState({
-    totalSalesToday: 0,
-    totalIceCreamsToday: 0,
-    activeMachines: 0,
-    totalMachines: 0,
-    lowStockAlerts: 0,
-    tempAlerts: 0,
-  });
+  const [tempAlerts, setTempAlerts] = useState(0);
+  const [lowStockAlerts, setLowStockAlerts] = useState(0);
+  const [ventasHoy, setVentasHoy] = useState<any[]>([]);
+
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const chinaDates = getChinaDatesForSpainDate(todayStr);
 
   useEffect(() => {
     loadDashboard();
@@ -45,45 +45,53 @@ export const AdminDashboard = () => {
         .from('stock_config')
         .select('*', { count: 'exact', head: true })
         .lt('unidades_actuales', 20);
+      setLowStockAlerts(lowStock || 0);
 
-      // Fetch sales for each machine
-      let totalSales = 0;
-      let totalIceCreams = 0;
+      // Fetch today's sales from DB (using China date range for Spain today)
+      const { data: ventas } = await supabase
+        .from('ventas_historico')
+        .select('precio, hora, fecha, cantidad_unidades, maquina_id')
+        .in('fecha', chinaDates);
+      setVentasHoy(ventas || []);
+
+      // Fetch temp alerts
       let tempAlertCount = 0;
-
-      const salesPromises = maquinas.map(async (m) => {
-        try {
-          const ventas = await fetchVentasResumen(m.mac_address);
-          totalSales += ventas?.ventas_hoy?.total_euros || 0;
-          totalIceCreams += ventas?.ventas_hoy?.cantidad || 0;
-        } catch { /* skip */ }
-      });
-
       const tempPromises = maquinas.map(async (m) => {
         try {
           const temp = await fetchTemperatura(m.mac_address);
-          if (temp?.estado === 'critico' || temp?.estado === 'alerta') {
+          if (temp?.temperatura !== undefined && temp.temperatura >= 11) {
             tempAlertCount++;
           }
         } catch { /* skip */ }
       });
-
-      await Promise.allSettled([...salesPromises, ...tempPromises]);
-
-      setMetrics({
-        totalSalesToday: totalSales,
-        totalIceCreamsToday: totalIceCreams,
-        activeMachines: maquinas.filter((m) => m.activa).length,
-        totalMachines: maquinas.length,
-        lowStockAlerts: lowStock || 0,
-        tempAlerts: tempAlertCount,
-      });
+      await Promise.allSettled(tempPromises);
+      setTempAlerts(tempAlertCount);
     } catch (error) {
       console.error('Dashboard error:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  // Filter sales to only those whose Spain date matches today
+  const metrics = useMemo(() => {
+    const filtered = ventasHoy.filter(v => {
+      const converted = convertChinaToSpainFull(v.hora, v.fecha);
+      return converted.fecha === todayStr;
+    });
+
+    const totalSales = filtered.reduce((s, v) => s + Number(v.precio), 0);
+    const totalIceCreams = filtered.reduce((s, v) => s + (v.cantidad_unidades || 1), 0);
+
+    return {
+      totalSalesToday: totalSales,
+      totalIceCreamsToday: totalIceCreams,
+      activeMachines: machines.filter(m => m.activa).length,
+      totalMachines: machines.length,
+      lowStockAlerts,
+      tempAlerts,
+    };
+  }, [ventasHoy, todayStr, machines, lowStockAlerts, tempAlerts]);
 
   if (loading) {
     return (

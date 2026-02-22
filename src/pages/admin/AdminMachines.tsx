@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchVentasResumen, fetchTemperatura } from '@/services/api';
+import { fetchTemperatura } from '@/services/api';
+import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
+import { format } from 'date-fns';
 import { Search, Eye, Loader2, MapPin } from 'lucide-react';
 
 interface MachineData {
@@ -18,8 +20,6 @@ interface MachineData {
   usuario_id: string;
   ownerName?: string;
   ownerEmail?: string;
-  ventasHoy?: number;
-  cantidadHoy?: number;
   temperatura?: number;
   tempEstado?: string;
 }
@@ -29,6 +29,10 @@ export const AdminMachines = () => {
   const [machines, setMachines] = useState<MachineData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [ventasHoy, setVentasHoy] = useState<any[]>([]);
+
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const chinaDates = getChinaDatesForSpainDate(todayStr);
 
   useEffect(() => {
     loadMachines();
@@ -52,22 +56,21 @@ export const AdminMachines = () => {
         };
       });
 
-      // Fetch live data in parallel
+      // Fetch today's sales from DB
+      const { data: ventas } = await supabase
+        .from('ventas_historico')
+        .select('precio, hora, fecha, cantidad_unidades, maquina_id')
+        .in('fecha', chinaDates);
+      setVentasHoy(ventas || []);
+
+      // Fetch temp in parallel
       const promises = enriched.map(async (m) => {
         try {
-          const [ventas, temp] = await Promise.allSettled([
-            fetchVentasResumen(m.mac_address),
-            fetchTemperatura(m.mac_address),
-          ]);
-          if (ventas.status === 'fulfilled') {
-            m.ventasHoy = ventas.value?.ventas_hoy?.total_euros || 0;
-            m.cantidadHoy = ventas.value?.ventas_hoy?.cantidad || 0;
-          }
-          if (temp.status === 'fulfilled') {
-            m.temperatura = temp.value?.temperatura;
-            // Compute status locally: 0-10°C = normal, >=11°C = critico
-            m.tempEstado = temp.value?.temperatura !== undefined
-              ? (temp.value.temperatura >= 11 ? 'critico' : 'normal')
+          const temp = await fetchTemperatura(m.mac_address);
+          if (temp) {
+            m.temperatura = temp.temperatura;
+            m.tempEstado = temp.temperatura !== undefined
+              ? (temp.temperatura >= 11 ? 'critico' : 'normal')
               : undefined;
           }
         } catch { /* skip */ }
@@ -81,6 +84,19 @@ export const AdminMachines = () => {
       setLoading(false);
     }
   };
+
+  // Compute per-machine sales for Spain today
+  const salesByMachine = useMemo(() => {
+    const map: Record<string, { euros: number; cantidad: number }> = {};
+    ventasHoy.forEach(v => {
+      const converted = convertChinaToSpainFull(v.hora, v.fecha);
+      if (converted.fecha !== todayStr) return;
+      if (!map[v.maquina_id]) map[v.maquina_id] = { euros: 0, cantidad: 0 };
+      map[v.maquina_id].euros += Number(v.precio);
+      map[v.maquina_id].cantidad += (v.cantidad_unidades || 1);
+    });
+    return map;
+  }, [ventasHoy, todayStr]);
 
   const filtered = machines.filter(
     (m) =>
@@ -136,55 +152,58 @@ export const AdminMachines = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{m.nombre_personalizado}</p>
-                      {m.ubicacion && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <MapPin className="h-3 w-3" /> {m.ubicacion}
-                        </p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell font-mono text-xs">
-                    {m.mac_address}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <div>
-                      <p className="text-sm">{m.ownerName}</p>
-                      <p className="text-xs text-muted-foreground">{m.ownerEmail}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-semibold text-primary">{(m.ventasHoy || 0).toFixed(2)}€</p>
-                      <p className="text-xs text-muted-foreground">{m.cantidadHoy || 0} uds</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {m.temperatura !== undefined ? (
-                      <span className={
-                        m.temperatura >= 11 ? 'text-critical font-bold' :
-                        'text-success'
-                      }>
-                        {m.temperatura}°C
-                      </span>
-                    ) : '--'}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(m)}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(`/admin/machine/${m.id}`)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {filtered.map((m) => {
+                const sales = salesByMachine[m.id];
+                return (
+                  <TableRow key={m.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{m.nombre_personalizado}</p>
+                        {m.ubicacion && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <MapPin className="h-3 w-3" /> {m.ubicacion}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell font-mono text-xs">
+                      {m.mac_address}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <div>
+                        <p className="text-sm">{m.ownerName}</p>
+                        <p className="text-xs text-muted-foreground">{m.ownerEmail}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-semibold text-primary">{(sales?.euros || 0).toFixed(2)}€</p>
+                        <p className="text-xs text-muted-foreground">{sales?.cantidad || 0} uds</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      {m.temperatura !== undefined ? (
+                        <span className={
+                          m.temperatura >= 11 ? 'text-critical font-bold' :
+                          'text-success'
+                        }>
+                          {m.temperatura}°C
+                        </span>
+                      ) : '--'}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(m)}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/admin/machine/${m.id}`)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
