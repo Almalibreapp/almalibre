@@ -59,6 +59,9 @@ export interface Venta {
   hora: string;
   producto: string;
   precio: number;
+  cantidad_unidades?: number;
+  metodo_pago?: string;
+  numero_orden?: string;
   estado: string;
   toppings: ToppingVenta[];
 }
