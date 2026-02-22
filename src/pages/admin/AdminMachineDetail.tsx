@@ -142,11 +142,11 @@ export const AdminMachineDetail = () => {
                   </p>
                   <Badge className={cn(
                     "mt-1",
-                    temperatura?.estado === 'critico' && "bg-critical text-critical-foreground",
-                    temperatura?.estado === 'alerta' && "bg-warning text-warning-foreground",
-                    temperatura?.estado === 'normal' && "bg-success text-success-foreground",
+                    temperatura?.temperatura !== undefined && temperatura.temperatura >= 11 && "bg-critical text-critical-foreground",
+                    temperatura?.temperatura !== undefined && temperatura.temperatura < 11 && "bg-success text-success-foreground",
+                    temperatura?.temperatura === undefined && "bg-muted text-muted-foreground",
                   )}>
-                    {temperatura?.estado || 'Sin datos'}
+                    {temperatura?.temperatura !== undefined ? (temperatura.temperatura >= 11 ? 'Crítico' : 'Normal') : 'Sin datos'}
                   </Badge>
                 </CardContent>
               </Card>
