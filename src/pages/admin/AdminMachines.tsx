@@ -65,7 +65,10 @@ export const AdminMachines = () => {
           }
           if (temp.status === 'fulfilled') {
             m.temperatura = temp.value?.temperatura;
-            m.tempEstado = temp.value?.estado;
+            // Compute status locally: 0-10°C = normal, >=11°C = critico
+            m.tempEstado = temp.value?.temperatura !== undefined
+              ? (temp.value.temperatura >= 11 ? 'critico' : 'normal')
+              : undefined;
           }
         } catch { /* skip */ }
       });
@@ -88,9 +91,8 @@ export const AdminMachines = () => {
   );
 
   const getStatusBadge = (m: MachineData) => {
-    if (m.tempEstado === 'critico') return <Badge variant="destructive">Crítico</Badge>;
-    if (m.tempEstado === 'alerta') return <Badge className="bg-warning text-warning-foreground">Alerta</Badge>;
-    if (m.activa) return <Badge className="bg-success text-success-foreground">OK</Badge>;
+    if (m.temperatura !== undefined && m.temperatura >= 11) return <Badge variant="destructive">Crítico</Badge>;
+    if (m.activa) return <Badge className="bg-success text-success-foreground">Normal</Badge>;
     return <Badge variant="secondary">Inactiva</Badge>;
   };
 
@@ -164,8 +166,7 @@ export const AdminMachines = () => {
                   <TableCell className="hidden sm:table-cell">
                     {m.temperatura !== undefined ? (
                       <span className={
-                        m.tempEstado === 'critico' ? 'text-critical font-bold' :
-                        m.tempEstado === 'alerta' ? 'text-warning font-bold' :
+                        m.temperatura >= 11 ? 'text-critical font-bold' :
                         'text-success'
                       }>
                         {m.temperatura}°C
