@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { format, subDays, addDays, isToday as isTodayFn } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
-import { convertChinaToSpain } from '@/lib/timezone';
+import { convertChinaToSpain, convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import {
   Euro, TrendingUp, Calendar, Loader2, ChevronLeft, ChevronRight,
   Clock, CreditCard, List, BarChart3,
@@ -34,14 +34,15 @@ export const AdminSales = () => {
     },
   });
 
-  // Fetch sales for the selected day
-  const { data: ventasDia, isLoading } = useQuery({
+  // Fetch sales: query two China dates (D and D+1) to cover the full Spain day
+  const chinaDates = getChinaDatesForSpainDate(dateStr);
+  const { data: ventasDiaRaw, isLoading } = useQuery({
     queryKey: ['admin-ventas-dia', dateStr, selectedMachine],
     queryFn: async () => {
       let query = supabase
         .from('ventas_historico')
         .select('*')
-        .eq('fecha', dateStr)
+        .in('fecha', chinaDates)
         .order('hora', { ascending: false });
 
       if (selectedMachine !== 'all') {
@@ -54,14 +55,24 @@ export const AdminSales = () => {
     },
   });
 
-  // Fetch yesterday sales for comparison
-  const { data: ventasAyer } = useQuery({
+  // Filter to only sales whose converted Spain date matches the selected date
+  const ventasDia = useMemo(() => {
+    if (!ventasDiaRaw) return [];
+    return ventasDiaRaw.filter(v => {
+      const converted = convertChinaToSpainFull(v.hora, v.fecha);
+      return converted.fecha === dateStr;
+    });
+  }, [ventasDiaRaw, dateStr]);
+
+  // Fetch yesterday sales for comparison (also query two China dates)
+  const chinaYesterday = getChinaDatesForSpainDate(yesterdayStr);
+  const { data: ventasAyerRaw } = useQuery({
     queryKey: ['admin-ventas-ayer', yesterdayStr, selectedMachine],
     queryFn: async () => {
       let query = supabase
         .from('ventas_historico')
-        .select('precio')
-        .eq('fecha', yesterdayStr);
+        .select('precio, hora, fecha')
+        .in('fecha', chinaYesterday);
 
       if (selectedMachine !== 'all') {
         query = query.eq('maquina_id', selectedMachine);
@@ -71,6 +82,14 @@ export const AdminSales = () => {
       return data || [];
     },
   });
+
+  const ventasAyer = useMemo(() => {
+    if (!ventasAyerRaw) return [];
+    return ventasAyerRaw.filter(v => {
+      const converted = convertChinaToSpainFull(v.hora, v.fecha);
+      return converted.fecha === yesterdayStr;
+    });
+  }, [ventasAyerRaw, yesterdayStr]);
 
   // Computed metrics
   const metrics = useMemo(() => {
@@ -87,7 +106,7 @@ export const AdminSales = () => {
     // By hour
     const byHour: Record<string, { ventas: number; euros: number }> = {};
     ventasDia.forEach(v => {
-      const horaSpain = convertChinaToSpain(v.hora, dateStr);
+      const horaSpain = convertChinaToSpain(v.hora, v.fecha);
       const h = horaSpain.split(':')[0] + ':00';
       if (!byHour[h]) byHour[h] = { ventas: 0, euros: 0 };
       byHour[h].ventas++;
@@ -346,7 +365,7 @@ export const AdminSales = () => {
                       <TableBody>
                         {ventasDia?.map(v => (
                           <TableRow key={v.id}>
-                            <TableCell className="font-mono text-xs">{convertChinaToSpain(v.hora, dateStr)}</TableCell>
+                            <TableCell className="font-mono text-xs">{convertChinaToSpain(v.hora, v.fecha)}</TableCell>
                             {selectedMachine === 'all' && (
                               <TableCell className="text-xs">{getMachineName(v.maquina_id)}</TableCell>
                             )}
