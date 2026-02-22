@@ -18,16 +18,14 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
   const lowStockCount = stock?.toppings?.filter(t => t.capacidad_maxima > 0 && (t.stock_actual / t.capacidad_maxima) <= 0.25).length || 0;
   const isOnline = maquina.activa && !hasError;
   
-  // Temperatura crítica a partir de 10 grados
-  const isTempCritical = temperatura?.temperatura !== undefined && temperatura.temperatura >= 10;
+  // Temperatura crítica a partir de 11 grados
+  const isTempCritical = temperatura?.temperatura !== undefined && temperatura.temperatura >= 11;
 
   const getTempColor = () => {
     if (temperatura?.temperatura === undefined) return 'text-muted-foreground';
-    // Crítico >= 10°C
-    if (temperatura.temperatura >= 10) return 'text-critical';
-    // Alerta entre 5 y 10°C
-    if (temperatura.temperatura >= 5) return 'text-warning';
-    // Normal < 5°C
+    // Crítico >= 11°C
+    if (temperatura.temperatura >= 11) return 'text-critical';
+    // Normal 0-10°C
     return 'text-success';
   };
 
