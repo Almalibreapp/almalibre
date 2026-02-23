@@ -10,6 +10,7 @@ import { StockReplenishment } from '@/components/stock/StockReplenishment';
 import { StockCapacitySettings } from '@/components/stock/StockCapacitySettings';
 import { useStockConfig } from '@/hooks/useStockConfig';
 import { ControlTab } from '@/components/control/ControlTab';
+import { TemperatureTraceability } from '@/components/temperature/TemperatureTraceability';
 import { supabase } from '@/integrations/supabase/client';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { fetchVentasDetalle } from '@/services/api';
@@ -219,6 +220,9 @@ export const AdminMachineDetail = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Temperature Traceability */}
+            <TemperatureTraceability maquinaId={machineId} temperatura={temperatura} />
           </TabsContent>
 
           {/* Sales */}

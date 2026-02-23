@@ -28,8 +28,8 @@ export const useTemperatureLog = (maquinaId: string | undefined, hours: number =
       return (data ?? []) as TemperatureReading[];
     },
     enabled: !!maquinaId,
-    staleTime: 60 * 1000,
-    refetchInterval: 2 * 60 * 1000,
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
   });
 };
 
