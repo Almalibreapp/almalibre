@@ -92,7 +92,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
                         -{cupon.descuento}€
                       </Badge>
                       <span>•</span>
-                      <span>{cupon.cantidad_codigos} códigos</span>
+                      <span>{cupon.cantidad_codigos > 0 ? `${cupon.cantidad_codigos} códigos` : 'Códigos disponibles'}</span>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Válido: {cupon.fecha_inicio?.split(' ')[0] ?? '—'} - {cupon.fecha_fin?.split(' ')[0] ?? '—'}

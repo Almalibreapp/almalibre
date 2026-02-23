@@ -279,16 +279,19 @@ export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
   // Map API fields to our interface
   return rawList.map((c: any) => {
     const content = typeof c.content === 'string' ? JSON.parse(c.content) : (c.content || {});
+    const cantidadCodigosRaw = c.codeNum ?? c.cantidad_codigos ?? c.codigos_generados;
+    const cantidadCodigos = Number(cantidadCodigosRaw);
+
     return {
       id: String(c.couponId ?? c.id ?? ''),
       nombre: c.couponName ?? c.nombre ?? '',
-      descuento: content.money ?? c.descuento ?? '0',
+      descuento: String(content.money ?? c.descuento ?? '0'),
       fecha_inicio: c.startTime ?? c.fecha_inicio ?? '',
       fecha_fin: c.endTime ?? c.fecha_fin ?? '',
-      dias_validez: c.validDay ?? c.dias_validez ?? 0,
+      dias_validez: Number(c.validDay ?? c.dias_validez ?? 0),
       ubicacion: c.localName ?? c.ubicacion ?? '',
-      cantidad_codigos: c.codeNum ?? c.cantidad_codigos ?? 0,
-      codigos_generados: c.codigos_generados ?? 0,
+      cantidad_codigos: Number.isFinite(cantidadCodigos) && cantidadCodigos > 0 ? cantidadCodigos : 0,
+      codigos_generados: Number.isFinite(cantidadCodigos) && cantidadCodigos > 0 ? cantidadCodigos : 0,
     };
   });
 };
@@ -304,16 +307,19 @@ export const fetchCodigosCupon = async (cuponId: string): Promise<CodigoCupon[]>
   const data = await response.json();
 
   // Normaliza respuesta para evitar crashes (a veces viene anidado)
-  // Posibles formas:
-  // - { codigos: [...] }
-  // - { codigos: { list: [...] } }
-  // - { list: [...] }
-  // - [...]
-  if (Array.isArray(data?.codigos)) return data.codigos;
-  if (data?.codigos && Array.isArray(data.codigos.list)) return data.codigos.list;
-  if (Array.isArray(data?.list)) return data.list;
-  if (Array.isArray(data)) return data;
-  return [];
+  const rawCodigos =
+    Array.isArray(data?.codigos) ? data.codigos :
+    data?.codigos && Array.isArray(data.codigos.list) ? data.codigos.list :
+    Array.isArray(data?.list) ? data.list :
+    Array.isArray(data) ? data :
+    [];
+
+  return rawCodigos.map((item: any) => ({
+    id: String(item.couponRecordId ?? item.id ?? item.code ?? crypto.randomUUID()),
+    codigo: String(item.code ?? item.codigo ?? ''),
+    usado: Number(item.status ?? item.usado ?? 0) !== 0,
+    fecha_expiracion: String(item.expireTime ?? item.fecha_expiracion ?? ''),
+  }));
 };
 
 // === CONTROL REMOTO ===
