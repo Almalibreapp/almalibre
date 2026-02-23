@@ -59,7 +59,11 @@ export const AdminDashboard = () => {
       let ventasToUse = ventas || [];
       if (ventasToUse.length === 0 && maquinas.length > 0) {
         try {
-          const apiPromises = maquinas.map(async (m) => {
+          // Deduplicate by IMEI to avoid fetching the same machine twice
+          const uniqueByImei = Array.from(
+            new Map(maquinas.map(m => [m.mac_address, m])).values()
+          );
+          const apiPromises = uniqueByImei.map(async (m) => {
             try {
               const detalle = await fetchVentasDetalle(m.mac_address);
               if (detalle?.ventas) {
@@ -82,9 +86,12 @@ export const AdminDashboard = () => {
       }
       setVentasHoy(ventasToUse);
 
-      // Fetch temp alerts
+      // Fetch temp alerts — deduplicate by IMEI
       let tempAlertCount = 0;
-      const tempPromises = maquinas.map(async (m) => {
+      const uniqueMachinesForTemp = Array.from(
+        new Map(maquinas.map(m => [m.mac_address, m])).values()
+      );
+      const tempPromises = uniqueMachinesForTemp.map(async (m) => {
         try {
           const temp = await fetchTemperatura(m.mac_address);
           if (temp?.temperatura !== undefined && temp.temperatura >= 11) {
@@ -111,11 +118,15 @@ export const AdminDashboard = () => {
     const totalSales = filtered.reduce((s, v) => s + Number(v.precio), 0);
     const totalIceCreams = filtered.reduce((s, v) => s + (v.cantidad_unidades || 1), 0);
 
+    // Count unique IMEIs for active/total machines
+    const uniqueImeis = new Set(machines.map(m => m.mac_address));
+    const uniqueActiveImeis = new Set(machines.filter(m => m.activa).map(m => m.mac_address));
+
     return {
       totalSalesToday: totalSales,
       totalIceCreamsToday: totalIceCreams,
-      activeMachines: machines.filter(m => m.activa).length,
-      totalMachines: machines.length,
+      activeMachines: uniqueActiveImeis.size,
+      totalMachines: uniqueImeis.size,
       lowStockAlerts,
       tempAlerts,
     };
