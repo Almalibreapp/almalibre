@@ -9,18 +9,22 @@ import { useStockConfig } from '@/hooks/useStockConfig';
 import { ToppingsResponse } from '@/types';
 import { Package, RefreshCw, Loader2, CheckCircle } from 'lucide-react';
 
+type StockConfigReturn = ReturnType<typeof useStockConfig>;
+
 interface StockReplenishmentProps {
   imei: string;
   stock: ToppingsResponse | undefined;
+  stockConfig?: StockConfigReturn;
 }
 
-export const StockReplenishment = ({ imei, stock }: StockReplenishmentProps) => {
+export const StockReplenishment = ({ imei, stock, stockConfig: externalConfig }: StockReplenishmentProps) => {
   const [selectedToppings, setSelectedToppings] = useState<Set<string>>(new Set());
   const [isUpdating, setIsUpdating] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const queryClient = useQueryClient();
 
-  const { items: stockConfigItems, initializeStock, refillTopping } = useStockConfig(imei);
+  const internalConfig = useStockConfig(externalConfig ? undefined : imei);
+  const { items: stockConfigItems, initializeStock, refillTopping } = externalConfig || internalConfig;
 
   useEffect(() => {
     if (stock?.toppings?.length) {
