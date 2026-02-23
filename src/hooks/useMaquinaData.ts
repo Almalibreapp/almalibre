@@ -32,10 +32,10 @@ export const useVentasResumen = (imei: string | undefined) => {
     queryKey: ['ventas-resumen', imei],
     queryFn: () => fetchVentasResumen(imei!),
     enabled: !!imei && imei.length > 0,
-    // Solo refetch cada 5 minutos para ventas
-    refetchInterval: 5 * 60 * 1000,
+    // Ventas en tiempo real
+    refetchInterval: 60 * 1000,
     retry: 2,
-    staleTime: 3 * 60 * 1000,
+    staleTime: 30 * 1000,
   });
 };
 
@@ -44,10 +44,10 @@ export const useVentasDetalle = (imei: string | undefined) => {
     queryKey: ['ventas-detalle', imei],
     queryFn: () => fetchVentasDetalle(imei!),
     enabled: !!imei && imei.length > 0,
-    // Detalle de ventas: refetch cada 3 minutos
-    refetchInterval: 3 * 60 * 1000,
+    // Detalle de ventas en tiempo real
+    refetchInterval: 60 * 1000,
     retry: 2,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 30 * 1000,
   });
 };
 
