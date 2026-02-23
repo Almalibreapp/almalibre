@@ -5,10 +5,8 @@ import {
   LayoutDashboard,
   IceCream,
   Users,
-  
   Euro,
   BarChart3,
-  ShoppingCart,
   LogOut,
   ArrowLeft,
 } from 'lucide-react';
@@ -21,7 +19,6 @@ const navItems = [
   { path: '/admin/franchisees', icon: Users, label: 'Franquiciados' },
   { path: '/admin/sales', icon: Euro, label: 'Ventas Globales' },
   { path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
-  { path: '/admin/orders', icon: ShoppingCart, label: 'Pedidos WC' },
 ];
 
 export const AdminSidebar = () => {

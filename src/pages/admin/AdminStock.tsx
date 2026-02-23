@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -19,29 +19,21 @@ interface StockItem {
 }
 
 export const AdminStock = () => {
-  const [stockItems, setStockItems] = useState<StockItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: stockItems = [], isLoading } = useQuery({
+    queryKey: ['admin-stock-all'],
+    queryFn: async () => {
+      const [{ data: stock }, { data: machines }, { data: profiles }] = await Promise.all([
+        supabase.from('stock_config').select('*').order('unidades_actuales', { ascending: true }),
+        supabase.from('maquinas').select('mac_address, nombre_personalizado, usuario_id'),
+        supabase.from('profiles').select('id, nombre'),
+      ]);
 
-  useEffect(() => {
-    loadStock();
-  }, []);
-
-  const loadStock = async () => {
-    try {
-      const { data: stock } = await supabase
-        .from('stock_config')
-        .select('*')
-        .order('unidades_actuales', { ascending: true });
-
-      const { data: machines } = await supabase.from('maquinas').select('mac_address, nombre_personalizado, usuario_id');
-      const { data: profiles } = await supabase.from('profiles').select('id, nombre');
-
-      if (!stock) return;
+      if (!stock) return [];
 
       const machineMap = new Map(machines?.map((m) => [m.mac_address, m]) || []);
       const profileMap = new Map(profiles?.map((p) => [p.id, p.nombre]) || []);
 
-      const enriched: StockItem[] = stock.map((s) => {
+      return stock.map((s): StockItem => {
         const machine = machineMap.get(s.machine_imei);
         return {
           ...s,
@@ -49,18 +41,13 @@ export const AdminStock = () => {
           ownerName: machine ? (profileMap.get(machine.usuario_id) || 'Desconocido') : '',
         };
       });
-
-      setStockItems(enriched);
-    } catch (error) {
-      console.error('Error loading stock:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const criticalItems = stockItems.filter((s) => s.unidades_actuales <= s.alerta_minimo);
 
-  if (loading) {
+  if (isLoading) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 

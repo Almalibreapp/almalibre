@@ -84,6 +84,7 @@ export const AdminSales = () => {
       const { data } = await supabase.from('maquinas').select('*').order('nombre_personalizado');
       return data || [];
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   // Fetch sales: query two China dates (D and D+1) to cover the full Spain day

@@ -44,7 +44,6 @@ import { AdminFranchisees } from "./pages/admin/AdminFranchisees";
 import { AdminStock } from "./pages/admin/AdminStock";
 import { AdminSales } from "./pages/admin/AdminSales";
 import { AdminAnalytics } from "./pages/admin/AdminAnalytics";
-import { AdminOrders } from "./pages/admin/AdminOrders";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -163,7 +162,6 @@ const AppContent = () => {
           <Route path="stock" element={<AdminStock />} />
           <Route path="sales" element={<AdminSales />} />
           <Route path="analytics" element={<AdminAnalytics />} />
-          <Route path="orders" element={<AdminOrders />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

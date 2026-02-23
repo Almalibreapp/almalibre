@@ -1,5 +1,6 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,28 +25,23 @@ interface MachineData {
   tempEstado?: string;
 }
 
+const todayStr = format(new Date(), 'yyyy-MM-dd');
+const chinaDates = getChinaDatesForSpainDate(todayStr);
+
 export const AdminMachines = () => {
   const navigate = useNavigate();
-  const [machines, setMachines] = useState<MachineData[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [ventasHoy, setVentasHoy] = useState<any[]>([]);
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const chinaDates = getChinaDatesForSpainDate(todayStr);
+  // Fetch machines with owner info + temperature
+  const { data: machines = [], isLoading } = useQuery({
+    queryKey: ['admin-machines-enriched'],
+    queryFn: async () => {
+      const [{ data: maquinas }, { data: profiles }] = await Promise.all([
+        supabase.from('maquinas').select('*'),
+        supabase.from('profiles').select('id, nombre, email'),
+      ]);
 
-  useEffect(() => {
-    loadMachines();
-    const interval = setInterval(loadMachines, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadMachines = async () => {
-    try {
-      const { data: maquinas } = await supabase.from('maquinas').select('*');
-      const { data: profiles } = await supabase.from('profiles').select('id, nombre, email');
-
-      if (!maquinas) return;
+      if (!maquinas) return [];
 
       const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
 
@@ -58,54 +54,8 @@ export const AdminMachines = () => {
         };
       });
 
-      // Fetch today's sales from DB
-      const { data: ventasDb } = await supabase
-        .from('ventas_historico')
-        .select('id, precio, hora, fecha, cantidad_unidades, maquina_id, producto')
-        .in('fecha', chinaDates);
-
-      let ventasCombinadas = ventasDb || [];
-
-      // Fallback a API en tiempo real si una máquina aún no tiene ventas de hoy sincronizadas en DB
-      const fallbackPromises = enriched.map(async (m) => {
-        const hasSalesTodayInDb = (ventasDb || []).some((v) => {
-          if (v.maquina_id !== m.id) return false;
-          const converted = convertChinaToSpainFull(v.hora, v.fecha);
-          return converted.fecha === todayStr;
-        });
-
-        if (hasSalesTodayInDb) return [];
-
-        try {
-          const detalle = await fetchVentasDetalle(m.mac_address);
-          const ventasApi = detalle?.ventas || [];
-          return ventasApi.map((v: any) => ({
-            id: `api-${m.id}-${v.id || `${v.hora}-${v.precio}`}`,
-            precio: v.precio,
-            hora: v.hora,
-            fecha: detalle?.fecha,
-            cantidad_unidades: v.cantidad_unidades || 1,
-            maquina_id: m.id,
-            producto: v.producto || '',
-          }));
-        } catch {
-          return [];
-        }
-      });
-
-      const fallbackResults = await Promise.allSettled(fallbackPromises);
-      const fallbackVentas = fallbackResults
-        .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
-        .flatMap((r) => r.value);
-
-      if (fallbackVentas.length > 0) {
-        ventasCombinadas = [...ventasCombinadas, ...fallbackVentas];
-      }
-
-      setVentasHoy(ventasCombinadas);
-
-      // Fetch temp in parallel
-      const promises = enriched.map(async (m) => {
+      // Fetch temps in parallel
+      const tempPromises = enriched.map(async (m) => {
         try {
           const temp = await fetchTemperatura(m.mac_address);
           if (temp) {
@@ -116,17 +66,60 @@ export const AdminMachines = () => {
           }
         } catch { /* skip */ }
       });
+      await Promise.allSettled(tempPromises);
 
-      await Promise.allSettled(promises);
-      setMachines(enriched);
-    } catch (error) {
-      console.error('Error loading machines:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return enriched;
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 30000,
+  });
 
-  // Compute per-machine sales for Spain today
+  // Fetch today's sales
+  const { data: ventasHoy = [] } = useQuery({
+    queryKey: ['admin-machines-ventas', todayStr],
+    queryFn: async () => {
+      const { data: ventasDb } = await supabase
+        .from('ventas_historico')
+        .select('id, precio, hora, fecha, cantidad_unidades, maquina_id, producto')
+        .in('fecha', chinaDates);
+
+      let ventasCombinadas = ventasDb || [];
+
+      if (machines.length > 0) {
+        const fallbackPromises = machines.map(async (m) => {
+          const hasSalesTodayInDb = (ventasDb || []).some((v) => {
+            if (v.maquina_id !== m.id) return false;
+            const converted = convertChinaToSpainFull(v.hora, v.fecha);
+            return converted.fecha === todayStr;
+          });
+          if (hasSalesTodayInDb) return [];
+          try {
+            const detalle = await fetchVentasDetalle(m.mac_address);
+            return (detalle?.ventas || []).map((v: any) => ({
+              id: `api-${m.id}-${v.id || `${v.hora}-${v.precio}`}`,
+              precio: v.precio,
+              hora: v.hora,
+              fecha: detalle?.fecha,
+              cantidad_unidades: v.cantidad_unidades || 1,
+              maquina_id: m.id,
+              producto: v.producto || '',
+            }));
+          } catch { return []; }
+        });
+        const results = await Promise.allSettled(fallbackPromises);
+        const fallback = results
+          .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
+          .flatMap((r) => r.value);
+        if (fallback.length > 0) ventasCombinadas = [...ventasCombinadas, ...fallback];
+      }
+
+      return ventasCombinadas;
+    },
+    staleTime: 3 * 60 * 1000,
+    refetchInterval: 30000,
+    enabled: machines.length >= 0,
+  });
+
   const salesByMachine = useMemo(() => {
     const map: Record<string, { euros: number; cantidad: number }> = {};
     ventasHoy.forEach(v => {
@@ -137,7 +130,7 @@ export const AdminMachines = () => {
       map[v.maquina_id].cantidad += (v.cantidad_unidades || 1);
     });
     return map;
-  }, [ventasHoy, todayStr]);
+  }, [ventasHoy]);
 
   const filtered = machines.filter(
     (m) =>
@@ -153,7 +146,7 @@ export const AdminMachines = () => {
     return <Badge variant="secondary">Inactiva</Badge>;
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
