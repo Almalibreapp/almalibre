@@ -12,7 +12,6 @@ import { format, subDays, addDays, isToday as isTodayFn } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
 import { convertChinaToSpain, convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
-import { fetchVentasDetalle } from '@/services/api';
 import {
   Euro, TrendingUp, Calendar, Loader2, ChevronLeft, ChevronRight,
   Clock, CreditCard, List, BarChart3,
@@ -123,20 +122,27 @@ export const AdminSales = () => {
           if (hasSalesTodayInDb) return [];
 
            try {
-             const detalle = await fetchVentasDetalle(m.mac_address);
-             return (detalle?.ventas || []).map((v: any) => ({
-              id: `api-${m.id}-${v.id || `${v.hora}-${v.precio}`}`,
+             // Use new endpoint for real-time fallback
+             const apiRes = await fetch(
+               `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${m.mac_address}?fecha=${dateStr}`,
+               { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
+             );
+             if (!apiRes.ok) return [];
+             const detalle = await apiRes.json();
+             const orders = detalle?.ordenes || detalle?.ventas || [];
+             return orders.map((v: any) => ({
+              id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
               maquina_id: m.id,
               imei: m.mac_address,
-              fecha: detalle?.fecha,
-              hora: v.hora,
+              fecha: v.fecha || detalle?.fecha || dateStr,
+              hora: v.hora || '00:00',
               producto: v.producto || '',
               precio: Number(v.precio || 0),
-              cantidad_unidades: v.cantidad_unidades || 1,
-              metodo_pago: v.metodo_pago || v.payment_method || v.pay_type || v.payType || 'efectivo',
+              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+              metodo_pago: v.metodo_pago || v.payment_method || v.pay_type || 'efectivo',
               numero_orden: v.numero_orden || v.order_no || null,
               estado: v.estado || 'exitoso',
-              toppings: v.toppings || [],
+              toppings: v.toppings || v.toppings_usados || [],
             }));
           } catch {
             return [];

@@ -17,6 +17,7 @@ import {
 interface TemperatureTraceabilityProps {
   maquinaId: string | undefined;
   temperatura: TemperaturaResponse | undefined;
+  imei?: string;
 }
 
 const TIME_FILTERS = [
@@ -28,9 +29,9 @@ const TIME_FILTERS = [
 
 const THRESHOLD = 11;
 
-export const TemperatureTraceability = ({ maquinaId, temperatura }: TemperatureTraceabilityProps) => {
+export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: TemperatureTraceabilityProps) => {
   const [selectedHours, setSelectedHours] = useState(24);
-  const { data: readings, isLoading } = useTemperatureLog(maquinaId, selectedHours);
+  const { data: readings, isLoading } = useTemperatureLog(maquinaId, selectedHours, imei);
   const logTemperature = useLogTemperature();
   const lastLoggedRef = useRef<string | null>(null);
 
