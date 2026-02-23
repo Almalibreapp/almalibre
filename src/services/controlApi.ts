@@ -243,8 +243,7 @@ export const crearCupon = async (data: {
 
   const isConfirmedSuccess =
     response.status === 200 &&
-    responseData?.success === true &&
-    !!responseData?.data?.couponId;
+    responseData?.success === true;
 
   if (!isConfirmedSuccess) {
     throw new Error(`Error al crear cupón. Respuesta: ${JSON.stringify(responseData)}`);
