@@ -7,13 +7,18 @@ import { useStockConfig } from '@/hooks/useStockConfig';
 import { ToppingsResponse } from '@/types';
 import { Loader2, Save } from 'lucide-react';
 
+type StockConfigReturn = ReturnType<typeof useStockConfig>;
+
 interface StockCapacitySettingsProps {
   imei: string;
   stock: ToppingsResponse | undefined;
+  stockConfig?: StockConfigReturn;
 }
 
-export const StockCapacitySettings = ({ imei, stock }: StockCapacitySettingsProps) => {
-  const { items, loading, initializeStock, updateToppingCapacity } = useStockConfig(imei);
+export const StockCapacitySettings = ({ imei, stock, stockConfig: externalConfig }: StockCapacitySettingsProps) => {
+  const internalConfig = useStockConfig(externalConfig ? undefined : imei);
+  const { items, loading, initializeStock, updateToppingCapacity } = externalConfig || internalConfig;
+
   const [draftCapacities, setDraftCapacities] = useState<Record<string, string>>({});
   const [savingPosition, setSavingPosition] = useState<string | null>(null);
 

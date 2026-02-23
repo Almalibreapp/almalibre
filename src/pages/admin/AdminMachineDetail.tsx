@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { SalesChart } from '@/components/dashboard/SalesChart';
 import { StockReplenishment } from '@/components/stock/StockReplenishment';
 import { StockCapacitySettings } from '@/components/stock/StockCapacitySettings';
+import { useStockConfig } from '@/hooks/useStockConfig';
 import { ControlTab } from '@/components/control/ControlTab';
 import { supabase } from '@/integrations/supabase/client';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
@@ -54,6 +55,7 @@ export const AdminMachineDetail = () => {
   const machineId = maquina?.id;
   const { temperatura, ventas, stock, isLoading, hasError, error, refetchAll, isRefetching } = useMaquinaData(imei);
   const { data: ventasDetalle } = useVentasDetalle(imei);
+  const stockConfig = useStockConfig(imei);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const chinaDates = getChinaDatesForSpainDate(todayStr);
@@ -251,8 +253,8 @@ export const AdminMachineDetail = () => {
 
           {/* Stock */}
           <TabsContent value="stock" className="space-y-4">
-            <StockCapacitySettings imei={imei!} stock={stock} />
-            <StockReplenishment imei={imei!} stock={stock} />
+            <StockCapacitySettings imei={imei!} stock={stock} stockConfig={stockConfig} />
+            <StockReplenishment imei={imei!} stock={stock} stockConfig={stockConfig} />
           </TabsContent>
 
           {/* Control - Only for admin */}
