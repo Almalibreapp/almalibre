@@ -7,6 +7,7 @@ import { TemperaturaResponse } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { convertChinaToSpainFull } from '@/lib/timezone';
 import {
   LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine, Area, CartesianGrid,
 } from 'recharts';
@@ -54,12 +55,19 @@ export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: Temper
 
   const chartData = useMemo(() => {
     if (!readings?.length) return [];
-    return readings.map((r) => ({
-      time: format(new Date(r.created_at), 'HH:mm', { locale: es }),
-      fullTime: format(new Date(r.created_at), "dd/MM HH:mm:ss", { locale: es }),
-      temperatura: Number(r.temperatura),
-      critical: Number(r.temperatura) >= THRESHOLD,
-    }));
+    return readings.map((r) => {
+      // Convert China time to Spain time
+      const dt = new Date(r.created_at);
+      const chinaHora = format(dt, 'HH:mm:ss');
+      const chinaFecha = format(dt, 'yyyy-MM-dd');
+      const spain = convertChinaToSpainFull(chinaHora, chinaFecha);
+      return {
+        time: spain.hora,
+        fullTime: `${spain.fecha} ${spain.hora}`,
+        temperatura: Number(r.temperatura),
+        critical: Number(r.temperatura) >= THRESHOLD,
+      };
+    });
   }, [readings]);
 
   const stats = useMemo(() => {
@@ -76,12 +84,18 @@ export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: Temper
   const handleDownloadCSV = () => {
     if (!readings?.length) return;
 
-    const headers = ['Fecha/Hora', 'Temperatura (°C)', 'Estado'];
-    const rows = readings.map((r) => [
-      format(new Date(r.created_at), 'dd/MM/yyyy HH:mm:ss'),
-      r.temperatura.toString(),
-      Number(r.temperatura) >= THRESHOLD ? 'CRÍTICO' : 'Normal',
-    ]);
+    const headers = ['Fecha/Hora (España)', 'Temperatura (°C)', 'Estado'];
+    const rows = readings.map((r) => {
+      const dt = new Date(r.created_at);
+      const chinaHora = format(dt, 'HH:mm:ss');
+      const chinaFecha = format(dt, 'yyyy-MM-dd');
+      const spain = convertChinaToSpainFull(chinaHora, chinaFecha);
+      return [
+        `${spain.fecha} ${spain.hora}`,
+        r.temperatura.toString(),
+        Number(r.temperatura) >= THRESHOLD ? 'CRÍTICO' : 'Normal',
+      ];
+    });
 
     const csv = [headers, ...rows].map((row) => row.join(';')).join('\n');
     const BOM = '\uFEFF';

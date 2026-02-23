@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
-import { convertChinaToSpain } from '@/lib/timezone';
+import { convertChinaToSpain, convertChinaToSpainFull } from '@/lib/timezone';
 import {
   ArrowLeft,
   Settings,
@@ -571,11 +571,17 @@ export const MachineDetail = () => {
                   {tempLog && tempLog.length > 0 ? (
                     <div className="h-56 w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={tempLog.map(r => ({
-                          hora: format(new Date(r.created_at), 'HH:mm', { locale: es }),
-                          temperatura: Number(r.temperatura),
-                          estado: r.estado,
-                        }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <LineChart data={tempLog.map(r => {
+                          const dt = new Date(r.created_at);
+                          const chinaHora = format(dt, 'HH:mm:ss');
+                          const chinaFecha = format(dt, 'yyyy-MM-dd');
+                          const spain = convertChinaToSpainFull(chinaHora, chinaFecha);
+                          return {
+                            hora: spain.hora,
+                            temperatura: Number(r.temperatura),
+                            estado: r.estado,
+                          };
+                        })} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <XAxis 
                             dataKey="hora" 
                             tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} 
