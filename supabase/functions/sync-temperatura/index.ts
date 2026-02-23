@@ -76,11 +76,20 @@ Deno.serve(async (req) => {
       // Determine estado based on temperature
       const estado = temp >= 11 ? 'critico' : temp >= 8 ? 'alerta' : 'normal'
 
-      // Parse timestamp - API returns "2026-02-23 00:00:40"
+      // Parse timestamp - API returns "2026-02-23 00:00:40" or just time "00:02:56"
       let createdAt: string
       if (r.timestamp) {
-        // Ensure it's a valid ISO string
-        createdAt = r.timestamp.includes('T') ? r.timestamp : r.timestamp.replace(' ', 'T') + 'Z'
+        const ts = String(r.timestamp).trim()
+        if (ts.match(/^\d{4}-\d{2}-\d{2}/)) {
+          // Full datetime: "2026-02-23 00:00:40"
+          createdAt = ts.includes('T') ? ts : ts.replace(' ', 'T')
+          if (!createdAt.endsWith('Z') && !createdAt.includes('+')) createdAt += 'Z'
+        } else if (ts.match(/^\d{2}:\d{2}/)) {
+          // Time only: "00:02:56" - prepend the start date
+          createdAt = `${startDate}T${ts}Z`
+        } else {
+          createdAt = new Date().toISOString()
+        }
       } else {
         createdAt = new Date().toISOString()
       }
@@ -97,26 +106,26 @@ Deno.serve(async (req) => {
       }
     })
 
-    // Upsert in batches of 500 to avoid payload limits
+    // Insert in batches of 500, ignoring duplicates
     let insertedCount = 0
     const batchSize = 500
     for (let i = 0; i < rows.length; i += batchSize) {
       const batch = rows.slice(i, i + batchSize)
-      const { error } = await supabase
+      const { error, data: inserted } = await supabase
         .from('lecturas_temperatura')
-        .upsert(batch, {
-          onConflict: 'maquina_id,created_at,sensor',
-          ignoreDuplicates: true,
-        })
+        .insert(batch)
+        .select('id')
 
       if (error) {
-        console.error(`[sync-temperatura] Upsert error batch ${i}:`, error.message)
-        // Try individual inserts as fallback (ignore duplicates)
+        // If batch fails (likely duplicates), insert one by one ignoring errors
+        console.warn(`[sync-temperatura] Batch insert error, falling back to individual: ${error.message}`)
         for (const row of batch) {
-          await supabase.from('lecturas_temperatura').insert(row).select().maybeSingle()
+          const { error: singleErr } = await supabase.from('lecturas_temperatura').insert(row)
+          if (!singleErr) insertedCount++
         }
+      } else {
+        insertedCount += inserted?.length || batch.length
       }
-      insertedCount += batch.length
     }
 
     return new Response(JSON.stringify({
