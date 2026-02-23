@@ -106,17 +106,6 @@ export const AdminSales = () => {
 
       let sales = data || [];
 
-      console.log('=== CARGANDO VENTAS (Supabase) ===');
-      console.log('Query fechas:', chinaDates);
-      console.log('Filtro máquina:', selectedMachine);
-      console.log('Resultados Supabase:', sales.length);
-      if (sales.length > 0) {
-        console.log('Primera venta (Supabase):', JSON.stringify(sales[0], null, 2));
-        console.log('Toppings de primera venta:', sales[0].toppings);
-        console.log('Método de pago:', sales[0].metodo_pago);
-        console.log('Producto:', sales[0].producto);
-      }
-      console.log('==============================');
 
       if (isTodayFn(selectedDate) && maquinas && maquinas.length > 0) {
         const targetMachines = selectedMachine === 'all'
@@ -134,15 +123,6 @@ export const AdminSales = () => {
 
            try {
              const detalle = await fetchVentasDetalle(m.mac_address);
-             console.log('=== FALLBACK API (ventas-detalle) ===');
-             console.log('URL llamada:', `https://nonstopmachine.com/wp-json/helados/v1/ventas-detalle/${m.mac_address}`);
-             console.log('Respuesta completa:', JSON.stringify(detalle, null, 2));
-             if (detalle?.ventas?.[0]) {
-               console.log('Primera venta API:', JSON.stringify(detalle.ventas[0], null, 2));
-               console.log('Toppings de primera venta API:', detalle.ventas[0].toppings);
-               console.log('Método de pago API:', detalle.ventas[0].metodo_pago);
-             }
-             console.log('====================================');
              return (detalle?.ventas || []).map((v: any) => ({
               id: `api-${m.id}-${v.id || `${v.hora}-${v.precio}`}`,
               maquina_id: m.id,
