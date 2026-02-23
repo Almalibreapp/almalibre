@@ -322,6 +322,49 @@ export const fetchCodigosCupon = async (cuponId: string): Promise<CodigoCupon[]>
   }));
 };
 
+// === CUPONES ===
+
+export const eliminarCupon = async (cuponId: string) => {
+  const numericCouponId = Number(cuponId);
+  const payloads = [
+    { couponId: Number.isFinite(numericCouponId) ? numericCouponId : cuponId },
+    { coupon_id: Number.isFinite(numericCouponId) ? numericCouponId : cuponId },
+    { id: cuponId },
+  ];
+
+  const attempts: Array<{ url: string; method: 'POST' | 'DELETE'; body?: Record<string, unknown> }> = [
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar`, method: 'POST', body: payloads[0] },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar`, method: 'POST', body: payloads[1] },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/${cuponId}`, method: 'DELETE' },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar/${cuponId}`, method: 'DELETE' },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/delete`, method: 'POST', body: payloads[0] },
+  ];
+
+  const errors: string[] = [];
+
+  for (const attempt of attempts) {
+    try {
+      const response = await fetch(attempt.url, {
+        method: attempt.method,
+        headers,
+        body: attempt.body ? JSON.stringify(attempt.body) : undefined,
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data?.success !== false) {
+        return data;
+      }
+
+      errors.push(`${attempt.method} ${attempt.url} -> ${response.status} ${JSON.stringify(data)}`);
+    } catch (error) {
+      errors.push(`${attempt.method} ${attempt.url} -> ${(error as Error).message}`);
+    }
+  }
+
+  throw new Error(`No se pudo eliminar el cupón. Intentos: ${errors.join(' | ')}`);
+};
+
 // === CONTROL REMOTO ===
 
 export const controlOrigen = async (imei: string) => {

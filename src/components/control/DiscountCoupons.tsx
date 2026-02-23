@@ -17,10 +17,11 @@ import {
   fetchCupones, 
   fetchCodigosCupon, 
   crearCupon,
+  eliminarCupon,
   CuponDescuento,
   CodigoCupon 
 } from '@/services/controlApi';
-import { Plus, Loader2, CalendarIcon, Ticket, Copy, Check, Eye } from 'lucide-react';
+import { Plus, Loader2, CalendarIcon, Ticket, Copy, Check, Eye, Trash2 } from 'lucide-react';
 
 interface DiscountCouponsProps {
   imei: string;
@@ -55,6 +56,27 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
     );
   }
 
+  const handleDeleteCoupon = async (cupon: CuponDescuento) => {
+    const confirmed = window.confirm(`¿Seguro que quieres borrar el cupón "${cupon.nombre}"?`);
+    if (!confirmed) return;
+
+    try {
+      await eliminarCupon(cupon.id);
+      toast({ title: '🗑️ Cupón eliminado' });
+      queryClient.invalidateQueries({ queryKey: ['cupones', imei] });
+      if (selectedCupon?.id === cupon.id) {
+        setIsCodesOpen(false);
+        setSelectedCupon(null);
+      }
+    } catch (error) {
+      toast({
+        title: 'Error al eliminar cupón',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -84,7 +106,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
           {cuponesList.map((cupon) => (
             <Card key={cupon.id}>
               <CardContent className="py-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div className="space-y-1">
                     <h4 className="font-semibold">{cupon.nombre}</h4>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -98,17 +120,27 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
                       Válido: {cupon.fecha_inicio?.split(' ')[0] ?? '—'} - {cupon.fecha_fin?.split(' ')[0] ?? '—'}
                     </p>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setSelectedCupon(cupon);
-                      setIsCodesOpen(true);
-                    }}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Ver Códigos
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setSelectedCupon(cupon);
+                        setIsCodesOpen(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Ver Códigos
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleDeleteCoupon(cupon)}
+                      aria-label={`Eliminar cupón ${cupon.nombre}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

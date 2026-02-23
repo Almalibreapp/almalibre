@@ -19,6 +19,12 @@ export const useStockConfig = (imei: string | undefined) => {
   const [items, setItems] = useState<StockConfigItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const resolveUserId = useCallback(async () => {
+    if (user?.id) return user.id;
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id;
+  }, [user?.id]);
+
   const fetchStock = useCallback(async () => {
     if (!imei) { setLoading(false); return; }
 
@@ -39,7 +45,10 @@ export const useStockConfig = (imei: string | undefined) => {
   useEffect(() => { fetchStock(); }, [fetchStock]);
 
   const initializeStock = async (toppings: { posicion: string; nombre: string }[]) => {
-    if (!imei || !user) return;
+    if (!imei || toppings.length === 0) return;
+
+    const userId = await resolveUserId();
+    if (!userId) return;
 
     const records = toppings.map((t) => ({
       machine_imei: imei,
@@ -48,7 +57,7 @@ export const useStockConfig = (imei: string | undefined) => {
       capacidad_maxima: 100,
       unidades_actuales: 100,
       alerta_minimo: 20,
-      user_id: user.id,
+      user_id: userId,
     }));
 
     const { error } = await supabase
@@ -63,12 +72,14 @@ export const useStockConfig = (imei: string | undefined) => {
   };
 
   const refillTopping = async (position: string) => {
-    if (!imei || !user) return;
+    if (!imei) return;
+
+    const userId = await resolveUserId();
+    if (!userId) return;
 
     const item = items.find((i) => i.topping_position === position);
     if (!item) return;
 
-    // Log history
     await supabase.from('stock_history').insert({
       machine_imei: imei,
       topping_position: position,
@@ -76,10 +87,9 @@ export const useStockConfig = (imei: string | undefined) => {
       unidades_anteriores: item.unidades_actuales,
       unidades_nuevas: item.capacidad_maxima,
       accion: 'rellenar',
-      user_id: user.id,
+      user_id: userId,
     });
 
-    // Update stock
     const { error } = await supabase
       .from('stock_config')
       .update({ unidades_actuales: item.capacidad_maxima })
@@ -95,7 +105,7 @@ export const useStockConfig = (imei: string | undefined) => {
   };
 
   const updateToppingCapacity = async (position: string, nuevaCapacidad: number) => {
-    if (!imei || !user) return;
+    if (!imei) return;
 
     const capacidad = Math.max(1, Math.round(nuevaCapacidad));
     const item = items.find((i) => i.topping_position === position);
