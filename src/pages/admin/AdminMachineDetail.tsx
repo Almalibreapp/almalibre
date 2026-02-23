@@ -9,6 +9,7 @@ import { SalesChart } from '@/components/dashboard/SalesChart';
 import { StockReplenishment } from '@/components/stock/StockReplenishment';
 import { StockCapacitySettings } from '@/components/stock/StockCapacitySettings';
 import { useStockConfig } from '@/hooks/useStockConfig';
+import { useStockSync } from '@/hooks/useStockSync';
 import { ControlTab } from '@/components/control/ControlTab';
 import { TemperatureTraceability } from '@/components/temperature/TemperatureTraceability';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,6 +58,7 @@ export const AdminMachineDetail = () => {
   const { temperatura, ventas, stock, isLoading, hasError, error, refetchAll, isRefetching } = useMaquinaData(imei);
   const { data: ventasDetalle } = useVentasDetalle(imei);
   const stockConfig = useStockConfig(imei);
+  useStockSync(imei);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const chinaDates = getChinaDatesForSpainDate(todayStr);
