@@ -71,18 +71,35 @@ export const AdminMachineDetail = () => {
     enabled: !!machineId,
   });
 
+  // Combine DB data with API data for today's sales
+  // The API returns sales in China time; DB may not be synced yet
   const ventasHoySpain = useMemo(() => {
-    if (!ventasHoyDB) return { euros: 0, cantidad: 0 };
     let euros = 0, cantidad = 0;
-    ventasHoyDB.forEach(v => {
-      const converted = convertChinaToSpainFull(v.hora, v.fecha);
-      if (converted.fecha === todayStr) {
-        euros += Number(v.precio);
-        cantidad += (v.cantidad_unidades || 1);
-      }
-    });
+
+    // First try DB data (converted from China to Spain time)
+    if (ventasHoyDB && ventasHoyDB.length > 0) {
+      ventasHoyDB.forEach(v => {
+        const converted = convertChinaToSpainFull(v.hora, v.fecha);
+        if (converted.fecha === todayStr) {
+          euros += Number(v.precio);
+          cantidad += (v.cantidad_unidades || 1);
+        }
+      });
+    }
+
+    // If DB has no data for today, use API ventas-detalle as fallback
+    if (cantidad === 0 && ventasDetalle?.ventas) {
+      ventasDetalle.ventas.forEach((v: any) => {
+        const converted = convertChinaToSpainFull(v.hora, ventasDetalle.fecha);
+        if (converted.fecha === todayStr) {
+          euros += Number(v.precio);
+          cantidad += (v.cantidad_unidades || 1);
+        }
+      });
+    }
+
     return { euros, cantidad };
-  }, [ventasHoyDB, todayStr]);
+  }, [ventasHoyDB, ventasDetalle, todayStr]);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showAllSales, setShowAllSales] = useState(false);
