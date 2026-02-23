@@ -207,18 +207,33 @@ export const crearCupon = async (data: {
   ubicacion: string;
   cantidad_codigos: number;
 }) => {
+  const payload = {
+    imei: data.imei,
+    nombre: data.nombre,
+    fecha_inicio: data.fecha_inicio,
+    fecha_fin: data.fecha_fin,
+    dias_validez: data.dias_validez,
+    ubicacion: data.ubicacion,
+    cantidad_codigos: data.cantidad_codigos,
+    descuento: data.descuento,
+  };
+
+  console.log('[crearCupon] Sending payload:', JSON.stringify(payload));
+
   const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupon/crear`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
 
+  const responseData = await response.json().catch(() => ({}));
+  console.log('[crearCupon] Response:', response.status, JSON.stringify(responseData));
+
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al crear el cupón');
+    throw new Error(responseData.message || 'Error al crear el cupón');
   }
 
-  return response.json();
+  return responseData;
 };
 
 export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
