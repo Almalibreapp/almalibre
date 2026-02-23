@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,61 +8,47 @@ import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezo
 import { format } from 'date-fns';
 import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lucide-react';
 
-interface MachineWithUser {
-  id: string;
-  mac_address: string;
-  nombre_personalizado: string;
-  ubicacion: string | null;
-  activa: boolean;
-  usuario_id: string;
-}
+const todayStr = format(new Date(), 'yyyy-MM-dd');
+const chinaDates = getChinaDatesForSpainDate(todayStr);
 
 export const AdminDashboard = () => {
-  const [machines, setMachines] = useState<MachineWithUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [tempAlerts, setTempAlerts] = useState(0);
-  const [lowStockAlerts, setLowStockAlerts] = useState(0);
-  const [ventasHoy, setVentasHoy] = useState<any[]>([]);
+  // Fetch all machines
+  const { data: machines = [] } = useQuery({
+    queryKey: ['admin-all-machines'],
+    queryFn: async () => {
+      const { data } = await supabase.from('maquinas').select('*');
+      return (data || []) as { id: string; mac_address: string; nombre_personalizado: string; ubicacion: string | null; activa: boolean; usuario_id: string }[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const chinaDates = getChinaDatesForSpainDate(todayStr);
-
-  useEffect(() => {
-    loadDashboard();
-    const interval = setInterval(loadDashboard, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadDashboard = async () => {
-    try {
-      // Fetch all machines
-      const { data: maquinas } = await supabase
-        .from('maquinas')
-        .select('*');
-
-      if (!maquinas) return;
-      setMachines(maquinas as MachineWithUser[]);
-
-      // Fetch low stock alerts
-      const { count: lowStock } = await supabase
+  // Fetch low stock count
+  const { data: lowStockAlerts = 0 } = useQuery({
+    queryKey: ['admin-low-stock-count'],
+    queryFn: async () => {
+      const { count } = await supabase
         .from('stock_config')
         .select('*', { count: 'exact', head: true })
         .lt('unidades_actuales', 20);
-      setLowStockAlerts(lowStock || 0);
+      return count || 0;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-      // Fetch today's sales from DB (using China date range for Spain today)
+  // Fetch today's sales
+  const { data: ventasHoy = [], isLoading: loadingSales } = useQuery({
+    queryKey: ['admin-dashboard-ventas', todayStr],
+    queryFn: async () => {
       const { data: ventas } = await supabase
         .from('ventas_historico')
         .select('precio, hora, fecha, cantidad_unidades, maquina_id')
         .in('fecha', chinaDates);
 
-      // If DB has no sales for today, fetch from API as fallback
       let ventasToUse = ventas || [];
-      if (ventasToUse.length === 0 && maquinas.length > 0) {
+      if (ventasToUse.length === 0 && machines.length > 0) {
         try {
-          // Deduplicate by IMEI to avoid fetching the same machine twice
           const uniqueByImei = Array.from(
-            new Map(maquinas.map(m => [m.mac_address, m])).values()
+            new Map(machines.map(m => [m.mac_address, m])).values()
           );
           const apiPromises = uniqueByImei.map(async (m) => {
             try {
@@ -84,31 +71,36 @@ export const AdminDashboard = () => {
             .flatMap(r => r.value);
         } catch { /* skip */ }
       }
-      setVentasHoy(ventasToUse);
+      return ventasToUse;
+    },
+    staleTime: 3 * 60 * 1000,
+    refetchInterval: 30000,
+    enabled: machines.length >= 0, // always enabled but waits for machines
+  });
 
-      // Fetch temp alerts — deduplicate by IMEI
-      let tempAlertCount = 0;
-      const uniqueMachinesForTemp = Array.from(
-        new Map(maquinas.map(m => [m.mac_address, m])).values()
+  // Fetch temp alerts
+  const { data: tempAlerts = 0 } = useQuery({
+    queryKey: ['admin-temp-alerts'],
+    queryFn: async () => {
+      if (machines.length === 0) return 0;
+      const uniqueMachines = Array.from(
+        new Map(machines.map(m => [m.mac_address, m])).values()
       );
-      const tempPromises = uniqueMachinesForTemp.map(async (m) => {
+      let count = 0;
+      const promises = uniqueMachines.map(async (m) => {
         try {
           const temp = await fetchTemperatura(m.mac_address);
-          if (temp?.temperatura !== undefined && temp.temperatura >= 11) {
-            tempAlertCount++;
-          }
+          if (temp?.temperatura !== undefined && temp.temperatura >= 11) count++;
         } catch { /* skip */ }
       });
-      await Promise.allSettled(tempPromises);
-      setTempAlerts(tempAlertCount);
-    } catch (error) {
-      console.error('Dashboard error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      await Promise.allSettled(promises);
+      return count;
+    },
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 30000,
+    enabled: machines.length > 0,
+  });
 
-  // Filter sales to only those whose Spain date matches today
   const metrics = useMemo(() => {
     const filtered = ventasHoy.filter(v => {
       const converted = convertChinaToSpainFull(v.hora, v.fecha);
@@ -118,7 +110,6 @@ export const AdminDashboard = () => {
     const totalSales = filtered.reduce((s, v) => s + Number(v.precio), 0);
     const totalIceCreams = filtered.reduce((s, v) => s + (v.cantidad_unidades || 1), 0);
 
-    // Count unique IMEIs for active/total machines
     const uniqueImeis = new Set(machines.map(m => m.mac_address));
     const uniqueActiveImeis = new Set(machines.filter(m => m.activa).map(m => m.mac_address));
 
@@ -130,9 +121,9 @@ export const AdminDashboard = () => {
       lowStockAlerts,
       tempAlerts,
     };
-  }, [ventasHoy, todayStr, machines, lowStockAlerts, tempAlerts]);
+  }, [ventasHoy, machines, lowStockAlerts, tempAlerts]);
 
-  if (loading) {
+  if (loadingSales && ventasHoy.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
