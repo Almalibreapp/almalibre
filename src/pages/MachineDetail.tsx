@@ -97,7 +97,7 @@ export const MachineDetail = () => {
   const currentLoading = isToday ? false : loadingSelected;
 
   // Temperature traceability
-  const { data: tempLog } = useTemperatureLog(maquina?.id, tempLogHours);
+  const { data: tempLog } = useTemperatureLog(maquina?.id, tempLogHours, imei);
   const logTemperature = useLogTemperature();
 
   // Auto-log temperature every time we get a new reading

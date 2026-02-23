@@ -274,24 +274,33 @@ export type Database = {
         Row: {
           created_at: string
           estado: string
+          fuente: string | null
           id: string
+          imei: string | null
           maquina_id: string
+          sensor: string | null
           temperatura: number
           unidad: string
         }
         Insert: {
           created_at?: string
           estado?: string
+          fuente?: string | null
           id?: string
+          imei?: string | null
           maquina_id: string
+          sensor?: string | null
           temperatura: number
           unidad?: string
         }
         Update: {
           created_at?: string
           estado?: string
+          fuente?: string | null
           id?: string
+          imei?: string | null
           maquina_id?: string
+          sensor?: string | null
           temperatura?: number
           unidad?: string
         }

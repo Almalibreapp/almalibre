@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.sync-ventas]
 verify_jwt = false
+
+[functions.sync-temperatura]
+verify_jwt = false

@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const API_BASE_URL = 'https://nonstopmachine.com/wp-json/helados/v1'
+const API_BASE_URL = 'https://nonstopmachine.com/wp-json'
 const API_TOKEN = 'b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE'
 
 const headers = {
@@ -71,55 +71,74 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Note: Admin access is enforced by RLS on ventas_historico table
-    // Only admin users can read the synced data
-
     const body = await req.json().catch(() => ({}))
     const { imei, maquina_id, fecha, dias_atras } = body
+
+    // Helper: fetch orders from the NEW endpoint
+    const fetchOrders = async (machineImei: string, dateStr: string) => {
+      const url = `${API_BASE_URL}/fabricante-ext/v1/ordenes/${machineImei}?fecha=${dateStr}`
+      console.log(`[sync-ventas] Fetching: ${url}`)
+      const res = await fetch(url, { headers })
+      if (!res.ok) {
+        console.log(`[sync-ventas] HTTP ${res.status} for ${url}`)
+        return null
+      }
+      const data = await res.json()
+      console.log(`[sync-ventas] Response for ${dateStr}:`, JSON.stringify(data).substring(0, 500))
+      return data
+    }
+
+    // Helper: map orders to DB rows
+    const mapOrdersToRows = (data: any, machineId: string, machineImei: string, dateStr: string) => {
+      // The new endpoint may use "ordenes" or "ventas" as the array key
+      const orders = data.ordenes || data.ventas || []
+      if (!Array.isArray(orders) || orders.length === 0) return []
+
+      return orders.map((v: any) => {
+        // Try multiple payment method field names
+        const rawPayment = v.metodo_pago ?? v.payment_method ?? v.pay_type ?? v.payType ?? v.metodoPago ?? v.tipo_pago
+        const product = decodeHtmlEntities(v.producto || '')
+        const toppings = Array.isArray(v.toppings) && v.toppings.length > 0
+          ? v.toppings
+          : (Array.isArray(v.toppings_usados) && v.toppings_usados.length > 0
+            ? v.toppings_usados
+            : extractToppingsFromProduct(product))
+
+        return {
+          maquina_id: machineId,
+          imei: machineImei,
+          venta_api_id: String(v.id || v.numero_orden || `${dateStr}-${v.hora}-${v.precio}`),
+          fecha: v.fecha || dateStr,
+          hora: v.hora || '00:00',
+          producto: product,
+          precio: Number(v.precio || 0),
+          cantidad_unidades: Number(v.cantidad_unidades || v.cantidad || 1),
+          metodo_pago: normalizePaymentMethod(rawPayment),
+          numero_orden: v.numero_orden || v.order_no || null,
+          estado: v.estado || 'exitoso',
+          toppings,
+        }
+      })
+    }
 
     // If specific machine + date
     if (imei && maquina_id) {
       const results = []
       const daysBack = dias_atras || 30
-      
+
       for (let i = 0; i < daysBack; i++) {
         const d = new Date()
         d.setDate(d.getDate() - i)
         const dateStr = d.toISOString().split('T')[0]
-        
+
         if (fecha && dateStr !== fecha) continue
 
         try {
-          const url = `${API_BASE_URL}/ventas-detalle/${imei}?fecha=${dateStr}`
-          const res = await fetch(url, { headers })
-          if (!res.ok) continue
-          
-          const data = await res.json()
-          if (!data.ventas || data.ventas.length === 0) continue
+          const data = await fetchOrders(imei, dateStr)
+          if (!data) continue
 
-          // Insert sales using upsert (ON CONFLICT DO NOTHING)
-          const rows = data.ventas.map((v: any) => {
-            const rawPayment = v.metodo_pago ?? v.payment_method ?? v.pay_type ?? v.payType ?? v.metodoPago ?? v.tipo_pago
-            const product = decodeHtmlEntities(v.producto || '')
-            const toppings = Array.isArray(v.toppings) && v.toppings.length > 0
-              ? v.toppings
-              : extractToppingsFromProduct(product)
-
-            return {
-              maquina_id,
-              imei,
-              venta_api_id: v.id,
-              fecha: dateStr,
-              hora: v.hora,
-              producto: product,
-              precio: v.precio || 0,
-              cantidad_unidades: v.cantidad_unidades || 1,
-              metodo_pago: normalizePaymentMethod(rawPayment),
-              numero_orden: v.numero_orden || v.order_no || null,
-              estado: v.estado || 'exitoso',
-              toppings,
-            }
-          })
+          const rows = mapOrdersToRows(data, maquina_id, imei, dateStr)
+          if (rows.length === 0) continue
 
           const { error, count } = await supabase
             .from('ventas_historico')
@@ -161,35 +180,11 @@ Deno.serve(async (req) => {
         const dateStr = d.toISOString().split('T')[0]
 
         try {
-          const url = `${API_BASE_URL}/ventas-detalle/${maq.mac_address}?fecha=${dateStr}`
-          const res = await fetch(url, { headers })
-          if (!res.ok) continue
+          const data = await fetchOrders(maq.mac_address, dateStr)
+          if (!data) continue
 
-          const data = await res.json()
-          if (!data.ventas || data.ventas.length === 0) continue
-
-          const rows = data.ventas.map((v: any) => {
-            const rawPayment = v.metodo_pago ?? v.payment_method ?? v.pay_type ?? v.payType ?? v.metodoPago ?? v.tipo_pago
-            const product = decodeHtmlEntities(v.producto || '')
-            const toppings = Array.isArray(v.toppings) && v.toppings.length > 0
-              ? v.toppings
-              : extractToppingsFromProduct(product)
-
-            return {
-              maquina_id: maq.id,
-              imei: maq.mac_address,
-              venta_api_id: v.id,
-              fecha: dateStr,
-              hora: v.hora,
-              producto: product,
-              precio: v.precio || 0,
-              cantidad_unidades: v.cantidad_unidades || 1,
-              metodo_pago: normalizePaymentMethod(rawPayment),
-              numero_orden: v.numero_orden || v.order_no || null,
-              estado: v.estado || 'exitoso',
-              toppings,
-            }
-          })
+          const rows = mapOrdersToRows(data, maq.id, maq.mac_address, dateStr)
+          if (rows.length === 0) continue
 
           await supabase
             .from('ventas_historico')
@@ -213,6 +208,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
+    console.error('[sync-ventas] Error:', error.message)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
