@@ -17,11 +17,10 @@ import {
   fetchCupones, 
   fetchCodigosCupon, 
   crearCupon,
-  eliminarCupon,
   CuponDescuento,
   CodigoCupon 
 } from '@/services/controlApi';
-import { Plus, Loader2, CalendarIcon, Ticket, Copy, Check, Eye, Trash2 } from 'lucide-react';
+import { Plus, Loader2, CalendarIcon, Ticket, Copy, Check, Eye } from 'lucide-react';
 
 interface DiscountCouponsProps {
   imei: string;
@@ -56,26 +55,6 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
     );
   }
 
-  const handleDeleteCoupon = async (cupon: CuponDescuento) => {
-    const confirmed = window.confirm(`¿Seguro que quieres borrar el cupón "${cupon.nombre}"?`);
-    if (!confirmed) return;
-
-    try {
-      await eliminarCupon(cupon.id);
-      toast({ title: '🗑️ Cupón eliminado' });
-      queryClient.invalidateQueries({ queryKey: ['cupones', imei] });
-      if (selectedCupon?.id === cupon.id) {
-        setIsCodesOpen(false);
-        setSelectedCupon(null);
-      }
-    } catch (error) {
-      toast({
-        title: 'Error al eliminar cupón',
-        description: (error as Error).message,
-        variant: 'destructive',
-      });
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -131,14 +110,6 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       Ver Códigos
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleDeleteCoupon(cupon)}
-                      aria-label={`Eliminar cupón ${cupon.nombre}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
