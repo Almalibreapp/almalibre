@@ -207,7 +207,7 @@ export const crearCupon = async (data: {
   ubicacion: string;
   cantidad_codigos: number;
 }) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupon/descuento`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupon/crear`, {
     method: 'POST',
     headers,
     body: JSON.stringify(data),
