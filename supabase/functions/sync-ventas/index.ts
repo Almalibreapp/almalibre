@@ -13,6 +13,53 @@ const headers = {
   'Content-Type': 'application/json',
 }
 
+const decodeHtmlEntities = (text: string) => {
+  if (!text) return ''
+  return text
+    .replace(/&ccedil;/g, 'ç')
+    .replace(/&ntilde;/g, 'ñ')
+    .replace(/&aacute;/g, 'á')
+    .replace(/&eacute;/g, 'é')
+    .replace(/&iacute;/g, 'í')
+    .replace(/&oacute;/g, 'ó')
+    .replace(/&uacute;/g, 'ú')
+    .replace(/&atilde;/g, 'ã')
+    .replace(/&otilde;/g, 'õ')
+}
+
+const normalizePaymentMethod = (value: unknown) => {
+  const raw = decodeHtmlEntities(String(value || '')).trim().toLowerCase()
+  if (!raw) return 'efectivo'
+
+  if (raw.includes('tarjeta') || raw.includes('card') || raw.includes('credito') || raw.includes('débito') || raw.includes('debito')) {
+    return 'tarjeta'
+  }
+  if (raw.includes('bizum')) return 'bizum'
+  if (raw.includes('apple')) return 'apple pay'
+  if (raw.includes('google')) return 'google pay'
+  if (raw.includes('cash') || raw.includes('efectivo') || raw.includes('metalico') || raw.includes('metálico')) {
+    return 'efectivo'
+  }
+
+  return raw
+}
+
+const extractToppingsFromProduct = (productText: string) => {
+  const decoded = decodeHtmlEntities(productText)
+  const [, toppingsText] = decoded.split(':')
+  if (!toppingsText) return []
+
+  return toppingsText
+    .split(',')
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .map((name, index) => ({
+      posicion: `txt-${index + 1}`,
+      nombre: name,
+      cantidad: '1',
+    }))
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -51,24 +98,32 @@ Deno.serve(async (req) => {
           if (!data.ventas || data.ventas.length === 0) continue
 
           // Insert sales using upsert (ON CONFLICT DO NOTHING)
-          const rows = data.ventas.map((v: any) => ({
-            maquina_id,
-            imei,
-            venta_api_id: v.id,
-            fecha: dateStr,
-            hora: v.hora,
-            producto: v.producto || '',
-            precio: v.precio || 0,
-            cantidad_unidades: v.cantidad_unidades || 1,
-            metodo_pago: v.metodo_pago || 'efectivo',
-            numero_orden: v.numero_orden || null,
-            estado: v.estado || 'exitoso',
-            toppings: v.toppings || [],
-          }))
+          const rows = data.ventas.map((v: any) => {
+            const rawPayment = v.metodo_pago ?? v.payment_method ?? v.pay_type ?? v.payType ?? v.metodoPago ?? v.tipo_pago
+            const product = decodeHtmlEntities(v.producto || '')
+            const toppings = Array.isArray(v.toppings) && v.toppings.length > 0
+              ? v.toppings
+              : extractToppingsFromProduct(product)
+
+            return {
+              maquina_id,
+              imei,
+              venta_api_id: v.id,
+              fecha: dateStr,
+              hora: v.hora,
+              producto: product,
+              precio: v.precio || 0,
+              cantidad_unidades: v.cantidad_unidades || 1,
+              metodo_pago: normalizePaymentMethod(rawPayment),
+              numero_orden: v.numero_orden || v.order_no || null,
+              estado: v.estado || 'exitoso',
+              toppings,
+            }
+          })
 
           const { error, count } = await supabase
             .from('ventas_historico')
-            .upsert(rows, { onConflict: 'imei,venta_api_id', ignoreDuplicates: true })
+            .upsert(rows, { onConflict: 'imei,venta_api_id' })
 
           results.push({ fecha: dateStr, ventas: rows.length, error: error?.message })
         } catch (e) {
@@ -113,24 +168,32 @@ Deno.serve(async (req) => {
           const data = await res.json()
           if (!data.ventas || data.ventas.length === 0) continue
 
-          const rows = data.ventas.map((v: any) => ({
-            maquina_id: maq.id,
-            imei: maq.mac_address,
-            venta_api_id: v.id,
-            fecha: dateStr,
-            hora: v.hora,
-            producto: v.producto || '',
-            precio: v.precio || 0,
-            cantidad_unidades: v.cantidad_unidades || 1,
-            metodo_pago: v.metodo_pago || 'efectivo',
-            numero_orden: v.numero_orden || null,
-            estado: v.estado || 'exitoso',
-            toppings: v.toppings || [],
-          }))
+          const rows = data.ventas.map((v: any) => {
+            const rawPayment = v.metodo_pago ?? v.payment_method ?? v.pay_type ?? v.payType ?? v.metodoPago ?? v.tipo_pago
+            const product = decodeHtmlEntities(v.producto || '')
+            const toppings = Array.isArray(v.toppings) && v.toppings.length > 0
+              ? v.toppings
+              : extractToppingsFromProduct(product)
+
+            return {
+              maquina_id: maq.id,
+              imei: maq.mac_address,
+              venta_api_id: v.id,
+              fecha: dateStr,
+              hora: v.hora,
+              producto: product,
+              precio: v.precio || 0,
+              cantidad_unidades: v.cantidad_unidades || 1,
+              metodo_pago: normalizePaymentMethod(rawPayment),
+              numero_orden: v.numero_orden || v.order_no || null,
+              estado: v.estado || 'exitoso',
+              toppings,
+            }
+          })
 
           await supabase
             .from('ventas_historico')
-            .upsert(rows, { onConflict: 'imei,venta_api_id', ignoreDuplicates: true })
+            .upsert(rows, { onConflict: 'imei,venta_api_id' })
 
           allResults.push({ maquina: maq.mac_address, fecha: dateStr, ventas: rows.length })
         } catch (e) {

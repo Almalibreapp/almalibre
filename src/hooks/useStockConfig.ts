@@ -94,5 +94,36 @@ export const useStockConfig = (imei: string | undefined) => {
     }
   };
 
-  return { items, loading, refillTopping, initializeStock, refetch: fetchStock };
+  const updateToppingCapacity = async (position: string, nuevaCapacidad: number) => {
+    if (!imei || !user) return;
+
+    const capacidad = Math.max(1, Math.round(nuevaCapacidad));
+    const item = items.find((i) => i.topping_position === position);
+
+    const { error } = await supabase
+      .from('stock_config')
+      .update({
+        capacidad_maxima: capacidad,
+        unidades_actuales: item ? Math.min(item.unidades_actuales, capacidad) : capacidad,
+      })
+      .eq('machine_imei', imei)
+      .eq('topping_position', position);
+
+    if (error) {
+      toast({ title: 'Error', description: 'No se pudo actualizar la capacidad máxima', variant: 'destructive' });
+      return;
+    }
+
+    toast({ title: 'Capacidad actualizada', description: `Nuevo máximo: ${capacidad} unidades` });
+    await fetchStock();
+  };
+
+  return {
+    items,
+    loading,
+    refillTopping,
+    initializeStock,
+    updateToppingCapacity,
+    refetch: fetchStock,
+  };
 };

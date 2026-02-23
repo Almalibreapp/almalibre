@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import {
@@ -16,8 +16,60 @@ import {
   ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { convertChinaToSpainFull } from '@/lib/timezone';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))', '#8884d8', '#82ca9d', '#ffc658'];
+
+const decodeHtmlEntities = (text: string) => {
+  if (!text) return '';
+  if (typeof window === 'undefined') {
+    return text
+      .replace(/&ccedil;/g, 'ç')
+      .replace(/&ntilde;/g, 'ñ')
+      .replace(/&aacute;/g, 'á')
+      .replace(/&eacute;/g, 'é')
+      .replace(/&iacute;/g, 'í')
+      .replace(/&oacute;/g, 'ó')
+      .replace(/&uacute;/g, 'ú');
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
+};
+
+const normalizePaymentMethod = (method?: string | null) => {
+  const raw = decodeHtmlEntities(method || '').trim().toLowerCase();
+  if (!raw) return 'efectivo';
+
+  if (raw.includes('tarjeta') || raw.includes('card') || raw.includes('credito') || raw.includes('débito') || raw.includes('debito')) {
+    return 'tarjeta';
+  }
+  if (raw.includes('bizum')) return 'bizum';
+  if (raw.includes('apple')) return 'apple pay';
+  if (raw.includes('google')) return 'google pay';
+  if (raw.includes('cash') || raw.includes('efectivo') || raw.includes('metalico') || raw.includes('metálico')) {
+    return 'efectivo';
+  }
+
+  return raw;
+};
+
+const parseProductAndToppings = (productText?: string | null) => {
+  const decoded = decodeHtmlEntities(productText || '').trim();
+  if (!decoded) return { productName: 'Sin nombre', toppings: [] as string[] };
+
+  const [baseProduct, toppingsText] = decoded.split(':');
+  const toppings = (toppingsText || '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  return {
+    productName: (baseProduct || decoded).trim(),
+    toppings,
+  };
+};
 
 export const AdminAnalytics = () => {
   const [selectedMachine, setSelectedMachine] = useState<string>('all');
@@ -40,11 +92,14 @@ export const AdminAnalytics = () => {
   const { data: ventasHistorico, isLoading, refetch } = useQuery({
     queryKey: ['admin-ventas-historico', selectedMachine, monthStart, monthEnd],
     queryFn: async () => {
+      const queryStart = format(subDays(startOfMonth(currentMonth), 1), 'yyyy-MM-dd');
+      const queryEnd = format(addDays(endOfMonth(currentMonth), 1), 'yyyy-MM-dd');
+
       let query = supabase
         .from('ventas_historico')
         .select('*')
-        .gte('fecha', monthStart)
-        .lte('fecha', monthEnd)
+        .gte('fecha', queryStart)
+        .lte('fecha', queryEnd)
         .order('fecha', { ascending: true })
         .order('hora', { ascending: true });
 
@@ -56,6 +111,8 @@ export const AdminAnalytics = () => {
       if (error) throw error;
       return data || [];
     },
+    refetchInterval: isSameMonth(currentMonth, new Date()) ? 30000 : false,
+    refetchOnWindowFocus: true,
   });
 
   // Sync sales from API
@@ -76,8 +133,37 @@ export const AdminAnalytics = () => {
   };
 
   // === COMPUTED METRICS ===
+  const ventasNormalizadas = useMemo(() => {
+    if (!ventasHistorico) return [];
+
+    const monthStartDate = startOfMonth(currentMonth);
+    const monthEndDate = endOfMonth(currentMonth);
+
+    return ventasHistorico
+      .map((v) => {
+        const converted = convertChinaToSpainFull(v.hora, v.fecha);
+        const saleDate = new Date(`${converted.fecha}T00:00:00`);
+
+        const productInfo = parseProductAndToppings(v.producto);
+        const toppingNames = Array.isArray(v.toppings) && v.toppings.length > 0
+          ? v.toppings.map((t: any) => decodeHtmlEntities(t.nombre || t.posicion || 'Sin nombre')).filter(Boolean)
+          : productInfo.toppings;
+
+        return {
+          ...v,
+          fechaSpain: converted.fecha,
+          horaSpain: converted.hora,
+          saleDate,
+          productoNormalizado: productInfo.productName,
+          toppingNames,
+          metodoPagoNormalizado: normalizePaymentMethod(v.metodo_pago),
+        };
+      })
+      .filter((v) => v.saleDate >= monthStartDate && v.saleDate <= monthEndDate);
+  }, [ventasHistorico, currentMonth]);
+
   const metrics = useMemo(() => {
-    if (!ventasHistorico || ventasHistorico.length === 0) {
+    if (!ventasNormalizadas || ventasNormalizadas.length === 0) {
       return {
         totalVentas: 0, totalEuros: 0, totalUnidades: 0, avgTicket: 0,
         ventasPorDia: [], ventasPorHora: [], ventasPorTopping: [],
@@ -86,27 +172,27 @@ export const AdminAnalytics = () => {
       };
     }
 
-    const totalVentas = ventasHistorico.length;
-    const totalEuros = ventasHistorico.reduce((sum, v) => sum + Number(v.precio), 0);
-    const totalUnidades = ventasHistorico.reduce((sum, v) => sum + (v.cantidad_unidades || 1), 0);
+    const totalVentas = ventasNormalizadas.length;
+    const totalEuros = ventasNormalizadas.reduce((sum, v) => sum + Number(v.precio), 0);
+    const totalUnidades = ventasNormalizadas.reduce((sum, v) => sum + (v.cantidad_unidades || 1), 0);
     const avgTicket = totalVentas > 0 ? totalEuros / totalVentas : 0;
 
-    // By day
+    // By day (Spain timezone)
     const byDay: Record<string, { ventas: number; euros: number; unidades: number }> = {};
-    ventasHistorico.forEach(v => {
-      if (!byDay[v.fecha]) byDay[v.fecha] = { ventas: 0, euros: 0, unidades: 0 };
-      byDay[v.fecha].ventas++;
-      byDay[v.fecha].euros += Number(v.precio);
-      byDay[v.fecha].unidades += v.cantidad_unidades || 1;
+    ventasNormalizadas.forEach(v => {
+      if (!byDay[v.fechaSpain]) byDay[v.fechaSpain] = { ventas: 0, euros: 0, unidades: 0 };
+      byDay[v.fechaSpain].ventas++;
+      byDay[v.fechaSpain].euros += Number(v.precio);
+      byDay[v.fechaSpain].unidades += v.cantidad_unidades || 1;
     });
     const ventasPorDia = Object.entries(byDay)
-      .map(([fecha, d]) => ({ fecha, label: format(new Date(fecha), 'dd MMM', { locale: es }), ...d }))
+      .map(([fecha, d]) => ({ fecha, label: format(new Date(`${fecha}T00:00:00`), 'dd MMM', { locale: es }), ...d }))
       .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
-    // By hour
+    // By hour (Spain timezone)
     const byHour: Record<string, { ventas: number; euros: number }> = {};
-    ventasHistorico.forEach(v => {
-      const h = v.hora.split(':')[0] + ':00';
+    ventasNormalizadas.forEach(v => {
+      const h = v.horaSpain.split(':')[0] + ':00';
       if (!byHour[h]) byHour[h] = { ventas: 0, euros: 0 };
       byHour[h].ventas++;
       byHour[h].euros += Number(v.precio);
@@ -115,16 +201,12 @@ export const AdminAnalytics = () => {
       .map(([hora, d]) => ({ hora, ...d }))
       .sort((a, b) => a.hora.localeCompare(b.hora));
 
-    // By topping
+    // By topping (fallback a producto parseado si toppings viene vacío)
     const byTopping: Record<string, number> = {};
-    ventasHistorico.forEach(v => {
-      const toppings = v.toppings as any[];
-      if (toppings && Array.isArray(toppings)) {
-        toppings.forEach((t: any) => {
-          const name = t.nombre || t.posicion || 'Sin nombre';
-          byTopping[name] = (byTopping[name] || 0) + 1;
-        });
-      }
+    ventasNormalizadas.forEach(v => {
+      v.toppingNames.forEach((name: string) => {
+        byTopping[name] = (byTopping[name] || 0) + 1;
+      });
     });
     const ventasPorTopping = Object.entries(byTopping)
       .map(([nombre, cantidad]) => ({ nombre, cantidad }))
@@ -132,8 +214,8 @@ export const AdminAnalytics = () => {
 
     // By payment method
     const byPayment: Record<string, { ventas: number; euros: number }> = {};
-    ventasHistorico.forEach(v => {
-      const m = v.metodo_pago || 'efectivo';
+    ventasNormalizadas.forEach(v => {
+      const m = v.metodoPagoNormalizado;
       if (!byPayment[m]) byPayment[m] = { ventas: 0, euros: 0 };
       byPayment[m].ventas++;
       byPayment[m].euros += Number(v.precio);
@@ -142,10 +224,10 @@ export const AdminAnalytics = () => {
       .map(([metodo, d]) => ({ metodo: metodo.charAt(0).toUpperCase() + metodo.slice(1), ...d }))
       .sort((a, b) => b.ventas - a.ventas);
 
-    // By product
+    // By product (decoded)
     const byProduct: Record<string, { ventas: number; euros: number }> = {};
-    ventasHistorico.forEach(v => {
-      const p = v.producto || 'Sin nombre';
+    ventasNormalizadas.forEach(v => {
+      const p = v.productoNormalizado || 'Sin nombre';
       if (!byProduct[p]) byProduct[p] = { ventas: 0, euros: 0 };
       byProduct[p].ventas++;
       byProduct[p].euros += Number(v.precio);
@@ -156,7 +238,7 @@ export const AdminAnalytics = () => {
 
     // By machine
     const byMachine: Record<string, { ventas: number; euros: number; nombre: string }> = {};
-    ventasHistorico.forEach(v => {
+    ventasNormalizadas.forEach(v => {
       const maq = maquinas?.find(m => m.id === v.maquina_id);
       const key = v.maquina_id;
       if (!byMachine[key]) byMachine[key] = { ventas: 0, euros: 0, nombre: maq?.nombre_personalizado || v.imei };
@@ -167,7 +249,7 @@ export const AdminAnalytics = () => {
       .map(([id, d]) => ({ id, ...d }))
       .sort((a, b) => b.euros - a.euros);
 
-    // Calendar
+    // Calendar (Spain timezone)
     const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
     const calendarioDias = daysInMonth.map(day => {
       const dateStr = format(day, 'yyyy-MM-dd');
@@ -193,7 +275,7 @@ export const AdminAnalytics = () => {
       ventasPorMetodoPago, ventasPorProducto, ventasPorMaquina,
       calendarioDias, mejorDia, peorDia, mejorHora,
     };
-  }, [ventasHistorico, maquinas, currentMonth]);
+  }, [ventasNormalizadas, maquinas, currentMonth]);
 
   const navigateMonth = (dir: 'prev' | 'next') => {
     const next = new Date(currentMonth);

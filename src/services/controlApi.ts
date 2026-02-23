@@ -207,7 +207,7 @@ export const crearCupon = async (data: {
   ubicacion: string;
   cantidad_codigos: number;
 }) => {
-  const payload = {
+  const body = {
     imei: data.imei,
     nombre: data.nombre,
     fecha_inicio: data.fecha_inicio,
@@ -218,19 +218,36 @@ export const crearCupon = async (data: {
     descuento: data.descuento,
   };
 
-  console.log('[crearCupon] Sending payload:', JSON.stringify(payload));
+  console.log('=== CREAR CUPÓN - DEBUG ===');
+  console.log('IMEI:', data.imei);
+  console.log('Body completo:', JSON.stringify(body, null, 2));
+  console.log('Fecha inicio formato:', body.fecha_inicio);
+  console.log('Fecha fin formato:', body.fecha_fin);
+  console.log('Tipo dias_validez:', typeof body.dias_validez);
+  console.log('Tipo cantidad_codigos:', typeof body.cantidad_codigos);
+  console.log('Tipo descuento:', typeof body.descuento);
+  console.log('========================');
 
   const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupon/crear`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 
   const responseData = await response.json().catch(() => ({}));
-  console.log('[crearCupon] Response:', response.status, JSON.stringify(responseData));
 
-  if (!response.ok) {
-    throw new Error(responseData.message || 'Error al crear el cupón');
+  console.log('=== RESPUESTA DEL SERVIDOR ===');
+  console.log('Status:', response.status);
+  console.log('Data completa:', JSON.stringify(responseData, null, 2));
+  console.log('============================');
+
+  const isConfirmedSuccess =
+    response.status === 200 &&
+    responseData?.success === true &&
+    !!responseData?.data?.couponId;
+
+  if (!isConfirmedSuccess) {
+    throw new Error(`Error al crear cupón. Respuesta: ${JSON.stringify(responseData)}`);
   }
 
   return responseData;

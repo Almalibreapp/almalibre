@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchTemperatura } from '@/services/api';
+import { fetchTemperatura, fetchVentasDetalle } from '@/services/api';
 import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import { format } from 'date-fns';
 import { Search, Eye, Loader2, MapPin } from 'lucide-react';
@@ -36,6 +36,8 @@ export const AdminMachines = () => {
 
   useEffect(() => {
     loadMachines();
+    const interval = setInterval(loadMachines, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadMachines = async () => {
@@ -57,11 +59,50 @@ export const AdminMachines = () => {
       });
 
       // Fetch today's sales from DB
-      const { data: ventas } = await supabase
+      const { data: ventasDb } = await supabase
         .from('ventas_historico')
-        .select('precio, hora, fecha, cantidad_unidades, maquina_id')
+        .select('id, precio, hora, fecha, cantidad_unidades, maquina_id, producto')
         .in('fecha', chinaDates);
-      setVentasHoy(ventas || []);
+
+      let ventasCombinadas = ventasDb || [];
+
+      // Fallback a API en tiempo real si una máquina aún no tiene ventas de hoy sincronizadas en DB
+      const fallbackPromises = enriched.map(async (m) => {
+        const hasSalesTodayInDb = (ventasDb || []).some((v) => {
+          if (v.maquina_id !== m.id) return false;
+          const converted = convertChinaToSpainFull(v.hora, v.fecha);
+          return converted.fecha === todayStr;
+        });
+
+        if (hasSalesTodayInDb) return [];
+
+        try {
+          const detalle = await fetchVentasDetalle(m.mac_address);
+          const ventasApi = detalle?.ventas || [];
+          return ventasApi.map((v: any) => ({
+            id: `api-${m.id}-${v.id || `${v.hora}-${v.precio}`}`,
+            precio: v.precio,
+            hora: v.hora,
+            fecha: detalle?.fecha,
+            cantidad_unidades: v.cantidad_unidades || 1,
+            maquina_id: m.id,
+            producto: v.producto || '',
+          }));
+        } catch {
+          return [];
+        }
+      });
+
+      const fallbackResults = await Promise.allSettled(fallbackPromises);
+      const fallbackVentas = fallbackResults
+        .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
+        .flatMap((r) => r.value);
+
+      if (fallbackVentas.length > 0) {
+        ventasCombinadas = [...ventasCombinadas, ...fallbackVentas];
+      }
+
+      setVentasHoy(ventasCombinadas);
 
       // Fetch temp in parallel
       const promises = enriched.map(async (m) => {

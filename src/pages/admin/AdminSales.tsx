@@ -12,10 +12,62 @@ import { format, subDays, addDays, isToday as isTodayFn } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
 import { convertChinaToSpain, convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
+import { fetchVentasDetalle } from '@/services/api';
 import {
   Euro, TrendingUp, Calendar, Loader2, ChevronLeft, ChevronRight,
   Clock, CreditCard, List, BarChart3,
 } from 'lucide-react';
+
+const decodeHtmlEntities = (text: string) => {
+  if (!text) return '';
+  if (typeof window === 'undefined') {
+    return text
+      .replace(/&ccedil;/g, 'ç')
+      .replace(/&ntilde;/g, 'ñ')
+      .replace(/&aacute;/g, 'á')
+      .replace(/&eacute;/g, 'é')
+      .replace(/&iacute;/g, 'í')
+      .replace(/&oacute;/g, 'ó')
+      .replace(/&uacute;/g, 'ú');
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
+};
+
+const normalizePaymentMethod = (method?: string | null) => {
+  const raw = decodeHtmlEntities(method || '').trim().toLowerCase();
+  if (!raw) return 'efectivo';
+
+  if (raw.includes('tarjeta') || raw.includes('card') || raw.includes('credito') || raw.includes('débito') || raw.includes('debito')) {
+    return 'tarjeta';
+  }
+  if (raw.includes('bizum')) return 'bizum';
+  if (raw.includes('apple')) return 'apple pay';
+  if (raw.includes('google')) return 'google pay';
+  if (raw.includes('cash') || raw.includes('efectivo') || raw.includes('metalico') || raw.includes('metálico')) {
+    return 'efectivo';
+  }
+
+  return raw;
+};
+
+const parseProductAndToppings = (productText?: string | null) => {
+  const decoded = decodeHtmlEntities(productText || '').trim();
+  if (!decoded) return { productName: 'Sin nombre', toppings: [] as string[] };
+
+  const [baseProduct, toppingsText] = decoded.split(':');
+  const toppings = (toppingsText || '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  return {
+    productName: (baseProduct || decoded).trim(),
+    toppings,
+  };
+};
 
 export const AdminSales = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -51,8 +103,58 @@ export const AdminSales = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+
+      let sales = data || [];
+
+      if (isTodayFn(selectedDate) && maquinas && maquinas.length > 0) {
+        const targetMachines = selectedMachine === 'all'
+          ? maquinas
+          : maquinas.filter((m) => m.id === selectedMachine);
+
+        const fallbackPromises = targetMachines.map(async (m) => {
+          const hasSalesTodayInDb = sales.some((v) => {
+            if (v.maquina_id !== m.id) return false;
+            const converted = convertChinaToSpainFull(v.hora, v.fecha);
+            return converted.fecha === dateStr;
+          });
+
+          if (hasSalesTodayInDb) return [];
+
+          try {
+            const detalle = await fetchVentasDetalle(m.mac_address);
+            return (detalle?.ventas || []).map((v: any) => ({
+              id: `api-${m.id}-${v.id || `${v.hora}-${v.precio}`}`,
+              maquina_id: m.id,
+              imei: m.mac_address,
+              fecha: detalle?.fecha,
+              hora: v.hora,
+              producto: v.producto || '',
+              precio: Number(v.precio || 0),
+              cantidad_unidades: v.cantidad_unidades || 1,
+              metodo_pago: v.metodo_pago || v.payment_method || v.pay_type || v.payType || 'efectivo',
+              numero_orden: v.numero_orden || v.order_no || null,
+              estado: v.estado || 'exitoso',
+              toppings: v.toppings || [],
+            }));
+          } catch {
+            return [];
+          }
+        });
+
+        const fallbackResults = await Promise.allSettled(fallbackPromises);
+        const fallbackSales = fallbackResults
+          .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
+          .flatMap((r) => r.value);
+
+        if (fallbackSales.length > 0) {
+          sales = [...sales, ...fallbackSales];
+        }
+      }
+
+      return sales;
     },
+    refetchInterval: isTodayFn(selectedDate) ? 30000 : false,
+    refetchOnWindowFocus: true,
   });
 
   // Filter to only sales whose converted Spain date matches the selected date
@@ -81,6 +183,8 @@ export const AdminSales = () => {
       const { data } = await query;
       return data || [];
     },
+    refetchInterval: isTodayFn(selectedDate) ? 30000 : false,
+    refetchOnWindowFocus: true,
   });
 
   const ventasAyer = useMemo(() => {
@@ -136,7 +240,7 @@ export const AdminSales = () => {
     // By payment method
     const byPayment: Record<string, number> = {};
     ventasDia.forEach(v => {
-      const m = v.metodo_pago || 'efectivo';
+      const m = normalizePaymentMethod(v.metodo_pago);
       byPayment[m] = (byPayment[m] || 0) + 1;
     });
 
@@ -156,9 +260,17 @@ export const AdminSales = () => {
     return maquinas?.find(m => m.id === maquinaId)?.nombre_personalizado || '—';
   };
 
-  const formatToppings = (toppings: any) => {
-    if (!toppings || !Array.isArray(toppings) || toppings.length === 0) return '—';
-    return toppings.map((t: any) => t.nombre || t.posicion).join(', ');
+  const formatToppings = (toppings: any, producto?: string) => {
+    if (Array.isArray(toppings) && toppings.length > 0) {
+      return toppings.map((t: any) => decodeHtmlEntities(t.nombre || t.posicion)).join(', ');
+    }
+
+    const parsed = parseProductAndToppings(producto);
+    if (parsed.toppings.length > 0) {
+      return parsed.toppings.join(', ');
+    }
+
+    return '—';
   };
 
   return (
@@ -329,7 +441,7 @@ export const AdminSales = () => {
                   <div className="flex flex-wrap gap-3">
                     {Object.entries(metrics.byPayment).map(([method, count]) => (
                       <Badge key={method} variant="secondary" className="text-sm py-1 px-3">
-                        {method.charAt(0).toUpperCase() + method.slice(1)}: {count}
+                        {decodeHtmlEntities(method).charAt(0).toUpperCase() + decodeHtmlEntities(method).slice(1)}: {count}
                       </Badge>
                     ))}
                   </div>
@@ -369,16 +481,21 @@ export const AdminSales = () => {
                             {selectedMachine === 'all' && (
                               <TableCell className="text-xs">{getMachineName(v.maquina_id)}</TableCell>
                             )}
-                            <TableCell className="font-medium text-sm max-w-[150px] truncate">{v.producto}</TableCell>
+                            <TableCell className="font-medium text-sm max-w-[150px] truncate">
+                              {parseProductAndToppings(v.producto).productName}
+                            </TableCell>
                             <TableCell className="text-right font-bold text-primary">{Number(v.precio).toFixed(2)}€</TableCell>
                             <TableCell className="text-right">{v.cantidad_unidades || 1}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="text-xs">
-                                {(v.metodo_pago || 'efectivo').charAt(0).toUpperCase() + (v.metodo_pago || 'efectivo').slice(1)}
+                                {(() => {
+                                  const method = normalizePaymentMethod(v.metodo_pago);
+                                  return method.charAt(0).toUpperCase() + method.slice(1);
+                                })()}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
-                              {formatToppings(v.toppings)}
+                              {formatToppings(v.toppings, v.producto)}
                             </TableCell>
                             <TableCell className="font-mono text-xs text-muted-foreground">{v.numero_orden || '—'}</TableCell>
                             <TableCell>

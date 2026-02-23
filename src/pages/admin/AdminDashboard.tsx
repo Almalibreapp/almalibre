@@ -28,6 +28,8 @@ export const AdminDashboard = () => {
 
   useEffect(() => {
     loadDashboard();
+    const interval = setInterval(loadDashboard, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadDashboard = async () => {
@@ -154,7 +156,7 @@ export const AdminDashboard = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Helados Vendidos</p>
+                <p className="text-sm text-muted-foreground">Açaí Vendidos</p>
                 <p className="text-3xl font-bold">{metrics.totalIceCreamsToday}</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">

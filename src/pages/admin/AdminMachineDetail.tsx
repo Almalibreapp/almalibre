@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { SalesChart } from '@/components/dashboard/SalesChart';
 import { StockReplenishment } from '@/components/stock/StockReplenishment';
+import { StockCapacitySettings } from '@/components/stock/StockCapacitySettings';
 import { ControlTab } from '@/components/control/ControlTab';
 import { supabase } from '@/integrations/supabase/client';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
@@ -69,6 +70,8 @@ export const AdminMachineDetail = () => {
       return data || [];
     },
     enabled: !!machineId,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
   });
 
   // Combine DB data with API data for today's sales
@@ -248,6 +251,7 @@ export const AdminMachineDetail = () => {
 
           {/* Stock */}
           <TabsContent value="stock" className="space-y-4">
+            <StockCapacitySettings imei={imei!} stock={stock} />
             <StockReplenishment imei={imei!} stock={stock} />
           </TabsContent>
 
