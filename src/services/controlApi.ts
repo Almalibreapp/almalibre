@@ -230,14 +230,30 @@ export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
   }
 
   const data = await response.json();
-  // API returns { cupones: { list: [...] } }
+  
+  // API returns { cupones: { list: [...] } } with fields like couponId, couponName, etc.
+  let rawList: any[] = [];
   if (data.cupones && Array.isArray(data.cupones.list)) {
-    return data.cupones.list;
+    rawList = data.cupones.list;
+  } else if (Array.isArray(data.cupones)) {
+    rawList = data.cupones;
   }
-  if (Array.isArray(data.cupones)) {
-    return data.cupones;
-  }
-  return [];
+
+  // Map API fields to our interface
+  return rawList.map((c: any) => {
+    const content = typeof c.content === 'string' ? JSON.parse(c.content) : (c.content || {});
+    return {
+      id: String(c.couponId ?? c.id ?? ''),
+      nombre: c.couponName ?? c.nombre ?? '',
+      descuento: content.money ?? c.descuento ?? '0',
+      fecha_inicio: c.startTime ?? c.fecha_inicio ?? '',
+      fecha_fin: c.endTime ?? c.fecha_fin ?? '',
+      dias_validez: c.validDay ?? c.dias_validez ?? 0,
+      ubicacion: c.localName ?? c.ubicacion ?? '',
+      cantidad_codigos: c.cantidad_codigos ?? 0,
+      codigos_generados: c.codigos_generados ?? 0,
+    };
+  });
 };
 
 export const fetchCodigosCupon = async (cuponId: string): Promise<CodigoCupon[]> => {
