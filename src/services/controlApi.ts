@@ -245,6 +245,7 @@ export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
   }
 
   const data = await response.json();
+  console.log('[fetchCupones] Raw API response:', JSON.stringify(data));
   
   // API returns { cupones: { list: [...] } } with fields like couponId, couponName, etc.
   let rawList: any[] = [];
@@ -252,6 +253,11 @@ export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
     rawList = data.cupones.list;
   } else if (Array.isArray(data.cupones)) {
     rawList = data.cupones;
+  }
+
+  if (rawList.length > 0) {
+    console.log('[fetchCupones] First raw coupon keys:', Object.keys(rawList[0]));
+    console.log('[fetchCupones] First raw coupon:', JSON.stringify(rawList[0]));
   }
 
   // Map API fields to our interface
@@ -265,7 +271,7 @@ export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
       fecha_fin: c.endTime ?? c.fecha_fin ?? '',
       dias_validez: c.validDay ?? c.dias_validez ?? 0,
       ubicacion: c.localName ?? c.ubicacion ?? '',
-      cantidad_codigos: c.cantidad_codigos ?? 0,
+      cantidad_codigos: c.codeNum ?? c.cantidad_codigos ?? 0,
       codigos_generados: c.codigos_generados ?? 0,
     };
   });
