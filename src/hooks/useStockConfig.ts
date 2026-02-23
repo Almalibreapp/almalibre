@@ -50,7 +50,26 @@ export const useStockConfig = (imei: string | undefined) => {
     const userId = await resolveUserId();
     if (!userId) return;
 
-    const records = toppings.map((t) => ({
+    // Only insert positions that don't already exist — never overwrite existing config
+    const existingPositions = new Set(items.map((i) => i.topping_position));
+    const newToppings = toppings.filter((t) => !existingPositions.has(t.posicion));
+
+    if (newToppings.length === 0) {
+      // Update names for existing positions in case they changed
+      for (const t of toppings) {
+        const existing = items.find((i) => i.topping_position === t.posicion);
+        if (existing && existing.topping_name !== t.nombre && t.nombre) {
+          await supabase
+            .from('stock_config')
+            .update({ topping_name: t.nombre })
+            .eq('machine_imei', imei)
+            .eq('topping_position', t.posicion);
+        }
+      }
+      return;
+    }
+
+    const records = newToppings.map((t) => ({
       machine_imei: imei,
       topping_position: t.posicion,
       topping_name: t.nombre,
@@ -62,7 +81,7 @@ export const useStockConfig = (imei: string | undefined) => {
 
     const { error } = await supabase
       .from('stock_config')
-      .upsert(records, { onConflict: 'machine_imei,topping_position' });
+      .insert(records);
 
     if (error) {
       console.error('Error initializing stock:', error);
