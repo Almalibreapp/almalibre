@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchTemperatura } from '@/services/api';
+import { fetchTemperatura, fetchVentasDetalle } from '@/services/api';
 import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import { format } from 'date-fns';
 import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lucide-react';
@@ -52,7 +52,33 @@ export const AdminDashboard = () => {
         .from('ventas_historico')
         .select('precio, hora, fecha, cantidad_unidades, maquina_id')
         .in('fecha', chinaDates);
-      setVentasHoy(ventas || []);
+
+      // If DB has no sales for today, fetch from API as fallback
+      let ventasToUse = ventas || [];
+      if (ventasToUse.length === 0 && maquinas.length > 0) {
+        try {
+          const apiPromises = maquinas.map(async (m) => {
+            try {
+              const detalle = await fetchVentasDetalle(m.mac_address);
+              if (detalle?.ventas) {
+                return detalle.ventas.map((v: any) => ({
+                  precio: v.precio,
+                  hora: v.hora,
+                  fecha: detalle.fecha,
+                  cantidad_unidades: v.cantidad_unidades || 1,
+                  maquina_id: m.id,
+                }));
+              }
+            } catch { /* skip */ }
+            return [];
+          });
+          const results = await Promise.allSettled(apiPromises);
+          ventasToUse = results
+            .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
+            .flatMap(r => r.value);
+        } catch { /* skip */ }
+      }
+      setVentasHoy(ventasToUse);
 
       // Fetch temp alerts
       let tempAlertCount = 0;
