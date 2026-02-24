@@ -6,12 +6,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchTemperatura, fetchVentasDetalle } from '@/services/api';
 import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import { format } from 'date-fns';
+import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lucide-react';
 
 const todayStr = format(new Date(), 'yyyy-MM-dd');
 const chinaDates = getChinaDatesForSpainDate(todayStr);
 
 export const AdminDashboard = () => {
+  useVentasRealtime();
   // Fetch all machines
   const { data: machines = [] } = useQuery({
     queryKey: ['admin-all-machines'],
