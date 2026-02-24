@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,6 +15,7 @@ import { useMaquinas } from '@/hooks/useMaquinas';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { useTemperatureLog, useLogTemperature } from '@/hooks/useTemperatureLog';
 import { fetchVentasDetalle } from '@/services/api';
+import { ControlTab } from '@/components/control/ControlTab';
 import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -101,6 +103,42 @@ export const MachineDetail = () => {
   
   const currentVentas = isToday ? ventasDetalle : ventasSelectedDate;
   const currentLoading = isToday ? false : loadingSelected;
+
+  // Monthly sales from Supabase (same source as admin) for consistent counts
+  const currentMonth = format(new Date(), 'yyyy-MM');
+  const { data: ventasMesDb } = useQuery({
+    queryKey: ['ventas-mes-db', maquina?.id, currentMonth],
+    queryFn: async () => {
+      if (!maquina?.id) return null;
+      // Get all days of the current month
+      const startOfMonth = `${currentMonth}-01`;
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + 2); // buffer for timezone
+      const endStr = format(endDate, 'yyyy-MM-dd');
+      
+      const { data, error } = await supabase
+        .from('ventas_historico')
+        .select('precio, hora, fecha')
+        .eq('maquina_id', maquina.id)
+        .gte('fecha', startOfMonth)
+        .lte('fecha', endStr);
+      
+      if (error) return null;
+      
+      // Filter by Spain timezone to current month
+      const salesThisMonth = (data || []).filter(v => {
+        const converted = convertChinaToSpainFull(v.hora, v.fecha);
+        return converted.fecha.startsWith(currentMonth);
+      });
+      
+      return {
+        cantidad: salesThisMonth.length,
+        total_euros: salesThisMonth.reduce((s, v) => s + Number(v.precio), 0),
+      };
+    },
+    enabled: !!maquina?.id,
+    staleTime: 60 * 1000,
+  });
 
   // Temperature traceability
   const { data: tempLog } = useTemperatureLog(maquina?.id, tempLogHours, imei);
@@ -247,11 +285,12 @@ export const MachineDetail = () => {
           </div>
         ) : (
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview">General</TabsTrigger>
               <TabsTrigger value="sales">Ventas</TabsTrigger>
               <TabsTrigger value="stock">Stock</TabsTrigger>
               <TabsTrigger value="temp">Temp</TabsTrigger>
+              <TabsTrigger value="control">Control</TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -310,10 +349,10 @@ export const MachineDetail = () => {
                     <div className="text-center">
                       <p className="text-xs text-muted-foreground mb-1">Este mes</p>
                       <p className="text-xl font-bold">
-                        {ventas?.ventas_mes?.total_euros?.toFixed(2) ?? '0.00'}€
+                        {(ventasMesDb?.total_euros ?? ventas?.ventas_mes?.total_euros)?.toFixed(2) ?? '0.00'}€
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {ventas?.ventas_mes?.cantidad ?? 0} ventas
+                        {ventasMesDb?.cantidad ?? ventas?.ventas_mes?.cantidad ?? 0} ventas
                       </p>
                     </div>
                   </div>
@@ -402,11 +441,11 @@ export const MachineDetail = () => {
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <p className="text-2xl font-bold text-primary">{ventas?.ventas_mes?.total_euros?.toFixed(2) ?? '0.00'}€</p>
+                      <p className="text-2xl font-bold text-primary">{(ventasMesDb?.total_euros ?? ventas?.ventas_mes?.total_euros)?.toFixed(2) ?? '0.00'}€</p>
                       <p className="text-xs text-muted-foreground">Ingresos del mes</p>
                     </div>
                     <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <p className="text-2xl font-bold">{ventas?.ventas_mes?.cantidad ?? 0}</p>
+                      <p className="text-2xl font-bold">{ventasMesDb?.cantidad ?? ventas?.ventas_mes?.cantidad ?? 0}</p>
                       <p className="text-xs text-muted-foreground">Ventas del mes</p>
                     </div>
                   </div>
@@ -663,7 +702,10 @@ export const MachineDetail = () => {
               )}
             </TabsContent>
 
-            {/* Control tab removed for regular users */}
+            {/* Control Tab */}
+            <TabsContent value="control" className="space-y-4 animate-fade-in">
+              <ControlTab imei={imei!} ubicacion={maquina.ubicacion || ''} readOnly />
+            </TabsContent>
           </Tabs>
         )}
       </main>

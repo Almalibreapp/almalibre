@@ -30,6 +30,14 @@ export const fetchVentasResumen = async (imei: string) => {
   return response.json();
 };
 
+// Helper to decode HTML entities from API responses
+const decodeHtml = (text: string): string => {
+  if (!text || typeof window === 'undefined') return text || '';
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
+};
+
 // Detalle de ventas
 export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
   let url = `${API_BASE_URL}/ventas-detalle/${imei}`;
@@ -44,7 +52,20 @@ export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
     throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener el detalle de ventas`);
   }
 
-  return response.json();
+  const data = await response.json();
+  
+  // Decode HTML entities in product names and topping names
+  if (data?.ventas && Array.isArray(data.ventas)) {
+    data.ventas = data.ventas.map((v: any) => ({
+      ...v,
+      producto: decodeHtml(v.producto || ''),
+      toppings: Array.isArray(v.toppings) 
+        ? v.toppings.map((t: any) => ({ ...t, nombre: decodeHtml(t.nombre || '') }))
+        : v.toppings,
+    }));
+  }
+  
+  return data;
 };
 
 // Stock de toppings

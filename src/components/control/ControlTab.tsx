@@ -6,15 +6,19 @@ import { Separator } from '@/components/ui/separator';
 interface ControlTabProps {
   imei: string;
   ubicacion?: string;
+  readOnly?: boolean; // When true, hides product editing (photo/price/name)
 }
 
-export const ControlTab = ({ imei, ubicacion }: ControlTabProps) => {
+export const ControlTab = ({ imei, ubicacion, readOnly = false }: ControlTabProps) => {
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Section A: Product Management */}
-      <ProductManagement imei={imei} />
-      
-      <Separator />
+      {/* Section A: Product Management - only show when not readOnly */}
+      {!readOnly && (
+        <>
+          <ProductManagement imei={imei} />
+          <Separator />
+        </>
+      )}
       
       {/* Section B: Discount Coupons */}
       <DiscountCoupons imei={imei} ubicacion={ubicacion} />
