@@ -36,6 +36,12 @@ import {
   Clock,
   Download,
 } from 'lucide-react';
+const decodeHtml = (text: string): string => {
+  if (!text || typeof window === 'undefined') return text || '';
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
+};
 
 export const MachineDetail = () => {
   const navigate = useNavigate();
@@ -468,14 +474,14 @@ export const MachineDetail = () => {
                               >
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <p className="font-medium capitalize">{venta.producto}</p>
+                                    <p className="font-medium capitalize">{decodeHtml(venta.producto)}</p>
                                     <span className="text-xs text-muted-foreground">{convertChinaToSpain(venta.hora, currentVentas?.fecha)}</span>
                                   </div>
                                   {venta.toppings && venta.toppings.length > 0 && (
                                     <div className="flex gap-1 mt-1 flex-wrap">
                                       {venta.toppings.map((t, idx) => (
                                         <Badge key={`${t.posicion}-${idx}`} variant="secondary" className="text-xs">
-                                          {t.nombre}
+                                          {decodeHtml(t.nombre)}
                                         </Badge>
                                       ))}
                                     </div>
