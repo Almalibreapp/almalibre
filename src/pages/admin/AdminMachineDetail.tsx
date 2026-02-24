@@ -15,7 +15,7 @@ import { TemperatureTraceability } from '@/components/temperature/TemperatureTra
 import { supabase } from '@/integrations/supabase/client';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
-import { fetchVentasDetalle, fetchEstadoMaquina } from '@/services/api';
+import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { convertChinaToSpainFull } from '@/lib/timezone';
 import { format } from 'date-fns';
@@ -55,7 +55,7 @@ export const AdminMachineDetail = () => {
   const { data: ventasHoyAPI } = useQuery({
     queryKey: ['admin-machine-ventas-hoy-api', imei, todayStr],
     queryFn: async () => {
-      const detalle = await fetchVentasDetalle(imei!);
+      const detalle = await fetchOrdenes(imei!);
       if (!detalle?.ventas) return [];
       return detalle.ventas.map((v: any) => ({
         precio: Number(v.precio || 0),
@@ -101,8 +101,8 @@ export const AdminMachineDetail = () => {
   const displayDate = selectedDate ? format(new Date(selectedDate), "EEEE d 'de' MMMM", { locale: es }) : 'Hoy';
 
   const { data: ventasSelectedDate } = useQuery({
-    queryKey: ['ventas-detalle-date', imei, selectedDate],
-    queryFn: () => fetchVentasDetalle(imei!, selectedDate!),
+    queryKey: ['ventas-ordenes-date', imei, selectedDate],
+    queryFn: () => fetchOrdenes(imei!, selectedDate!),
     enabled: !!imei && !isToday && !!selectedDate,
   });
   const currentVentas = isToday ? ventasDetalle : ventasSelectedDate;

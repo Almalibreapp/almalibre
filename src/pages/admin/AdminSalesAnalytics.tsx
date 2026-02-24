@@ -12,7 +12,7 @@ import { format, subDays, addDays, isToday as isTodayFn, startOfMonth, endOfMont
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { convertChinaToSpain, convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
-import { fetchVentasDetalle } from '@/services/api';
+import { fetchOrdenes } from '@/services/api';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { toast } from 'sonner';
 import {
@@ -90,7 +90,7 @@ export const AdminSalesAnalytics = () => {
 
         const apiPromises = uniqueByImei.map(async (m) => {
           try {
-            const detalle = await fetchVentasDetalle(m.mac_address);
+            const detalle = await fetchOrdenes(m.mac_address);
             if (!detalle?.ventas) return [];
             return detalle.ventas.map((v: any) => ({
               id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
@@ -195,7 +195,7 @@ export const AdminSalesAnalytics = () => {
 
         const apiPromises = uniqueByImei.map(async (m) => {
           try {
-            const detalle = await fetchVentasDetalle(m.mac_address);
+            const detalle = await fetchOrdenes(m.mac_address);
             if (!detalle?.ventas) return [];
             return detalle.ventas.map((v: any) => ({
               id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,

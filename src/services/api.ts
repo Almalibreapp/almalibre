@@ -38,7 +38,7 @@ const decodeHtml = (text: string): string => {
   return textarea.value;
 };
 
-// Detalle de ventas
+// Detalle de ventas (legacy endpoint)
 export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
   let url = `${API_BASE_URL}/ventas-detalle/${imei}`;
   if (fecha) {
@@ -66,6 +66,42 @@ export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
   }
   
   return data;
+};
+
+// Ordenes del fabricante (endpoint principal con método de pago real y toppings correctos)
+export const fetchOrdenes = async (imei: string, fecha?: string) => {
+  let url = `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${imei}`;
+  if (fecha) {
+    url += `?fecha=${fecha}`;
+  }
+  
+  const response = await fetch(url, { headers });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener las órdenes`);
+  }
+
+  const data = await response.json();
+  
+  // Normalize: API returns "ordenes" array, map to "ventas" for compatibility
+  const ordenes = data?.ordenes || data?.ventas || [];
+  const normalized = {
+    mac_addr: data.imei || imei,
+    fecha: (data.fecha || '').substring(0, 10),
+    total_ventas: data.total || ordenes.length,
+    ventas: ordenes.map((v: any) => ({
+      ...v,
+      producto: decodeHtml(v.producto || ''),
+      fecha: (v.fecha || data.fecha || '').substring(0, 10),
+      cantidad_unidades: v.cantidad || v.cantidad_unidades || 1,
+      toppings: Array.isArray(v.toppings) 
+        ? v.toppings.map((t: any) => ({ ...t, nombre: decodeHtml(t.nombre || '') }))
+        : v.toppings || [],
+    })),
+  };
+  
+  return normalized;
 };
 
 // Stock de toppings
