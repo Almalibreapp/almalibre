@@ -88,51 +88,28 @@ export const AdminSales = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch sales: query two China dates (D and D+1) to cover the full Spain day
+  // Fetch sales: for TODAY always use API as primary source; for past days use DB only
   const chinaDates = getChinaDatesForSpainDate(dateStr);
   const { data: ventasDiaRaw, isLoading } = useQuery({
     queryKey: ['admin-ventas-dia', dateStr, selectedMachine],
     queryFn: async () => {
-      let query = supabase
-        .from('ventas_historico')
-        .select('*')
-        .in('fecha', chinaDates)
-        .order('hora', { ascending: false });
-
-      if (selectedMachine !== 'all') {
-        query = query.eq('maquina_id', selectedMachine);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      let sales = data || [];
-
-
       if (isTodayFn(selectedDate) && maquinas && maquinas.length > 0) {
+        // For TODAY: always fetch from API directly (real-time, no sync delay)
         const targetMachines = selectedMachine === 'all'
           ? maquinas
           : maquinas.filter((m) => m.id === selectedMachine);
 
-        const fallbackPromises = targetMachines.map(async (m) => {
-          const hasSalesTodayInDb = sales.some((v) => {
-            if (v.maquina_id !== m.id) return false;
-            const converted = convertChinaToSpainFull(v.hora, v.fecha);
-            return converted.fecha === dateStr;
-          });
-
-          if (hasSalesTodayInDb) return [];
-
-           try {
-             // Use new endpoint for real-time fallback
-             const apiRes = await fetch(
-               `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${m.mac_address}?fecha=${dateStr}`,
-               { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
-             );
-             if (!apiRes.ok) return [];
-             const detalle = await apiRes.json();
-             const orders = detalle?.ordenes || detalle?.ventas || [];
-             return orders.map((v: any) => ({
+        const apiPromises = targetMachines.map(async (m) => {
+          try {
+            const apiRes = await fetch(
+              `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${m.mac_address}?fecha=${dateStr}`,
+              { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
+            );
+            if (!apiRes.ok) return [];
+            const detalle = await apiRes.json();
+            const orders = detalle?.ordenes || detalle?.ventas || [];
+            console.log(`[AdminSales] API ${m.nombre_personalizado}: ${orders.length} ventas`);
+            return orders.map((v: any) => ({
               id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
               maquina_id: m.id,
               imei: m.mac_address,
@@ -151,17 +128,26 @@ export const AdminSales = () => {
           }
         });
 
-        const fallbackResults = await Promise.allSettled(fallbackPromises);
-        const fallbackSales = fallbackResults
+        const results = await Promise.allSettled(apiPromises);
+        return results
           .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
           .flatMap((r) => r.value);
-
-        if (fallbackSales.length > 0) {
-          sales = [...sales, ...fallbackSales];
-        }
       }
 
-      return sales;
+      // For PAST days: use DB
+      let query = supabase
+        .from('ventas_historico')
+        .select('*')
+        .in('fecha', chinaDates)
+        .order('hora', { ascending: false });
+
+      if (selectedMachine !== 'all') {
+        query = query.eq('maquina_id', selectedMachine);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
     },
     refetchInterval: isTodayFn(selectedDate) ? 30000 : false,
     refetchOnWindowFocus: true,
