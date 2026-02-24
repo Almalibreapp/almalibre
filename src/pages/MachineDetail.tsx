@@ -66,6 +66,7 @@ export const MachineDetail = () => {
   // Spain timezone constants (declared early for use in queries)
   const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
   const currentMonthSpain = todaySpain.substring(0, 7);
+  const todayChinaDates = useMemo(() => getChinaDatesForSpainDate(todaySpain), [todaySpain]);
 
   // State for date navigation  
   const [selectedDate, setSelectedDate] = useState<string | null>(null); // null = today
@@ -147,22 +148,34 @@ export const MachineDetail = () => {
     : { ventas: ventasSelectedDateRaw || [], total_ventas: (ventasSelectedDateRaw || []).length };
   const currentLoading = isToday ? false : loadingSelected;
 
-  // --- Spain-timezone-aware sales calculations (todaySpain/currentMonthSpain declared above) ---
+  // --- Spain-timezone-aware sales calculations ---
 
-  // Calculate "Hoy" and "Ayer" from API ventas-detalle, converting China→Spain
+  // Fetch today's sales from DB with timezone conversion
+  const { data: ventasHoyDb } = useQuery({
+    queryKey: ['ventas-hoy', imei, todaySpain],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('ventas_historico')
+        .select('precio, hora, fecha, cantidad_unidades')
+        .eq('imei', imei!)
+        .in('fecha', todayChinaDates);
+      return data || [];
+    },
+    enabled: !!imei,
+    refetchInterval: 30000,
+  });
+
   const ventasHoySpain = useMemo(() => {
-    const allVentas = ventasDetalle?.ventas || [];
-    const fecha = ventasDetalle?.fecha;
     let euros = 0, cantidad = 0;
-    allVentas.forEach((v: any) => {
-      const converted = convertChinaToSpainFull(v.hora, fecha);
+    (ventasHoyDb || []).forEach((v: any) => {
+      const converted = convertChinaToSpainFull(v.hora, v.fecha);
       if (converted.fecha === todaySpain) {
         euros += Number(v.precio);
         cantidad += (v.cantidad_unidades || 1);
       }
     });
     return { euros, cantidad };
-  }, [ventasDetalle, todaySpain]);
+  }, [ventasHoyDb, todaySpain]);
 
   // Yesterday in Spain
   const yesterdaySpain = useMemo(() => {
@@ -171,27 +184,34 @@ export const MachineDetail = () => {
     return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
   }, []);
 
-  // Fetch yesterday's API data for accurate count
-  const { data: ventasAyerApi } = useQuery({
-    queryKey: ['ventas-detalle-ayer', imei, yesterdaySpain],
-    queryFn: () => fetchVentasDetalle(imei!, yesterdaySpain),
+  // Fetch yesterday's sales from DB using both China dates for accurate Spain-day grouping
+  const yesterdayChinaDates = useMemo(() => getChinaDatesForSpainDate(yesterdaySpain), [yesterdaySpain]);
+
+  const { data: ventasAyerDb } = useQuery({
+    queryKey: ['ventas-ayer', imei, yesterdaySpain],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('ventas_historico')
+        .select('precio, hora, fecha, cantidad_unidades')
+        .eq('imei', imei!)
+        .in('fecha', yesterdayChinaDates);
+      return data || [];
+    },
     enabled: !!imei,
     staleTime: 5 * 60 * 1000,
   });
 
   const ventasAyerSpain = useMemo(() => {
-    const allVentas = ventasAyerApi?.ventas || [];
-    const fecha = ventasAyerApi?.fecha;
     let euros = 0, cantidad = 0;
-    allVentas.forEach((v: any) => {
-      const converted = convertChinaToSpainFull(v.hora, fecha);
+    (ventasAyerDb || []).forEach((v: any) => {
+      const converted = convertChinaToSpainFull(v.hora, v.fecha);
       if (converted.fecha === yesterdaySpain) {
         euros += Number(v.precio);
         cantidad += (v.cantidad_unidades || 1);
       }
     });
     return { euros, cantidad };
-  }, [ventasAyerApi, yesterdaySpain]);
+  }, [ventasAyerDb, yesterdaySpain]);
 
   // Monthly sales: combine DB data + today's API data for complete picture
   const { data: ventasMesDb } = useQuery({
@@ -226,30 +246,11 @@ export const MachineDetail = () => {
     refetchInterval: 60 * 1000,
   });
 
-  // Final monthly total: DB data + add today's API sales if DB doesn't have them yet
-  const ventasMesFinal = useMemo(() => {
-    const dbCantidad = ventasMesDb?.cantidad ?? 0;
-    const dbEuros = ventasMesDb?.total_euros ?? 0;
-
-    // If DB already includes today's sales, use DB only
-    // Check by comparing: if DB monthly count already >= DB monthly + today API, skip
-    const todayCantidad = ventasHoySpain.cantidad;
-    const todayEuros = ventasHoySpain.euros;
-
-    // We need to check if today's sales are already in the DB
-    // Simple heuristic: if todayCantidad > 0 and dbCantidad doesn't include them yet
-    // We check by seeing if the DB has any records for today's China dates
-    if (todayCantidad > 0 && dbCantidad === 0) {
-      // DB is empty, use today API as total
-      return { cantidad: todayCantidad, total_euros: todayEuros };
-    }
-
-    // DB has data - it may or may not include today
-    // To avoid double counting, we trust DB as source of truth for past days
-    // and always add today's live API count
-    // First get DB count WITHOUT today
-    return { cantidad: dbCantidad, total_euros: dbEuros };
-  }, [ventasMesDb, ventasHoySpain]);
+  // Monthly total from DB (includes today since sync runs regularly + realtime)
+  const ventasMesFinal = useMemo(() => ({
+    cantidad: ventasMesDb?.cantidad ?? 0,
+    total_euros: ventasMesDb?.total_euros ?? 0,
+  }), [ventasMesDb]);
 
   // Temperature traceability
   const { data: tempLog } = useTemperatureLog(maquina?.id, tempLogHours, imei);
