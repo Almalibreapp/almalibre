@@ -13,6 +13,7 @@ import { useStockSync } from '@/hooks/useStockSync';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
+import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { useTemperatureLog, useLogTemperature } from '@/hooks/useTemperatureLog';
 import { fetchVentasDetalle } from '@/services/api';
 import { ControlTab } from '@/components/control/ControlTab';
@@ -60,6 +61,7 @@ export const MachineDetail = () => {
   
   // Auto-sync stock from sales
   useStockSync(imei);
+  useVentasRealtime(imei);
   
   // Spain timezone constants (declared early for use in queries)
   const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });

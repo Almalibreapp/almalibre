@@ -14,6 +14,7 @@ import { ControlTab } from '@/components/control/ControlTab';
 import { TemperatureTraceability } from '@/components/temperature/TemperatureTraceability';
 import { supabase } from '@/integrations/supabase/client';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
+import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { fetchVentasDetalle } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
@@ -59,6 +60,7 @@ export const AdminMachineDetail = () => {
   const { data: ventasDetalle } = useVentasDetalle(imei);
   const stockConfig = useStockConfig(imei);
   useStockSync(imei);
+  useVentasRealtime(imei);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const chinaDates = getChinaDatesForSpainDate(todayStr);

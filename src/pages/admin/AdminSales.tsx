@@ -12,6 +12,7 @@ import { format, subDays, addDays, isToday as isTodayFn } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
 import { convertChinaToSpain, convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
+import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import {
   Euro, TrendingUp, Calendar, Loader2, ChevronLeft, ChevronRight,
   Clock, CreditCard, List, BarChart3,
@@ -69,6 +70,7 @@ const parseProductAndToppings = (productText?: string | null) => {
 };
 
 export const AdminSales = () => {
+  useVentasRealtime();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedMachine, setSelectedMachine] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('resumen');
