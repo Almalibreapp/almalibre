@@ -88,12 +88,12 @@ export const AdminAnalytics = () => {
   // Fetch historical sales for the selected month
   const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
   const { data: ventasHistorico, isLoading, refetch } = useQuery({
-    queryKey: ['admin-ventas-historico', selectedMachine, monthStart, monthEnd, maquinas?.map(m => m.id).join(',')],
+    queryKey: ['admin-ventas-historico', selectedMachine, monthStart, monthEnd],
     queryFn: async () => {
+      // Query one extra day before and after to capture timezone boundary sales
       const queryStart = format(subDays(startOfMonth(currentMonth), 1), 'yyyy-MM-dd');
       const queryEnd = format(addDays(endOfMonth(currentMonth), 1), 'yyyy-MM-dd');
 
@@ -111,59 +111,8 @@ export const AdminAnalytics = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      let allSales = data || [];
-
-      // For current month: supplement with today's API data to ensure real-time accuracy
-      if (isCurrentMonth && maquinas && maquinas.length > 0) {
-        const targetMachines = selectedMachine === 'all'
-          ? maquinas
-          : maquinas.filter(m => m.id === selectedMachine);
-
-        const uniqueByImei = Array.from(
-          new Map(targetMachines.map(m => [m.mac_address, m])).values()
-        );
-
-        const apiPromises = uniqueByImei.map(async (m) => {
-          try {
-            const apiRes = await fetch(
-              `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${m.mac_address}?fecha=${todayStr}`,
-              { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
-            );
-            if (!apiRes.ok) return [];
-            const detalle = await apiRes.json();
-            const orders = detalle?.ordenes || detalle?.ventas || [];
-            return orders.map((v: any) => ({
-              id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
-              maquina_id: m.id,
-              imei: m.mac_address,
-              fecha: v.fecha || detalle?.fecha || todayStr,
-              hora: v.hora || '00:00',
-              producto: v.producto || '',
-              precio: Number(v.precio || 0),
-              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-              metodo_pago: v.metodo_pago || v.payment_method || v.pay_type || 'efectivo',
-              numero_orden: v.numero_orden || v.order_no || null,
-              estado: v.estado || 'exitoso',
-              toppings: v.toppings || v.toppings_usados || [],
-              venta_api_id: v.id || v.numero_orden || '',
-              created_at: new Date().toISOString(),
-            }));
-          } catch { return []; }
-        });
-
-        const results = await Promise.allSettled(apiPromises);
-        const apiSales = results
-          .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
-          .flatMap(r => r.value);
-
-        // Remove DB sales for today and replace with API sales (avoids duplicates)
-        const chinaDatesForToday = [todayStr, format(addDays(new Date(todayStr), 1), 'yyyy-MM-dd')];
-        allSales = allSales.filter(s => !chinaDatesForToday.includes(s.fecha));
-        allSales = [...allSales, ...apiSales];
-        console.log(`[AdminAnalytics] DB: ${data?.length || 0}, API today: ${apiSales.length}, merged: ${allSales.length}`);
-      }
-
-      return allSales;
+      console.log(`[AdminAnalytics] DB ventas for month: ${data?.length || 0}`);
+      return data || [];
     },
     refetchInterval: isCurrentMonth ? 30000 : false,
     refetchOnWindowFocus: true,
