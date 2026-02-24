@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchTemperatura, fetchVentasDetalle } from '@/services/api';
+import { fetchTemperatura, fetchOrdenes } from '@/services/api';
 import { convertChinaToSpainFull } from '@/lib/timezone';
 import { format } from 'date-fns';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
@@ -31,7 +31,7 @@ export const AdminDashboard = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch today's sales using ventas-detalle API (the working endpoint)
+  // Fetch today's sales using ordenes API (with real payment method & toppings)
   const { data: ventasHoy = [], isLoading: loadingSales } = useQuery({
     queryKey: ['admin-dashboard-ventas', todayStr, machines.map(m => m.mac_address).join(',')],
     queryFn: async () => {
@@ -40,7 +40,7 @@ export const AdminDashboard = () => {
 
       const apiPromises = uniqueByImei.map(async (m) => {
         try {
-          const detalle = await fetchVentasDetalle(m.mac_address);
+          const detalle = await fetchOrdenes(m.mac_address);
           if (!detalle?.ventas) return [];
           return detalle.ventas.map((v: any) => ({
             precio: Number(v.precio || 0),

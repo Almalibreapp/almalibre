@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchVentasResumen, fetchVentasDetalle, fetchTemperatura } from '@/services/api';
+import { fetchVentasResumen, fetchOrdenes, fetchTemperatura } from '@/services/api';
 import { VentasResumenResponse, VentasDetalleResponse, TemperaturaResponse, ToppingVenta } from '@/types';
 
-// Fetch ventas detalle for a specific machine and date
-const fetchMachineVentasDetalle = async (imei: string, fecha?: string) => {
+// Fetch ordenes for a specific machine and date
+const fetchMachineOrdenes = async (imei: string, fecha?: string) => {
   try {
-    return await fetchVentasDetalle(imei, fecha);
+    return await fetchOrdenes(imei, fecha);
   } catch {
     return null;
   }
@@ -102,7 +102,7 @@ export const useNetworkDetail = (fecha?: string) => {
           maquinaId: m.id,
           nombre: m.nombre,
           imei: m.imei,
-          detalle: await fetchMachineVentasDetalle(m.imei, fecha),
+          detalle: await fetchMachineOrdenes(m.imei, fecha),
         }))
       );
 
