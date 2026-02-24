@@ -57,11 +57,45 @@ export const MachineDetail = () => {
   const imei = maquina?.mac_address;
   
   const { temperatura, ventas, stock, isLoading, hasError, error, refetchAll, isRefetching } = useMaquinaData(imei);
-  const { data: ventasDetalle } = useVentasDetalle(imei);
+  const { data: ventasDetalle, dataUpdatedAt: ventasDetalleUpdatedAt } = useVentasDetalle(imei);
   
   // Auto-sync stock from sales
   useStockSync(imei);
   useVentasRealtime(imei);
+
+  // Last updated tracking
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [timeSinceUpdate, setTimeSinceUpdate] = useState('ahora');
+
+  // Update lastUpdated when ventasDetalle changes
+  useEffect(() => {
+    if (ventasDetalleUpdatedAt) {
+      setLastUpdated(new Date(ventasDetalleUpdatedAt));
+    }
+  }, [ventasDetalleUpdatedAt]);
+
+  // Update relative time string every 30s
+  useEffect(() => {
+    const updateTime = () => {
+      const diff = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+      if (diff < 60) setTimeSinceUpdate('ahora');
+      else if (diff < 120) setTimeSinceUpdate('hace 1 min');
+      else setTimeSinceUpdate(`hace ${Math.floor(diff / 60)} min`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 30000);
+    return () => clearInterval(interval);
+  }, [lastUpdated]);
+
+  // Auto-refresh every 2 minutes when tab is active
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refetchAll();
+      }
+    }, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [refetchAll]);
   
   // Spain timezone constants (declared early for use in queries)
   const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
@@ -150,32 +184,15 @@ export const MachineDetail = () => {
 
   // --- Spain-timezone-aware sales calculations ---
 
-  // Fetch today's sales from DB with timezone conversion
-  const { data: ventasHoyDb } = useQuery({
-    queryKey: ['ventas-hoy', imei, todaySpain],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('ventas_historico')
-        .select('precio, hora, fecha, cantidad_unidades')
-        .eq('imei', imei!)
-        .in('fecha', todayChinaDates);
-      return data || [];
-    },
-    enabled: !!imei,
-    refetchInterval: 30000,
-  });
-
+  // TODAY: Use API data directly (same source as detail view) for real-time accuracy
   const ventasHoySpain = useMemo(() => {
-    let euros = 0, cantidad = 0;
-    (ventasHoyDb || []).forEach((v: any) => {
-      const converted = convertChinaToSpainFull(v.hora, v.fecha);
-      if (converted.fecha === todaySpain) {
-        euros += Number(v.precio);
-        cantidad += (v.cantidad_unidades || 1);
-      }
-    });
+    // ventasHoyFiltered comes from the API, already filtered by Spain date
+    const exitosas = ventasHoyFiltered.filter((v: any) => v.estado === 'exitoso');
+    const euros = exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0);
+    const cantidad = exitosas.length;
+    console.log(`[Dashboard] Hoy desde API: ${cantidad} ventas, ${euros.toFixed(2)}€`);
     return { euros, cantidad };
-  }, [ventasHoyDb, todaySpain]);
+  }, [ventasHoyFiltered]);
 
   // Yesterday in Spain
   const yesterdaySpain = useMemo(() => {
@@ -213,27 +230,28 @@ export const MachineDetail = () => {
     return { euros, cantidad };
   }, [ventasAyerDb, yesterdaySpain]);
 
-  // Monthly sales: combine DB data + today's API data for complete picture
-  const { data: ventasMesDb } = useQuery({
+  // Monthly sales: DB for historical days + API for today (hybrid approach)
+  const { data: ventasMesDbExclToday } = useQuery({
     queryKey: ['ventas-mes', imei, currentMonthSpain],
     queryFn: async () => {
       if (!imei) return null;
       const startOfMonth = `${currentMonthSpain}-01`;
+      // Get all month data from DB
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 2);
       const endStr = format(endDate, 'yyyy-MM-dd');
       
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('ventas_historico')
         .select('precio, hora, fecha, cantidad_unidades')
         .eq('imei', imei)
         .gte('fecha', startOfMonth)
         .lte('fecha', endStr);
       
-      // Filter by Spain timezone to current month
+      // Filter by Spain timezone, EXCLUDE today (we'll add today from API)
       const dbSales = (data || []).filter(v => {
         const converted = convertChinaToSpainFull(v.hora, v.fecha);
-        return converted.fecha.startsWith(currentMonthSpain);
+        return converted.fecha.startsWith(currentMonthSpain) && converted.fecha !== todaySpain;
       });
       
       return {
@@ -242,15 +260,21 @@ export const MachineDetail = () => {
       };
     },
     enabled: !!imei,
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 
-  // Monthly total from DB (includes today since sync runs regularly + realtime)
-  const ventasMesFinal = useMemo(() => ({
-    cantidad: ventasMesDb?.cantidad ?? 0,
-    total_euros: ventasMesDb?.total_euros ?? 0,
-  }), [ventasMesDb]);
+  // Monthly total = DB (past days) + API (today) for always-accurate totals
+  const ventasMesFinal = useMemo(() => {
+    const dbQty = ventasMesDbExclToday?.cantidad ?? 0;
+    const dbEuros = ventasMesDbExclToday?.total_euros ?? 0;
+    const total = {
+      cantidad: dbQty + ventasHoySpain.cantidad,
+      total_euros: dbEuros + ventasHoySpain.euros,
+    };
+    console.log(`[Dashboard] Mes: DB(${dbQty}) + Hoy API(${ventasHoySpain.cantidad}) = ${total.cantidad} ventas, ${total.total_euros.toFixed(2)}€`);
+    return total;
+  }, [ventasMesDbExclToday, ventasHoySpain]);
 
   // Temperature traceability
   const { data: tempLog } = useTemperatureLog(maquina?.id, tempLogHours, imei);
@@ -354,10 +378,11 @@ export const MachineDetail = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground hidden sm:inline">{timeSinceUpdate}</span>
             <Button
               variant="ghost"
               size="icon"
-              onClick={refetchAll}
+              onClick={() => { refetchAll(); setLastUpdated(new Date()); }}
               disabled={isRefetching}
             >
               <RefreshCw className={cn("h-5 w-5", isRefetching && "animate-spin")} />
