@@ -11,7 +11,7 @@ export const SalesChart = ({ ventas, fecha }: SalesChartProps) => {
   // La API devuelve ventas del día actual con hora, no historial de 7 días
   // Agrupamos por hora para mostrar actividad del día
   const ventasPorHora = ventas.reduce((acc, venta) => {
-    const horaSpain = convertChinaToSpain(venta.hora, fecha);
+    const horaSpain = (venta as any)._spainHora || convertChinaToSpain(venta.hora, fecha);
     const horaKey = horaSpain.split(':')[0] + ':00';
     if (!acc[horaKey]) {
       acc[horaKey] = { cantidad: 0, ingresos: 0 };

@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
-import { convertChinaToSpain, convertChinaToSpainFull } from '@/lib/timezone';
+import { convertChinaToSpain, convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import {
   ArrowLeft,
   Settings,
@@ -61,6 +61,10 @@ export const MachineDetail = () => {
   // Auto-sync stock from sales
   useStockSync(imei);
   
+  // Spain timezone constants (declared early for use in queries)
+  const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const currentMonthSpain = todaySpain.substring(0, 7);
+
   // State for date navigation  
   const [selectedDate, setSelectedDate] = useState<string | null>(null); // null = today
   const [showAllSales, setShowAllSales] = useState(false);
@@ -94,49 +98,130 @@ export const MachineDetail = () => {
     ? format(new Date(selectedDate), "EEEE d 'de' MMMM", { locale: es })
     : 'Hoy';
   
-  // Query for selected date's sales
-  const { data: ventasSelectedDate, isLoading: loadingSelected } = useQuery({
-    queryKey: ['ventas-detalle-date', imei, getSelectedDateStr()],
-    queryFn: () => fetchVentasDetalle(imei!, getSelectedDateStr()),
+  // Query for selected date's sales - fetch both China dates that could contain Spain-date sales
+  const selectedChinaDates = useMemo(() => {
+    const spainDate = selectedDate || todaySpain;
+    return getChinaDatesForSpainDate(spainDate);
+  }, [selectedDate, todaySpain]);
+
+  const { data: ventasSelectedDateRaw, isLoading: loadingSelected } = useQuery({
+    queryKey: ['ventas-detalle-date', imei, selectedDate],
+    queryFn: async () => {
+      if (!imei || isToday) return null;
+      // Fetch both China dates
+      const results = await Promise.all(
+        selectedChinaDates.map(d => fetchVentasDetalle(imei, d).catch(() => null))
+      );
+      // Merge ventas from both days
+      const allVentas: any[] = [];
+      results.forEach(r => {
+        if (r?.ventas) {
+          r.ventas.forEach((v: any) => {
+            const converted = convertChinaToSpainFull(v.hora, r.fecha);
+            if (converted.fecha === selectedDate) {
+              allVentas.push({ ...v, _spainHora: converted.hora });
+            }
+          });
+        }
+      });
+      return allVentas;
+    },
     enabled: !!imei && !isToday,
   });
-  
-  const currentVentas = isToday ? ventasDetalle : ventasSelectedDate;
+
+  // For today, filter API ventas-detalle by Spain date and add _spainHora
+  const ventasHoyFiltered = useMemo(() => {
+    if (!ventasDetalle?.ventas) return [];
+    return ventasDetalle.ventas
+      .map((v: any) => {
+        const converted = convertChinaToSpainFull(v.hora, ventasDetalle.fecha);
+        return { ...v, _spainHora: converted.hora, _spainFecha: converted.fecha };
+      })
+      .filter((v: any) => v._spainFecha === todaySpain);
+  }, [ventasDetalle, todaySpain]);
+
+  const currentVentas = isToday 
+    ? { ventas: ventasHoyFiltered, total_ventas: ventasHoyFiltered.length }
+    : { ventas: ventasSelectedDateRaw || [], total_ventas: (ventasSelectedDateRaw || []).length };
   const currentLoading = isToday ? false : loadingSelected;
 
-  // Monthly sales from Supabase (same source as admin) for consistent counts
-  const currentMonth = format(new Date(), 'yyyy-MM');
+  // --- Spain-timezone-aware sales calculations (todaySpain/currentMonthSpain declared above) ---
+
+  // Calculate "Hoy" and "Ayer" from API ventas-detalle, converting China→Spain
+  const ventasHoySpain = useMemo(() => {
+    const allVentas = ventasDetalle?.ventas || [];
+    const fecha = ventasDetalle?.fecha;
+    let euros = 0, cantidad = 0;
+    allVentas.forEach((v: any) => {
+      const converted = convertChinaToSpainFull(v.hora, fecha);
+      if (converted.fecha === todaySpain) {
+        euros += Number(v.precio);
+        cantidad += (v.cantidad_unidades || 1);
+      }
+    });
+    return { euros, cantidad };
+  }, [ventasDetalle, todaySpain]);
+
+  // Yesterday in Spain
+  const yesterdaySpain = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  }, []);
+
+  // Fetch yesterday's API data for accurate count
+  const { data: ventasAyerApi } = useQuery({
+    queryKey: ['ventas-detalle-ayer', imei, yesterdaySpain],
+    queryFn: () => fetchVentasDetalle(imei!, yesterdaySpain),
+    enabled: !!imei,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const ventasAyerSpain = useMemo(() => {
+    const allVentas = ventasAyerApi?.ventas || [];
+    const fecha = ventasAyerApi?.fecha;
+    let euros = 0, cantidad = 0;
+    allVentas.forEach((v: any) => {
+      const converted = convertChinaToSpainFull(v.hora, fecha);
+      if (converted.fecha === yesterdaySpain) {
+        euros += Number(v.precio);
+        cantidad += (v.cantidad_unidades || 1);
+      }
+    });
+    return { euros, cantidad };
+  }, [ventasAyerApi, yesterdaySpain]);
+
+  // Monthly sales: query DB by IMEI (not maquina_id) + fallback to API
   const { data: ventasMesDb } = useQuery({
-    queryKey: ['ventas-mes-db', maquina?.id, currentMonth],
+    queryKey: ['ventas-mes-imei', imei, currentMonthSpain],
     queryFn: async () => {
-      if (!maquina?.id) return null;
-      // Get all days of the current month
-      const startOfMonth = `${currentMonth}-01`;
+      if (!imei) return null;
+      const startOfMonth = `${currentMonthSpain}-01`;
       const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 2); // buffer for timezone
+      endDate.setDate(endDate.getDate() + 2);
       const endStr = format(endDate, 'yyyy-MM-dd');
       
       const { data, error } = await supabase
         .from('ventas_historico')
-        .select('precio, hora, fecha')
-        .eq('maquina_id', maquina.id)
+        .select('precio, hora, fecha, cantidad_unidades')
+        .eq('imei', imei)
         .gte('fecha', startOfMonth)
         .lte('fecha', endStr);
       
-      if (error) return null;
+      if (error || !data || data.length === 0) return null;
       
       // Filter by Spain timezone to current month
-      const salesThisMonth = (data || []).filter(v => {
+      const salesThisMonth = data.filter(v => {
         const converted = convertChinaToSpainFull(v.hora, v.fecha);
-        return converted.fecha.startsWith(currentMonth);
+        return converted.fecha.startsWith(currentMonthSpain);
       });
       
       return {
-        cantidad: salesThisMonth.length,
+        cantidad: salesThisMonth.reduce((s, v) => s + (v.cantidad_unidades || 1), 0),
         total_euros: salesThisMonth.reduce((s, v) => s + Number(v.precio), 0),
       };
     },
-    enabled: !!maquina?.id,
+    enabled: !!imei,
     staleTime: 60 * 1000,
   });
 
@@ -162,8 +247,7 @@ export const MachineDetail = () => {
     if (ventas.length === 0) return null;
     const porHora: Record<string, { ventas: number; ingresos: number }> = {};
     ventas.forEach(v => {
-      const horaSpain = convertChinaToSpain(v.hora, currentVentas?.fecha);
-      const hora = horaSpain.split(':')[0] + ':00';
+      const hora = (v._spainHora || v.hora).split(':')[0] + ':00';
       if (!porHora[hora]) porHora[hora] = { ventas: 0, ingresos: 0 };
       porHora[hora].ventas += 1;
       porHora[hora].ingresos += v.precio;
@@ -331,19 +415,19 @@ export const MachineDetail = () => {
                     <div className="text-center">
                       <p className="text-xs text-muted-foreground mb-1">Hoy</p>
                       <p className="text-xl font-bold text-primary">
-                        {ventas?.ventas_hoy?.total_euros?.toFixed(2) ?? '0.00'}€
+                        {ventasHoySpain.euros.toFixed(2)}€
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {ventas?.ventas_hoy?.cantidad ?? 0} ventas
+                        {ventasHoySpain.cantidad} ventas
                       </p>
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-muted-foreground mb-1">Ayer</p>
                       <p className="text-xl font-bold">
-                        {ventas?.ventas_ayer?.total_euros?.toFixed(2) ?? '0.00'}€
+                        {ventasAyerSpain.euros.toFixed(2)}€
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {ventas?.ventas_ayer?.cantidad ?? 0} ventas
+                        {ventasAyerSpain.cantidad} ventas
                       </p>
                     </div>
                     <div className="text-center">
@@ -484,7 +568,6 @@ export const MachineDetail = () => {
                     <CardContent>
                       <SalesChart 
                         ventas={currentVentas?.ventas || []} 
-                        fecha={currentVentas?.fecha} 
                       />
                     </CardContent>
                   </Card>
@@ -514,7 +597,7 @@ export const MachineDetail = () => {
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <p className="font-medium capitalize">{decodeHtml(venta.producto)}</p>
-                                    <span className="text-xs text-muted-foreground">{convertChinaToSpain(venta.hora, currentVentas?.fecha)}</span>
+                                    <span className="text-xs text-muted-foreground">{venta._spainHora || venta.hora}</span>
                                   </div>
                                   {venta.toppings && venta.toppings.length > 0 && (
                                     <div className="flex gap-1 mt-1 flex-wrap">
