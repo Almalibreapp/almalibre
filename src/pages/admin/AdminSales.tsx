@@ -91,7 +91,7 @@ export const AdminSales = () => {
   // Fetch sales: for TODAY always use API as primary source; for past days use DB only
   const chinaDates = getChinaDatesForSpainDate(dateStr);
   const { data: ventasDiaRaw, isLoading } = useQuery({
-    queryKey: ['admin-ventas-dia', dateStr, selectedMachine],
+    queryKey: ['admin-ventas-dia', dateStr, selectedMachine, maquinas?.map(m => m.id).join(',')],
     queryFn: async () => {
       if (isTodayFn(selectedDate) && maquinas && maquinas.length > 0) {
         // For TODAY: always fetch from API directly (real-time, no sync delay)
