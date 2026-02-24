@@ -25,8 +25,10 @@ export const useVentasRealtime = (imei?: string) => {
         queryClient.invalidateQueries({ queryKey: ['ventas-detalle'] });
         queryClient.invalidateQueries({ queryKey: ['ventas-hoy'] });
         queryClient.invalidateQueries({ queryKey: ['ventas-mes'] });
+        queryClient.invalidateQueries({ queryKey: ['ventas-mes-imei'] });
         queryClient.invalidateQueries({ queryKey: ['ventas-ayer'] });
         queryClient.invalidateQueries({ queryKey: ['ventas-detalle-date'] });
+        queryClient.invalidateQueries({ queryKey: ['ventas-detalle-ayer'] });
         queryClient.invalidateQueries({ queryKey: ['admin-ventas'] });
         queryClient.invalidateQueries({ queryKey: ['admin-machine-ventas-hoy'] });
         queryClient.invalidateQueries({ queryKey: ['admin-dashboard-ventas'] });
