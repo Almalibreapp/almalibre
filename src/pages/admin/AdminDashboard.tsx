@@ -3,14 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchTemperatura, fetchVentasDetalle } from '@/services/api';
-import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
+import { fetchTemperatura } from '@/services/api';
+import { convertChinaToSpainFull } from '@/lib/timezone';
 import { format } from 'date-fns';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lucide-react';
 
 const todayStr = format(new Date(), 'yyyy-MM-dd');
-const chinaDates = getChinaDatesForSpainDate(todayStr);
 
 export const AdminDashboard = () => {
   useVentasRealtime();
@@ -37,47 +36,48 @@ export const AdminDashboard = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch today's sales
+  // Fetch today's sales - ALWAYS use API for real-time accuracy
   const { data: ventasHoy = [], isLoading: loadingSales } = useQuery({
-    queryKey: ['admin-dashboard-ventas', todayStr],
+    queryKey: ['admin-dashboard-ventas', todayStr, machines.map(m => m.mac_address).join(',')],
     queryFn: async () => {
-      const { data: ventas } = await supabase
-        .from('ventas_historico')
-        .select('precio, hora, fecha, cantidad_unidades, maquina_id')
-        .in('fecha', chinaDates);
+      if (machines.length === 0) return [];
 
-      let ventasToUse = ventas || [];
-      if (ventasToUse.length === 0 && machines.length > 0) {
+      // Always fetch from API for today to guarantee real-time data
+      const uniqueByImei = Array.from(
+        new Map(machines.map(m => [m.mac_address, m])).values()
+      );
+
+      const apiPromises = uniqueByImei.map(async (m) => {
         try {
-          const uniqueByImei = Array.from(
-            new Map(machines.map(m => [m.mac_address, m])).values()
+          const apiRes = await fetch(
+            `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${m.mac_address}?fecha=${todayStr}`,
+            { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
           );
-          const apiPromises = uniqueByImei.map(async (m) => {
-            try {
-              const detalle = await fetchVentasDetalle(m.mac_address);
-              if (detalle?.ventas) {
-                return detalle.ventas.map((v: any) => ({
-                  precio: v.precio,
-                  hora: v.hora,
-                  fecha: detalle.fecha,
-                  cantidad_unidades: v.cantidad_unidades || 1,
-                  maquina_id: m.id,
-                }));
-              }
-            } catch { /* skip */ }
-            return [];
-          });
-          const results = await Promise.allSettled(apiPromises);
-          ventasToUse = results
-            .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
-            .flatMap(r => r.value);
-        } catch { /* skip */ }
-      }
-      return ventasToUse;
+          if (!apiRes.ok) return [];
+          const detalle = await apiRes.json();
+          const orders = detalle?.ordenes || detalle?.ventas || [];
+          console.log(`[AdminDashboard] API ${m.nombre_personalizado}: ${orders.length} ventas`);
+          return orders.map((v: any) => ({
+            precio: Number(v.precio || 0),
+            hora: v.hora || '00:00',
+            fecha: v.fecha || detalle?.fecha || todayStr,
+            cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+            maquina_id: m.id,
+          }));
+        } catch { return []; }
+      });
+
+      const results = await Promise.allSettled(apiPromises);
+      const allSales = results
+        .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
+        .flatMap(r => r.value);
+
+      console.log(`[AdminDashboard] Total ventas hoy desde API: ${allSales.length}`);
+      return allSales;
     },
-    staleTime: 3 * 60 * 1000,
+    staleTime: 30 * 1000,
     refetchInterval: 30000,
-    enabled: machines.length >= 0, // always enabled but waits for machines
+    enabled: machines.length > 0,
   });
 
   // Fetch temp alerts
