@@ -65,30 +65,50 @@ export const AdminMachineDetail = () => {
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const chinaDates = getChinaDatesForSpainDate(todayStr);
 
-  // Fetch today's sales from DB for accurate Spain-time grouping
-  const { data: ventasHoyDB } = useQuery({
-    queryKey: ['admin-machine-ventas-hoy', machineId, todayStr],
+  // Fetch today's sales from API directly (DB may be incomplete/lagging)
+  const { data: ventasHoyAPI } = useQuery({
+    queryKey: ['admin-machine-ventas-hoy-api', imei, todayStr],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('ventas_historico')
-        .select('precio, hora, fecha, cantidad_unidades')
-        .eq('maquina_id', machineId!)
-        .in('fecha', chinaDates);
-      return data || [];
+      const allSales: any[] = [];
+      // Fetch BOTH China dates for complete Spain-today coverage
+      for (const chinaDate of chinaDates) {
+        try {
+          const apiRes = await fetch(
+            `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${imei}?fecha=${chinaDate}`,
+            { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
+          );
+          if (!apiRes.ok) continue;
+          const detalle = await apiRes.json();
+          const orders = detalle?.ordenes || detalle?.ventas || [];
+          orders.forEach((v: any) => {
+            allSales.push({
+              precio: Number(v.precio || 0),
+              hora: v.hora || '00:00',
+              fecha: (v.fecha || detalle?.fecha || chinaDate).substring(0, 10),
+              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+            });
+          });
+        } catch { /* skip */ }
+      }
+      // Deduplicate
+      const seen = new Set<string>();
+      return allSales.filter(v => {
+        const key = `${v.fecha}-${v.hora}-${v.precio}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
     },
-    enabled: !!machineId,
+    enabled: !!imei,
     refetchInterval: 30000,
     refetchOnWindowFocus: true,
   });
 
-  // Combine DB data with API data for today's sales
-  // The API returns sales in China time; DB may not be synced yet
+  // Calculate today's Spain-time sales from API data
   const ventasHoySpain = useMemo(() => {
     let euros = 0, cantidad = 0;
-
-    // First try DB data (converted from China to Spain time)
-    if (ventasHoyDB && ventasHoyDB.length > 0) {
-      ventasHoyDB.forEach(v => {
+    if (ventasHoyAPI && ventasHoyAPI.length > 0) {
+      ventasHoyAPI.forEach(v => {
         const converted = convertChinaToSpainFull(v.hora, v.fecha);
         if (converted.fecha === todayStr) {
           euros += Number(v.precio);
@@ -96,20 +116,8 @@ export const AdminMachineDetail = () => {
         }
       });
     }
-
-    // If DB has no data for today, use API ventas-detalle as fallback
-    if (cantidad === 0 && ventasDetalle?.ventas) {
-      ventasDetalle.ventas.forEach((v: any) => {
-        const converted = convertChinaToSpainFull(v.hora, ventasDetalle.fecha);
-        if (converted.fecha === todayStr) {
-          euros += Number(v.precio);
-          cantidad += (v.cantidad_unidades || 1);
-        }
-      });
-    }
-
     return { euros, cantidad };
-  }, [ventasHoyDB, ventasDetalle, todayStr]);
+  }, [ventasHoyAPI, todayStr]);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showAllSales, setShowAllSales] = useState(false);
