@@ -1,16 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchTemperatura, fetchVentasDetalle } from '@/services/api';
-import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
-import { format } from 'date-fns';
-import { Search, Eye, Loader2, MapPin } from 'lucide-react';
+import { fetchTemperatura } from '@/services/api';
+import { Search, Loader2, MapPin, Thermometer } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface MachineData {
   id: string;
@@ -22,17 +20,12 @@ interface MachineData {
   ownerName?: string;
   ownerEmail?: string;
   temperatura?: number;
-  tempEstado?: string;
 }
-
-const todayStr = format(new Date(), 'yyyy-MM-dd');
-const chinaDates = getChinaDatesForSpainDate(todayStr);
 
 export const AdminMachines = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
 
-  // Fetch machines with owner info + temperature
   const { data: machines = [], isLoading } = useQuery({
     queryKey: ['admin-machines-enriched'],
     queryFn: async () => {
@@ -40,104 +33,33 @@ export const AdminMachines = () => {
         supabase.from('maquinas').select('*'),
         supabase.from('profiles').select('id, nombre, email'),
       ]);
-
       if (!maquinas) return [];
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const enriched: MachineData[] = maquinas.map(m => ({
+        ...m,
+        ownerName: profileMap.get(m.usuario_id)?.nombre || 'Desconocido',
+        ownerEmail: profileMap.get(m.usuario_id)?.email || '',
+      }));
 
-      const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
-
-      const enriched: MachineData[] = maquinas.map((m) => {
-        const owner = profileMap.get(m.usuario_id);
-        return {
-          ...m,
-          ownerName: owner?.nombre || 'Desconocido',
-          ownerEmail: owner?.email || '',
-        };
-      });
-
-      // Fetch temps in parallel
+      // Fetch temps
       const tempPromises = enriched.map(async (m) => {
         try {
           const temp = await fetchTemperatura(m.mac_address);
-          if (temp) {
-            m.temperatura = temp.temperatura;
-            m.tempEstado = temp.temperatura !== undefined
-              ? (temp.temperatura >= 11 ? 'critico' : 'normal')
-              : undefined;
-          }
+          if (temp) m.temperatura = temp.temperatura;
         } catch { /* skip */ }
       });
       await Promise.allSettled(tempPromises);
-
       return enriched;
     },
     staleTime: 5 * 60 * 1000,
     refetchInterval: 30000,
   });
 
-  // Fetch today's sales
-  const { data: ventasHoy = [] } = useQuery({
-    queryKey: ['admin-machines-ventas', todayStr],
-    queryFn: async () => {
-      const { data: ventasDb } = await supabase
-        .from('ventas_historico')
-        .select('id, precio, hora, fecha, cantidad_unidades, maquina_id, producto')
-        .in('fecha', chinaDates);
-
-      let ventasCombinadas = ventasDb || [];
-
-      if (machines.length > 0) {
-        const fallbackPromises = machines.map(async (m) => {
-          const hasSalesTodayInDb = (ventasDb || []).some((v) => {
-            if (v.maquina_id !== m.id) return false;
-            const converted = convertChinaToSpainFull(v.hora, v.fecha);
-            return converted.fecha === todayStr;
-          });
-          if (hasSalesTodayInDb) return [];
-          try {
-            const detalle = await fetchVentasDetalle(m.mac_address);
-            return (detalle?.ventas || []).map((v: any) => ({
-              id: `api-${m.id}-${v.id || `${v.hora}-${v.precio}`}`,
-              precio: v.precio,
-              hora: v.hora,
-              fecha: detalle?.fecha,
-              cantidad_unidades: v.cantidad_unidades || 1,
-              maquina_id: m.id,
-              producto: v.producto || '',
-            }));
-          } catch { return []; }
-        });
-        const results = await Promise.allSettled(fallbackPromises);
-        const fallback = results
-          .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
-          .flatMap((r) => r.value);
-        if (fallback.length > 0) ventasCombinadas = [...ventasCombinadas, ...fallback];
-      }
-
-      return ventasCombinadas;
-    },
-    staleTime: 3 * 60 * 1000,
-    refetchInterval: 30000,
-    enabled: machines.length >= 0,
-  });
-
-  const salesByMachine = useMemo(() => {
-    const map: Record<string, { euros: number; cantidad: number }> = {};
-    ventasHoy.forEach(v => {
-      const converted = convertChinaToSpainFull(v.hora, v.fecha);
-      if (converted.fecha !== todayStr) return;
-      if (!map[v.maquina_id]) map[v.maquina_id] = { euros: 0, cantidad: 0 };
-      map[v.maquina_id].euros += Number(v.precio);
-      map[v.maquina_id].cantidad += (v.cantidad_unidades || 1);
-    });
-    return map;
-  }, [ventasHoy]);
-
-  const filtered = machines.filter(
-    (m) =>
-      m.nombre_personalizado.toLowerCase().includes(search.toLowerCase()) ||
-      m.mac_address.includes(search) ||
-      m.ownerName?.toLowerCase().includes(search.toLowerCase()) ||
-      m.ubicacion?.toLowerCase().includes(search.toLowerCase())
+  const filtered = machines.filter(m =>
+    m.nombre_personalizado.toLowerCase().includes(search.toLowerCase()) ||
+    m.mac_address.includes(search) ||
+    m.ownerName?.toLowerCase().includes(search.toLowerCase()) ||
+    m.ubicacion?.toLowerCase().includes(search.toLowerCase())
   );
 
   const getStatusBadge = (m: MachineData) => {
@@ -147,11 +69,7 @@ export const AdminMachines = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
@@ -163,12 +81,7 @@ export const AdminMachines = () => {
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por nombre, IMEI, ubicación..."
-          className="pl-10"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <Input placeholder="Buscar por nombre, IMEI, ubicación..." className="pl-10" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       <Card>
@@ -179,71 +92,39 @@ export const AdminMachines = () => {
                 <TableHead>Máquina</TableHead>
                 <TableHead className="hidden md:table-cell">IMEI</TableHead>
                 <TableHead className="hidden lg:table-cell">Franquiciado</TableHead>
-                <TableHead>Ventas Hoy</TableHead>
                 <TableHead className="hidden sm:table-cell">Temp</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((m) => {
-                const sales = salesByMachine[m.id];
-                return (
-                  <TableRow key={m.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{m.nombre_personalizado}</p>
-                        {m.ubicacion && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <MapPin className="h-3 w-3" /> {m.ubicacion}
-                          </p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell font-mono text-xs">
-                      {m.mac_address}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <div>
-                        <p className="text-sm">{m.ownerName}</p>
-                        <p className="text-xs text-muted-foreground">{m.ownerEmail}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-semibold text-primary">{(sales?.euros || 0).toFixed(2)}€</p>
-                        <p className="text-xs text-muted-foreground">{sales?.cantidad || 0} uds</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      {m.temperatura !== undefined ? (
-                        <span className={
-                          m.temperatura >= 11 ? 'text-critical font-bold' :
-                          'text-success'
-                        }>
-                          {m.temperatura}°C
-                        </span>
-                      ) : '--'}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(m)}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate(`/admin/machine/${m.id}`)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No se encontraron máquinas
+              {filtered.map(m => (
+                <TableRow
+                  key={m.id}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => navigate(`/admin/machine/${m.id}`)}
+                >
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{m.nombre_personalizado}</p>
+                      {m.ubicacion && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> {m.ubicacion}</p>}
+                    </div>
                   </TableCell>
+                  <TableCell className="hidden md:table-cell font-mono text-xs">{m.mac_address}</TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    <div><p className="text-sm">{m.ownerName}</p><p className="text-xs text-muted-foreground">{m.ownerEmail}</p></div>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {m.temperatura !== undefined ? (
+                      <span className={cn("flex items-center gap-1", m.temperatura >= 11 ? 'text-critical font-bold' : 'text-success')}>
+                        <Thermometer className="h-3.5 w-3.5" /> {m.temperatura}°C
+                      </span>
+                    ) : '--'}
+                  </TableCell>
+                  <TableCell>{getStatusBadge(m)}</TableCell>
                 </TableRow>
+              ))}
+              {filtered.length === 0 && (
+                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No se encontraron máquinas</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

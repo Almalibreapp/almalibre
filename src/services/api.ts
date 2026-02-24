@@ -104,6 +104,21 @@ export const fetchEstadisticasToppings = async (imei: string) => {
   return response.json();
 };
 
+// Estado de la máquina
+export const fetchEstadoMaquina = async (imei: string) => {
+  const response = await fetch(
+    `https://nonstopmachine.com/wp-json/fabricante-ext/v1/estado/${imei}`,
+    { headers }
+  );
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener el estado`);
+  }
+
+  return response.json();
+};
+
 // Validar IMEI (15 dígitos numéricos)
 export const validarIMEI = (imei: string): boolean => {
   const soloNumeros = imei.replace(/\D/g, '');
