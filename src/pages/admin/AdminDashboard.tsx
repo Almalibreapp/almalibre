@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchTemperatura } from '@/services/api';
-import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
+import { fetchTemperatura, fetchVentasDetalle } from '@/services/api';
+import { convertChinaToSpainFull } from '@/lib/timezone';
 import { format } from 'date-fns';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lucide-react';
@@ -12,9 +12,7 @@ import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lu
 export const AdminDashboard = () => {
   useVentasRealtime();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const chinaDatesForToday = getChinaDatesForSpainDate(todayStr);
 
-  // Fetch all machines
   const { data: machines = [] } = useQuery({
     queryKey: ['admin-all-machines'],
     queryFn: async () => {
@@ -24,82 +22,61 @@ export const AdminDashboard = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch low stock count
   const { data: lowStockAlerts = 0 } = useQuery({
     queryKey: ['admin-low-stock-count'],
     queryFn: async () => {
-      const { count } = await supabase
-        .from('stock_config')
-        .select('*', { count: 'exact', head: true })
-        .lt('unidades_actuales', 20);
+      const { count } = await supabase.from('stock_config').select('*', { count: 'exact', head: true }).lt('unidades_actuales', 20);
       return count || 0;
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch today's sales - ALWAYS use API, fetch BOTH China dates
+  // Fetch today's sales using ventas-detalle API (the working endpoint)
   const { data: ventasHoy = [], isLoading: loadingSales } = useQuery({
     queryKey: ['admin-dashboard-ventas', todayStr, machines.map(m => m.mac_address).join(',')],
     queryFn: async () => {
       if (machines.length === 0) return [];
+      const uniqueByImei = Array.from(new Map(machines.map(m => [m.mac_address, m])).values());
 
-      const uniqueByImei = Array.from(
-        new Map(machines.map(m => [m.mac_address, m])).values()
-      );
-
-      // Fetch BOTH China dates for complete Spain-today coverage
-      const apiPromises = uniqueByImei.flatMap((m) =>
-        chinaDatesForToday.map(async (chinaDate) => {
-          try {
-            const apiRes = await fetch(
-              `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${m.mac_address}?fecha=${chinaDate}`,
-              { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
-            );
-            if (!apiRes.ok) return [];
-            const detalle = await apiRes.json();
-            const orders = detalle?.ordenes || detalle?.ventas || [];
-            return orders.map((v: any) => ({
-              precio: Number(v.precio || 0),
-              hora: v.hora || '00:00',
-              // FIX: Extract date-only from datetime strings like "2026-02-24 23:30:58"
-              fecha: (v.fecha || detalle?.fecha || chinaDate).substring(0, 10),
-              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-              maquina_id: m.id,
-            }));
-          } catch { return []; }
-        })
-      );
+      const apiPromises = uniqueByImei.map(async (m) => {
+        try {
+          const detalle = await fetchVentasDetalle(m.mac_address);
+          if (!detalle?.ventas) return [];
+          return detalle.ventas.map((v: any) => ({
+            precio: Number(v.precio || 0),
+            hora: v.hora || '00:00',
+            fecha: (detalle.fecha || todayStr).substring(0, 10),
+            cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+            maquina_id: m.id,
+            estado: v.estado || 'exitoso',
+          }));
+        } catch { return []; }
+      });
 
       const results = await Promise.allSettled(apiPromises);
       const allSales = results
         .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
         .flatMap(r => r.value);
 
-      // Deduplicate by hora+precio+maquina_id (same sale fetched from two China dates)
+      // Deduplicate
       const seen = new Set<string>();
-      const deduped = allSales.filter(v => {
+      return allSales.filter(v => {
         const key = `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       });
-
-      console.log(`[AdminDashboard] Total API sales fetched: ${deduped.length}`);
-      return deduped;
     },
     staleTime: 30 * 1000,
     refetchInterval: 30000,
     enabled: machines.length > 0,
   });
 
-  // Fetch temp alerts
   const { data: tempAlerts = 0 } = useQuery({
     queryKey: ['admin-temp-alerts'],
     queryFn: async () => {
       if (machines.length === 0) return 0;
-      const uniqueMachines = Array.from(
-        new Map(machines.map(m => [m.mac_address, m])).values()
-      );
+      const uniqueMachines = Array.from(new Map(machines.map(m => [m.mac_address, m])).values());
       let count = 0;
       const promises = uniqueMachines.map(async (m) => {
         try {
@@ -116,33 +93,25 @@ export const AdminDashboard = () => {
   });
 
   const metrics = useMemo(() => {
+    // Filter to only exitoso sales that map to today in Spain time
     const filtered = ventasHoy.filter(v => {
+      if (v.estado === 'fallido') return false;
       const converted = convertChinaToSpainFull(v.hora, v.fecha);
       return converted.fecha === todayStr;
     });
 
-    const totalSales = filtered.reduce((s, v) => s + Number(v.precio), 0);
-    const totalIceCreams = filtered.reduce((s, v) => s + (v.cantidad_unidades || 1), 0);
-
-    const uniqueImeis = new Set(machines.map(m => m.mac_address));
-    const uniqueActiveImeis = new Set(machines.filter(m => m.activa).map(m => m.mac_address));
-
     return {
-      totalSalesToday: totalSales,
-      totalIceCreamsToday: totalIceCreams,
-      activeMachines: uniqueActiveImeis.size,
-      totalMachines: uniqueImeis.size,
+      totalSalesToday: filtered.reduce((s, v) => s + Number(v.precio), 0),
+      totalIceCreamsToday: filtered.reduce((s, v) => s + (v.cantidad_unidades || 1), 0),
+      activeMachines: new Set(machines.filter(m => m.activa).map(m => m.mac_address)).size,
+      totalMachines: new Set(machines.map(m => m.mac_address)).size,
       lowStockAlerts,
       tempAlerts,
     };
-  }, [ventasHoy, machines, lowStockAlerts, tempAlerts]);
+  }, [ventasHoy, machines, lowStockAlerts, tempAlerts, todayStr]);
 
   if (loadingSales && ventasHoy.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
@@ -152,98 +121,22 @@ export const AdminDashboard = () => {
         <p className="text-muted-foreground">Vista general de todas las máquinas Almalibre</p>
       </div>
 
-      {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Ventas Hoy</p>
-                <p className="text-3xl font-bold text-primary">{metrics.totalSalesToday.toFixed(2)}€</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <Euro className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Açaí Vendidos</p>
-                <p className="text-3xl font-bold">{metrics.totalIceCreamsToday}</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
-                <IceCream className="h-6 w-6 text-success" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Máquinas</p>
-                <p className="text-3xl font-bold">{metrics.activeMachines}/{metrics.totalMachines}</p>
-                <p className="text-xs text-muted-foreground">activas</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-accent flex items-center justify-center">
-                <IceCream className="h-6 w-6 text-accent-foreground" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Alertas</p>
-                <div className="flex items-center gap-2">
-                  {metrics.lowStockAlerts > 0 && (
-                    <Badge variant="destructive" className="text-xs">
-                      <Package className="h-3 w-3 mr-1" /> {metrics.lowStockAlerts} stock
-                    </Badge>
-                  )}
-                  {metrics.tempAlerts > 0 && (
-                    <Badge variant="destructive" className="text-xs">
-                      <Thermometer className="h-3 w-3 mr-1" /> {metrics.tempAlerts} temp
-                    </Badge>
-                  )}
-                  {metrics.lowStockAlerts === 0 && metrics.tempAlerts === 0 && (
-                    <p className="text-lg font-bold text-success">Todo OK</p>
-                  )}
-                </div>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-warning/10 flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-warning" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Ventas Hoy</p><p className="text-3xl font-bold text-primary">{metrics.totalSalesToday.toFixed(2)}€</p></div><div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center"><Euro className="h-6 w-6 text-primary" /></div></div></CardContent></Card>
+        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Açaí Vendidos</p><p className="text-3xl font-bold">{metrics.totalIceCreamsToday}</p></div><div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center"><IceCream className="h-6 w-6 text-success" /></div></div></CardContent></Card>
+        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Máquinas</p><p className="text-3xl font-bold">{metrics.activeMachines}/{metrics.totalMachines}</p><p className="text-xs text-muted-foreground">activas</p></div><div className="h-12 w-12 rounded-full bg-accent flex items-center justify-center"><IceCream className="h-6 w-6 text-accent-foreground" /></div></div></CardContent></Card>
+        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Alertas</p><div className="flex items-center gap-2">
+          {metrics.lowStockAlerts > 0 && <Badge variant="destructive" className="text-xs"><Package className="h-3 w-3 mr-1" /> {metrics.lowStockAlerts} stock</Badge>}
+          {metrics.tempAlerts > 0 && <Badge variant="destructive" className="text-xs"><Thermometer className="h-3 w-3 mr-1" /> {metrics.tempAlerts} temp</Badge>}
+          {metrics.lowStockAlerts === 0 && metrics.tempAlerts === 0 && <p className="text-lg font-bold text-success">Todo OK</p>}
+        </div></div><div className="h-12 w-12 rounded-full bg-warning/10 flex items-center justify-center"><AlertTriangle className="h-6 w-6 text-warning" /></div></div></CardContent></Card>
       </div>
 
-      {/* Quick alerts */}
       {(metrics.lowStockAlerts > 0 || metrics.tempAlerts > 0) && (
-        <Card className="border-warning/50">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2 text-warning">
-              <AlertTriangle className="h-4 w-4" />
-              Alertas Urgentes
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            {metrics.lowStockAlerts > 0 && (
-              <p>• {metrics.lowStockAlerts} topping(s) con stock crítico</p>
-            )}
-            {metrics.tempAlerts > 0 && (
-              <p>• {metrics.tempAlerts} máquina(s) con temperatura fuera de rango</p>
-            )}
-          </CardContent>
-        </Card>
+        <Card className="border-warning/50"><CardHeader><CardTitle className="text-base flex items-center gap-2 text-warning"><AlertTriangle className="h-4 w-4" />Alertas Urgentes</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">
+          {metrics.lowStockAlerts > 0 && <p>• {metrics.lowStockAlerts} topping(s) con stock crítico</p>}
+          {metrics.tempAlerts > 0 && <p>• {metrics.tempAlerts} máquina(s) con temperatura fuera de rango</p>}
+        </CardContent></Card>
       )}
     </div>
   );

@@ -17,8 +17,7 @@ const navItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/admin/machines', icon: IceCream, label: 'Máquinas' },
   { path: '/admin/franchisees', icon: Users, label: 'Franquiciados' },
-  { path: '/admin/sales', icon: Euro, label: 'Ventas Globales' },
-  { path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
+  { path: '/admin/sales', icon: Euro, label: 'Ventas y Análisis' },
 ];
 
 export const AdminSidebar = () => {
