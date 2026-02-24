@@ -43,8 +43,10 @@ export const useStockSync = (imei: string | undefined) => {
       let newVentas: Venta[];
 
       if (lastSaleId) {
+        // API returns sales newest-first; new sales are BEFORE the last known ID
         const lastIdx = ventas.findIndex((v) => v.id === lastSaleId);
-        newVentas = lastIdx >= 0 ? ventas.slice(lastIdx + 1) : [];
+        newVentas = lastIdx > 0 ? ventas.slice(0, lastIdx) : (lastIdx === -1 ? ventas : []);
+        console.log(`[StockSync] lastSaleId=${lastSaleId}, lastIdx=${lastIdx}, newVentas=${newVentas.length}`);
       } else {
         // First sync - don't deduct, just mark current position
         newVentas = [];
@@ -76,7 +78,7 @@ export const useStockSync = (imei: string | undefined) => {
       }
 
       // Update sync log
-      const latestSaleId = ventas[ventas.length - 1]?.id || lastSaleId;
+      const latestSaleId = ventas[0]?.id || lastSaleId; // ventas[0] is newest
       await supabase
         .from('stock_sync_log')
         .upsert(
