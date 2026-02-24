@@ -1,11 +1,9 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Maquina } from '@/types';
-import { useMaquinaData } from '@/hooks/useMaquinaData';
+import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
-import { supabase } from '@/integrations/supabase/client';
-import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
+import { convertChinaToSpainFull } from '@/lib/timezone';
 import { MapPin, Thermometer, AlertTriangle, Wifi, WifiOff, AlertCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -17,37 +15,24 @@ interface MachineCardProps {
 export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
   const imei = maquina.mac_address;
   const { temperatura, stock, isLoading, hasError } = useMaquinaData(imei);
+  const { data: ventasDetalle } = useVentasDetalle(imei);
   useVentasRealtime(imei);
 
   const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const chinaDates = getChinaDatesForSpainDate(todaySpain);
 
-  // Fetch today's sales from DB with timezone conversion
-  const { data: ventasHoyDb } = useQuery({
-    queryKey: ['ventas-hoy', imei, todaySpain],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('ventas_historico')
-        .select('precio, hora, fecha, cantidad_unidades')
-        .eq('imei', imei)
-        .in('fecha', chinaDates);
-      return data || [];
-    },
-    enabled: !!imei,
-    refetchInterval: 30000,
-  });
-
+  // Use API data directly for today's sales (same source as detail view)
   const ventasHoy = useMemo(() => {
-    let euros = 0, cantidad = 0;
-    (ventasHoyDb || []).forEach(v => {
-      const converted = convertChinaToSpainFull(v.hora, v.fecha);
-      if (converted.fecha === todaySpain) {
-        euros += Number(v.precio);
-        cantidad += (v.cantidad_unidades || 1);
-      }
-    });
-    return { euros, cantidad };
-  }, [ventasHoyDb, todaySpain]);
+    if (!ventasDetalle?.ventas) return { euros: 0, cantidad: 0 };
+    const exitosas = ventasDetalle.ventas
+      .filter((v: any) => {
+        const converted = convertChinaToSpainFull(v.hora, ventasDetalle.fecha);
+        return converted.fecha === todaySpain && v.estado === 'exitoso';
+      });
+    return {
+      euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0),
+      cantidad: exitosas.length,
+    };
+  }, [ventasDetalle, todaySpain]);
 
   const lowStockCount = stock?.toppings?.filter(t => t.capacidad_maxima > 0 && (t.stock_actual / t.capacidad_maxima) <= 0.25).length || 0;
   const isOnline = maquina.activa && !hasError;
