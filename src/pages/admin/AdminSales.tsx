@@ -99,39 +99,53 @@ export const AdminSales = () => {
           ? maquinas
           : maquinas.filter((m) => m.id === selectedMachine);
 
-        const apiPromises = targetMachines.map(async (m) => {
-          try {
-            const apiRes = await fetch(
-              `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${m.mac_address}?fecha=${dateStr}`,
-              { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
-            );
-            if (!apiRes.ok) return [];
-            const detalle = await apiRes.json();
-            const orders = detalle?.ordenes || detalle?.ventas || [];
-            console.log(`[AdminSales] API ${m.nombre_personalizado}: ${orders.length} ventas`);
-            return orders.map((v: any) => ({
-              id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
-              maquina_id: m.id,
-              imei: m.mac_address,
-              fecha: v.fecha || detalle?.fecha || dateStr,
-              hora: v.hora || '00:00',
-              producto: v.producto || '',
-              precio: Number(v.precio || 0),
-              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-              metodo_pago: v.metodo_pago || v.payment_method || v.pay_type || 'efectivo',
-              numero_orden: v.numero_orden || v.order_no || null,
-              estado: v.estado || 'exitoso',
-              toppings: v.toppings || v.toppings_usados || [],
-            }));
-          } catch {
-            return [];
-          }
-        });
+        const todayChinaDates = getChinaDatesForSpainDate(dateStr);
+        
+        // Fetch BOTH China dates for complete Spain-today coverage
+        const apiPromises = targetMachines.flatMap((m) =>
+          todayChinaDates.map(async (chinaDate) => {
+            try {
+              const apiRes = await fetch(
+                `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${m.mac_address}?fecha=${chinaDate}`,
+                { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
+              );
+              if (!apiRes.ok) return [];
+              const detalle = await apiRes.json();
+              const orders = detalle?.ordenes || detalle?.ventas || [];
+              return orders.map((v: any) => ({
+                id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
+                maquina_id: m.id,
+                imei: m.mac_address,
+                // FIX: Extract date-only from datetime strings like "2026-02-24 23:30:58"
+                fecha: (v.fecha || detalle?.fecha || chinaDate).substring(0, 10),
+                hora: v.hora || '00:00',
+                producto: v.producto || '',
+                precio: Number(v.precio || 0),
+                cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+                metodo_pago: v.metodo_pago || v.payment_method || v.pay_type || 'efectivo',
+                numero_orden: v.numero_orden || v.order_no || null,
+                estado: v.estado || 'exitoso',
+                toppings: v.toppings || v.toppings_usados || [],
+              }));
+            } catch {
+              return [];
+            }
+          })
+        );
 
         const results = await Promise.allSettled(apiPromises);
-        return results
+        const allSales = results
           .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
           .flatMap((r) => r.value);
+        
+        // Deduplicate
+        const seen = new Set<string>();
+        return allSales.filter(v => {
+          const key = `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
       }
 
       // For PAST days: use DB

@@ -4,15 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchTemperatura } from '@/services/api';
-import { convertChinaToSpainFull } from '@/lib/timezone';
+import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import { format } from 'date-fns';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lucide-react';
 
-const todayStr = format(new Date(), 'yyyy-MM-dd');
-
 export const AdminDashboard = () => {
   useVentasRealtime();
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const chinaDatesForToday = getChinaDatesForSpainDate(todayStr);
+
   // Fetch all machines
   const { data: machines = [] } = useQuery({
     queryKey: ['admin-all-machines'],
@@ -36,44 +37,55 @@ export const AdminDashboard = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch today's sales - ALWAYS use API for real-time accuracy
+  // Fetch today's sales - ALWAYS use API, fetch BOTH China dates
   const { data: ventasHoy = [], isLoading: loadingSales } = useQuery({
     queryKey: ['admin-dashboard-ventas', todayStr, machines.map(m => m.mac_address).join(',')],
     queryFn: async () => {
       if (machines.length === 0) return [];
 
-      // Always fetch from API for today to guarantee real-time data
       const uniqueByImei = Array.from(
         new Map(machines.map(m => [m.mac_address, m])).values()
       );
 
-      const apiPromises = uniqueByImei.map(async (m) => {
-        try {
-          const apiRes = await fetch(
-            `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${m.mac_address}?fecha=${todayStr}`,
-            { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
-          );
-          if (!apiRes.ok) return [];
-          const detalle = await apiRes.json();
-          const orders = detalle?.ordenes || detalle?.ventas || [];
-          console.log(`[AdminDashboard] API ${m.nombre_personalizado}: ${orders.length} ventas`);
-          return orders.map((v: any) => ({
-            precio: Number(v.precio || 0),
-            hora: v.hora || '00:00',
-            fecha: v.fecha || detalle?.fecha || todayStr,
-            cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-            maquina_id: m.id,
-          }));
-        } catch { return []; }
-      });
+      // Fetch BOTH China dates for complete Spain-today coverage
+      const apiPromises = uniqueByImei.flatMap((m) =>
+        chinaDatesForToday.map(async (chinaDate) => {
+          try {
+            const apiRes = await fetch(
+              `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${m.mac_address}?fecha=${chinaDate}`,
+              { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
+            );
+            if (!apiRes.ok) return [];
+            const detalle = await apiRes.json();
+            const orders = detalle?.ordenes || detalle?.ventas || [];
+            return orders.map((v: any) => ({
+              precio: Number(v.precio || 0),
+              hora: v.hora || '00:00',
+              // FIX: Extract date-only from datetime strings like "2026-02-24 23:30:58"
+              fecha: (v.fecha || detalle?.fecha || chinaDate).substring(0, 10),
+              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+              maquina_id: m.id,
+            }));
+          } catch { return []; }
+        })
+      );
 
       const results = await Promise.allSettled(apiPromises);
       const allSales = results
         .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
         .flatMap(r => r.value);
 
-      console.log(`[AdminDashboard] Total ventas hoy desde API: ${allSales.length}`);
-      return allSales;
+      // Deduplicate by hora+precio+maquina_id (same sale fetched from two China dates)
+      const seen = new Set<string>();
+      const deduped = allSales.filter(v => {
+        const key = `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      console.log(`[AdminDashboard] Total API sales fetched: ${deduped.length}`);
+      return deduped;
     },
     staleTime: 30 * 1000,
     refetchInterval: 30000,
