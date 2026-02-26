@@ -87,27 +87,31 @@ export const AdminSalesAnalytics = () => {
         : maquinas.filter(m => m.id === selectedMachine);
       const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
 
-      // Always call the API with the target date (works for today AND past days)
-      const apiPromises = uniqueByImei.map(async (m) => {
-        try {
-          const detalle = await fetchOrdenes(m.mac_address, dateStr);
-          if (!detalle?.ventas) return [];
-          return detalle.ventas.map((v: any) => ({
-            id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
-            maquina_id: m.id,
-            imei: m.mac_address,
-            fecha: (v.fecha || detalle.fecha || dateStr).substring(0, 10),
-            hora: v.hora || '00:00',
-            producto: v.producto || '',
-            precio: Number(v.precio || 0),
-            cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-            metodo_pago: v.metodo_pago || 'efectivo',
-            numero_orden: v.numero_orden || null,
-            estado: v.estado || 'exitoso',
-            toppings: v.toppings || [],
-          }));
-        } catch { return []; }
-      });
+      // The API expects China dates. For a Spain date D, we need China dates D and D+1.
+      const chinaDatesToFetch = getChinaDatesForSpainDate(dateStr);
+
+      const apiPromises = uniqueByImei.flatMap((m) =>
+        chinaDatesToFetch.map(async (chinaDate) => {
+          try {
+            const detalle = await fetchOrdenes(m.mac_address, chinaDate);
+            if (!detalle?.ventas) return [];
+            return detalle.ventas.map((v: any) => ({
+              id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
+              maquina_id: m.id,
+              imei: m.mac_address,
+              fecha: (v.fecha || detalle.fecha || chinaDate).substring(0, 10),
+              hora: v.hora || '00:00',
+              producto: v.producto || '',
+              precio: Number(v.precio || 0),
+              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+              metodo_pago: v.metodo_pago || 'efectivo',
+              numero_orden: v.numero_orden || null,
+              estado: v.estado || 'exitoso',
+              toppings: v.toppings || [],
+            }));
+          } catch { return []; }
+        })
+      );
 
       const results = await Promise.allSettled(apiPromises);
       const allSales = results
