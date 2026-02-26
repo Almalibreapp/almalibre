@@ -32,6 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   fetchVentasResumen,
   fetchTemperatura,
+  fetchOrdenes,
 } from "@/services/api";
 
 // Admin
@@ -63,6 +64,17 @@ async function prefetchStoreProducts() {
   return data?.products ?? [];
 }
 
+// Helper to prefetch today's sales for a machine via API
+async function prefetchTodaySales(imei: string) {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  try {
+    return await fetchOrdenes(imei, todayStr);
+  } catch {
+    return null;
+  }
+}
+
 // Fired once per session when auth is confirmed — prefetches store + machine data
 const GlobalPrefetch = () => {
   const queryClientRef = useQueryClient();
@@ -85,16 +97,21 @@ const GlobalPrefetch = () => {
           staleTime: 15 * 60 * 1000,
         });
 
-        // 2. Fetch user's machines, then prefetch ventas + temperatura for each
+        // 2. Fetch user's machines, then prefetch ventas + temperatura + today's sales for each
         const fetchAndPrefetch = async () => {
           try {
             const { data: maquinas } = await supabase
               .from('maquinas')
-              .select('mac_address')
+              .select('id, mac_address')
               .eq('usuario_id', userId);
 
             if (maquinas && maquinas.length > 0) {
-              maquinas.forEach(({ mac_address }) => {
+              const todayStr = (() => {
+                const d = new Date();
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+              })();
+
+              maquinas.forEach(({ mac_address, id }) => {
                 queryClientRef.prefetchQuery({
                   queryKey: ['ventas-resumen', mac_address],
                   queryFn: () => fetchVentasResumen(mac_address),
@@ -104,6 +121,12 @@ const GlobalPrefetch = () => {
                   queryKey: ['temperatura', mac_address],
                   queryFn: () => fetchTemperatura(mac_address),
                   staleTime: 60 * 1000,
+                });
+                // Prefetch today's detailed sales (used by admin dashboard & sales analytics)
+                queryClientRef.prefetchQuery({
+                  queryKey: ['admin-dashboard-ventas-prefetch', todayStr, mac_address],
+                  queryFn: () => prefetchTodaySales(mac_address),
+                  staleTime: 2 * 60 * 1000,
                 });
               });
             }
