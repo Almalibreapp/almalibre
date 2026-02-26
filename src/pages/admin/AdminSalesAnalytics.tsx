@@ -11,7 +11,48 @@ import { cn } from '@/lib/utils';
 import { format, subDays, addDays, isToday as isTodayFn, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
-import { convertChinaToSpain, convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
+import { convertChinaToSpain } from '@/lib/timezone';
+
+/** Helper: fetch sales from API for a single date and machine, returning normalized records */
+const fetchDaySales = async (imei: string, maquinaId: string, fecha: string) => {
+  try {
+    const detalle = await fetchOrdenes(imei, fecha);
+    if (!detalle?.ventas) return [];
+    return detalle.ventas.map((v: any) => ({
+      id: `api-${maquinaId}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
+      maquina_id: maquinaId,
+      imei,
+      fecha: (v.fecha || detalle.fecha || fecha).substring(0, 10),
+      hora: v.hora || '00:00',
+      producto: v.producto || '',
+      precio: Number(v.precio || 0),
+      cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+      metodo_pago: v.metodo_pago || 'efectivo',
+      numero_orden: v.numero_orden || null,
+      estado: v.estado || 'exitoso',
+      toppings: v.toppings || [],
+    }));
+  } catch { return []; }
+};
+
+/** Helper: deduplicate sales by key */
+const deduplicateSales = (sales: any[]) => {
+  const seen = new Set<string>();
+  return sales.filter(v => {
+    const key = `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+/** Format local date as YYYY-MM-DD without UTC conversion */
+const formatLocal = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 import { fetchOrdenes } from '@/services/api';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { toast } from 'sonner';
@@ -75,72 +116,27 @@ export const AdminSalesAnalytics = () => {
   });
 
   // ============ DAILY VIEW DATA ============
-  // For TODAY: use API (ventas-detalle), for past days: use DB
-  const chinaDates = getChinaDatesForSpainDate(dateStr);
-  const { data: ventasDiaRaw, isLoading: loadingDaily } = useQuery({
+  // Fetch directly from API using the selected date — no timezone filter
+  const { data: ventasDia = [], isLoading: loadingDaily } = useQuery({
     queryKey: ['admin-ventas-dia', dateStr, selectedMachine, maquinas?.map(m => m.id).join(',')],
     queryFn: async () => {
       if (!maquinas || maquinas.length === 0) return [];
-
       const targetMachines = selectedMachine === 'all'
         ? maquinas
         : maquinas.filter(m => m.id === selectedMachine);
       const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
 
-      // The API expects China dates. For a Spain date D, we need China dates D and D+1.
-      const chinaDatesToFetch = getChinaDatesForSpainDate(dateStr);
-
-      const apiPromises = uniqueByImei.flatMap((m) =>
-        chinaDatesToFetch.map(async (chinaDate) => {
-          try {
-            const detalle = await fetchOrdenes(m.mac_address, chinaDate);
-            if (!detalle?.ventas) return [];
-            return detalle.ventas.map((v: any) => ({
-              id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
-              maquina_id: m.id,
-              imei: m.mac_address,
-              fecha: (v.fecha || detalle.fecha || chinaDate).substring(0, 10),
-              hora: v.hora || '00:00',
-              producto: v.producto || '',
-              precio: Number(v.precio || 0),
-              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-              metodo_pago: v.metodo_pago || 'efectivo',
-              numero_orden: v.numero_orden || null,
-              estado: v.estado || 'exitoso',
-              toppings: v.toppings || [],
-            }));
-          } catch { return []; }
-        })
+      const allSales = await Promise.all(
+        uniqueByImei.map(m => fetchDaySales(m.mac_address, m.id, dateStr))
       );
-
-      const results = await Promise.allSettled(apiPromises);
-      const allSales = results
-        .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
-        .flatMap(r => r.value);
-
-      // Deduplicate
-      const seen = new Set<string>();
-      return allSales.filter(v => {
-        const key = `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      return deduplicateSales(allSales.flat());
     },
     refetchInterval: isTodayFn(selectedDate) ? 30000 : false,
-    enabled: viewMode === 'daily',
+    enabled: viewMode === 'daily' && !!maquinas && maquinas.length > 0,
   });
 
-  const ventasDia = useMemo(() => {
-    if (!ventasDiaRaw) return [];
-    return ventasDiaRaw.filter(v => {
-      const converted = convertChinaToSpainFull(v.hora, v.fecha);
-      return converted.fecha === dateStr;
-    });
-  }, [ventasDiaRaw, dateStr]);
-
-  // Yesterday for comparison - also from API
-  const { data: ventasAyerRaw } = useQuery({
+  // Yesterday for comparison
+  const { data: ventasAyer = [] } = useQuery({
     queryKey: ['admin-ventas-ayer', yesterdayStr, selectedMachine, maquinas?.map(m => m.id).join(',')],
     queryFn: async () => {
       if (!maquinas || maquinas.length === 0) return [];
@@ -148,102 +144,43 @@ export const AdminSalesAnalytics = () => {
         ? maquinas
         : maquinas.filter(m => m.id === selectedMachine);
       const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
-      const chinaDatesToFetch = getChinaDatesForSpainDate(yesterdayStr);
-
-      const apiPromises = uniqueByImei.flatMap((m) =>
-        chinaDatesToFetch.map(async (chinaDate) => {
-          try {
-            const detalle = await fetchOrdenes(m.mac_address, chinaDate);
-            if (!detalle?.ventas) return [];
-            return detalle.ventas.map((v: any) => ({
-              precio: Number(v.precio || 0),
-              hora: v.hora || '00:00',
-              fecha: (v.fecha || detalle.fecha || chinaDate).substring(0, 10),
-            }));
-          } catch { return []; }
-        })
+      const allSales = await Promise.all(
+        uniqueByImei.map(m => fetchDaySales(m.mac_address, m.id, yesterdayStr))
       );
-      const results = await Promise.allSettled(apiPromises);
-      return results
-        .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
-        .flatMap(r => r.value);
+      return deduplicateSales(allSales.flat());
     },
-    enabled: viewMode === 'daily',
+    enabled: viewMode === 'daily' && !!maquinas && maquinas.length > 0,
   });
-
-  const ventasAyer = useMemo(() => {
-    if (!ventasAyerRaw) return [];
-    return ventasAyerRaw.filter(v => convertChinaToSpainFull(v.hora, v.fecha).fecha === yesterdayStr);
-  }, [ventasAyerRaw, yesterdayStr]);
 
   // ============ MONTHLY VIEW DATA ============
   const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
-  // Helper: get all unique China dates needed for a Spain month
-  const getMonthChinaDates = (month: Date): string[] => {
-    const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) });
-    const allChinaDates = new Set<string>();
-    days.forEach(day => {
-      getChinaDatesForSpainDate(format(day, 'yyyy-MM-dd')).forEach(d => allChinaDates.add(d));
-    });
-    return Array.from(allChinaDates).sort();
-  };
-
   const { data: ventasHistorico, isLoading: loadingMonthly, refetch: refetchMonthly } = useQuery({
     queryKey: ['admin-ventas-historico', selectedMachine, monthStart, monthEnd, maquinas?.map(m => m.id).join(',')],
     queryFn: async () => {
       if (!maquinas || maquinas.length === 0) return [];
-
       const targetMachines = selectedMachine === 'all'
         ? maquinas
         : maquinas.filter(m => m.id === selectedMachine);
       const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
-      const chinaDates = getMonthChinaDates(currentMonth);
 
-      // Fetch all China dates from API for each machine
-      const apiPromises = uniqueByImei.flatMap((m) =>
-        chinaDates.map(async (chinaDate) => {
-          try {
-            const detalle = await fetchOrdenes(m.mac_address, chinaDate);
-            if (!detalle?.ventas) return [];
-            return detalle.ventas.map((v: any) => ({
-              id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
-              maquina_id: m.id,
-              imei: m.mac_address,
-              fecha: (v.fecha || detalle.fecha || chinaDate).substring(0, 10),
-              hora: v.hora || '00:00',
-              producto: v.producto || '',
-              precio: Number(v.precio || 0),
-              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-              metodo_pago: v.metodo_pago || 'efectivo',
-              estado: v.estado || 'exitoso',
-              toppings: v.toppings || [],
-              venta_api_id: v.id || '',
-              created_at: new Date().toISOString(),
-            }));
-          } catch { return []; }
-        })
+      // Build list of all dates in the month
+      const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
+      const dateStrings = days.map(d => formatLocal(d));
+
+      // Fetch each day from API for each machine
+      const allSales = await Promise.all(
+        uniqueByImei.flatMap(m =>
+          dateStrings.map(fecha => fetchDaySales(m.mac_address, m.id, fecha))
+        )
       );
-
-      const results = await Promise.allSettled(apiPromises);
-      const allSales = results
-        .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
-        .flatMap(r => r.value);
-
-      // Deduplicate
-      const seen = new Set<string>();
-      return allSales.filter(v => {
-        const key = `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      return deduplicateSales(allSales.flat());
     },
     staleTime: 5 * 60 * 1000,
     refetchInterval: isCurrentMonth ? 60000 : false,
-    enabled: viewMode === 'monthly',
+    enabled: viewMode === 'monthly' && !!maquinas && maquinas.length > 0,
   });
 
   // Sync handler
@@ -299,17 +236,14 @@ export const AdminSalesAnalytics = () => {
   // ============ MONTHLY METRICS ============
   const ventasNormalizadas = useMemo(() => {
     if (!ventasHistorico) return [];
-    const mStart = startOfMonth(currentMonth);
-    const mEnd = endOfMonth(currentMonth);
     return ventasHistorico.map(v => {
-      const converted = convertChinaToSpainFull(v.hora, v.fecha);
-      const saleDate = new Date(`${converted.fecha}T00:00:00`);
+      const horaSpain = convertChinaToSpain(v.hora, v.fecha);
       const productInfo = parseProductAndToppings(v.producto);
       const toppingNames = Array.isArray(v.toppings) && v.toppings.length > 0
         ? v.toppings.map((t: any) => decodeHtmlEntities(t.nombre || t.posicion || '')).filter(Boolean)
         : productInfo.toppings;
-      return { ...v, fechaSpain: converted.fecha, horaSpain: converted.hora, saleDate, productoNormalizado: productInfo.productName, toppingNames, metodoPagoNormalizado: normalizePaymentMethod(v.metodo_pago) };
-    }).filter(v => v.saleDate >= mStart && v.saleDate <= mEnd);
+      return { ...v, fechaSpain: v.fecha, horaSpain, saleDate: new Date(`${v.fecha}T00:00:00`), productoNormalizado: productInfo.productName, toppingNames, metodoPagoNormalizado: normalizePaymentMethod(v.metodo_pago) };
+    });
   }, [ventasHistorico, currentMonth]);
 
   const monthlyMetrics = useMemo(() => {
