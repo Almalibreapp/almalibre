@@ -4,8 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchTemperatura, fetchOrdenes } from '@/services/api';
-import { getChinaDatesForSpainDate } from '@/lib/timezone';
-import { convertChinaToSpainFull } from '@/lib/timezone';
 import { format } from 'date-fns';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lucide-react';
@@ -38,31 +36,27 @@ export const AdminDashboard = () => {
     queryFn: async () => {
       if (machines.length === 0) return [];
       const uniqueByImei = Array.from(new Map(machines.map(m => [m.mac_address, m])).values());
-      const chinaDates = getChinaDatesForSpainDate(todayStr);
 
-      const apiPromises = uniqueByImei.flatMap((m) =>
-        chinaDates.map(async (chinaDate) => {
-          try {
-            const detalle = await fetchOrdenes(m.mac_address, chinaDate);
-            if (!detalle?.ventas) return [];
-            return detalle.ventas.map((v: any) => ({
-              precio: Number(v.precio || 0),
-              hora: v.hora || '00:00',
-              fecha: (v.fecha || detalle.fecha || chinaDate).substring(0, 10),
-              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-              maquina_id: m.id,
-              estado: v.estado || 'exitoso',
-            }));
-          } catch { return []; }
-        })
-      );
+      const apiPromises = uniqueByImei.map(async (m) => {
+        try {
+          const detalle = await fetchOrdenes(m.mac_address, todayStr);
+          if (!detalle?.ventas) return [];
+          return detalle.ventas.map((v: any) => ({
+            precio: Number(v.precio || 0),
+            hora: v.hora || '00:00',
+            fecha: (v.fecha || detalle.fecha || todayStr).substring(0, 10),
+            cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+            maquina_id: m.id,
+            estado: v.estado || 'exitoso',
+          }));
+        } catch { return []; }
+      });
 
       const results = await Promise.allSettled(apiPromises);
       const allSales = results
         .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
         .flatMap(r => r.value);
 
-      // Deduplicate
       const seen = new Set<string>();
       return allSales.filter(v => {
         const key = `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`;
@@ -97,12 +91,7 @@ export const AdminDashboard = () => {
   });
 
   const metrics = useMemo(() => {
-    // Filter to only exitoso sales that map to today in Spain time
-    const filtered = ventasHoy.filter(v => {
-      if (v.estado === 'fallido') return false;
-      const converted = convertChinaToSpainFull(v.hora, v.fecha);
-      return converted.fecha === todayStr;
-    });
+    const filtered = ventasHoy.filter(v => v.estado !== 'fallido');
 
     return {
       totalSalesToday: filtered.reduce((s, v) => s + Number(v.precio), 0),
