@@ -59,9 +59,10 @@ const fetchDaySalesRaw = async (imei: string, maquinaId: string, apiDate: string
  * only include sales whose converted Spanish date matches.
  */
 const fetchSpanishDaySales = async (imei: string, maquinaId: string, spanishDate: string) => {
-  const nextDay = new Date(spanishDate + 'T00:00:00');
+  // Calculate next day using local date math to avoid toISOString() UTC shift
+  const nextDay = new Date(spanishDate + 'T12:00:00'); // noon to avoid DST edge
   nextDay.setDate(nextDay.getDate() + 1);
-  const nextDayStr = nextDay.toISOString().split('T')[0];
+  const nextDayStr = formatLocal(nextDay);
 
   const [salesD, salesD1] = await Promise.all([
     fetchDaySalesRaw(imei, maquinaId, spanishDate),
