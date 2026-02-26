@@ -42,6 +42,7 @@ export const AdminDashboard = () => {
           const detalle = await fetchOrdenes(m.mac_address, todayStr);
           if (!detalle?.ventas) return [];
           return detalle.ventas.map((v: any) => ({
+            id: v.id || v.numero_orden || `${m.id}-${v.hora}-${v.precio}-${Math.random()}`,
             precio: Number(v.precio || 0),
             hora: v.hora || '00:00',
             fecha: (v.fecha || detalle.fecha || todayStr).substring(0, 10),
@@ -59,7 +60,7 @@ export const AdminDashboard = () => {
 
       const seen = new Set<string>();
       return allSales.filter(v => {
-        const key = `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`;
+        const key = v.id;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
