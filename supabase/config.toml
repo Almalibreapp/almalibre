@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.sync-temperatura]
 verify_jwt = false
+
+[functions.notify-new-sale]
+verify_jwt = false
