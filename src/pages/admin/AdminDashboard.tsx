@@ -6,11 +6,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchTemperatura, fetchOrdenes } from '@/services/api';
 import { format } from 'date-fns';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
+import { convertChinaToSpainFull } from '@/lib/timezone';
 import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lucide-react';
 
 export const AdminDashboard = () => {
   useVentasRealtime();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrowStr = format(tomorrowDate, 'yyyy-MM-dd');
 
   const { data: machines = [] } = useQuery({
     queryKey: ['admin-all-machines'],
@@ -30,33 +34,47 @@ export const AdminDashboard = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch today's sales using ordenes API (with real payment method & toppings)
+  // Fetch today's sales: query both todayStr and tomorrowStr (China dates),
+  // then filter by Spanish date = todayStr
   const { data: ventasHoy = [], isLoading: loadingSales } = useQuery({
     queryKey: ['admin-dashboard-ventas', todayStr, machines.map(m => m.mac_address).join(',')],
     queryFn: async () => {
       if (machines.length === 0) return [];
       const uniqueByImei = Array.from(new Map(machines.map(m => [m.mac_address, m])).values());
 
-      const apiPromises = uniqueByImei.map(async (m) => {
-        try {
-          const detalle = await fetchOrdenes(m.mac_address, todayStr);
-          if (!detalle?.ventas) return [];
-          return detalle.ventas.map((v: any) => ({
-            id: v.id || v.numero_orden || `${m.id}-${v.hora}-${v.precio}-${Math.random()}`,
-            precio: Number(v.precio || 0),
-            hora: v.hora || '00:00',
-            fecha: (v.fecha || detalle.fecha || todayStr).substring(0, 10),
-            cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-            maquina_id: m.id,
-            estado: v.estado || 'exitoso',
-          }));
-        } catch { return []; }
-      });
+      const fetchForDate = async (apiDate: string) => {
+        const promises = uniqueByImei.map(async (m) => {
+          try {
+            const detalle = await fetchOrdenes(m.mac_address, apiDate);
+            if (!detalle?.ventas) return [];
+            return detalle.ventas.map((v: any) => {
+              const chinaFecha = (v.fecha || detalle.fecha || apiDate).substring(0, 10);
+              const chinaHora = v.hora || '00:00';
+              const spain = convertChinaToSpainFull(chinaHora, chinaFecha);
+              return {
+                id: v.id || v.numero_orden || `${m.id}-${chinaHora}-${v.precio}-${Math.random()}`,
+                precio: Number(v.precio || 0),
+                hora: chinaHora,
+                fechaSpain: spain.fecha,
+                cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+                maquina_id: m.id,
+                estado: v.estado || 'exitoso',
+              };
+            });
+          } catch { return []; }
+        });
+        const results = await Promise.allSettled(promises);
+        return results
+          .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
+          .flatMap(r => r.value);
+      };
 
-      const results = await Promise.allSettled(apiPromises);
-      const allSales = results
-        .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
-        .flatMap(r => r.value);
+      const [salesToday, salesTomorrow] = await Promise.all([
+        fetchForDate(todayStr),
+        fetchForDate(tomorrowStr),
+      ]);
+
+      const allSales = [...salesToday, ...salesTomorrow].filter(v => v.fechaSpain === todayStr);
 
       const seen = new Set<string>();
       return allSales.filter(v => {

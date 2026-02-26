@@ -11,35 +11,62 @@ import { cn } from '@/lib/utils';
 import { format, subDays, addDays, isToday as isTodayFn, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
-import { convertChinaToSpain } from '@/lib/timezone';
+import { convertChinaToSpain, convertChinaToSpainFull } from '@/lib/timezone';
 
-/** Helper: fetch sales from API for a single date and machine, returning normalized records */
-const fetchDaySales = async (imei: string, maquinaId: string, fecha: string) => {
+/**
+ * Fetch sales from API for a given China date, convert to Spain date,
+ * and tag each sale with its real Spanish date.
+ */
+const fetchDaySalesRaw = async (imei: string, maquinaId: string, apiDate: string) => {
   try {
-    const detalle = await fetchOrdenes(imei, fecha);
+    const detalle = await fetchOrdenes(imei, apiDate);
     if (!detalle?.ventas) return [];
-    return detalle.ventas.map((v: any) => ({
-      id: v.id || v.numero_orden || `${maquinaId}-${fecha}-${v.hora}-${v.precio}-${Math.random()}`,
-      maquina_id: maquinaId,
-      imei,
-      fecha: (v.fecha || detalle.fecha || fecha).substring(0, 10),
-      hora: v.hora || '00:00',
-      producto: v.producto || '',
-      precio: Number(v.precio || 0),
-      cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-      metodo_pago: v.metodo_pago || 'efectivo',
-      numero_orden: v.numero_orden || null,
-      estado: v.estado || 'exitoso',
-      toppings: v.toppings || [],
-    }));
+    return detalle.ventas.map((v: any) => {
+      const chinaFecha = (v.fecha || detalle.fecha || apiDate).substring(0, 10);
+      const chinaHora = v.hora || '00:00';
+      const spain = convertChinaToSpainFull(chinaHora, chinaFecha);
+      return {
+        id: v.id || v.numero_orden || `${maquinaId}-${apiDate}-${chinaHora}-${v.precio}-${Math.random()}`,
+        maquina_id: maquinaId,
+        imei,
+        fecha: chinaFecha,
+        fechaSpain: spain.fecha,
+        hora: chinaHora,
+        horaSpain: spain.hora,
+        producto: v.producto || '',
+        precio: Number(v.precio || 0),
+        cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+        metodo_pago: v.metodo_pago || 'efectivo',
+        numero_orden: v.numero_orden || null,
+        estado: v.estado || 'exitoso',
+        toppings: v.toppings || [],
+      };
+    });
   } catch { return []; }
 };
 
-/** Helper: deduplicate sales by unique sale ID (not fecha-hora-precio which drops valid sales) */
+/**
+ * For a given Spanish date, fetch both that date and the next day from the API
+ * (since evening Spanish sales fall on the next China day), then filter to
+ * only include sales whose converted Spanish date matches.
+ */
+const fetchSpanishDaySales = async (imei: string, maquinaId: string, spanishDate: string) => {
+  const nextDay = new Date(spanishDate + 'T00:00:00');
+  nextDay.setDate(nextDay.getDate() + 1);
+  const nextDayStr = nextDay.toISOString().split('T')[0];
+
+  const [salesD, salesD1] = await Promise.all([
+    fetchDaySalesRaw(imei, maquinaId, spanishDate),
+    fetchDaySalesRaw(imei, maquinaId, nextDayStr),
+  ]);
+
+  return [...salesD, ...salesD1].filter(s => s.fechaSpain === spanishDate);
+};
+
+/** Helper: deduplicate sales by unique sale ID */
 const deduplicateSales = (sales: any[]) => {
   const seen = new Set<string>();
   return sales.filter(v => {
-    // Use the actual sale ID from the API which is unique per transaction
     const key = v.id;
     if (seen.has(key)) return false;
     seen.add(key);
@@ -117,7 +144,7 @@ export const AdminSalesAnalytics = () => {
   });
 
   // ============ DAILY VIEW DATA ============
-  // Fetch directly from API using the selected date — no timezone filter
+  // Fetch both dateStr and dateStr+1 from API, filter by Spanish date
   const { data: ventasDia = [], isLoading: loadingDaily } = useQuery({
     queryKey: ['admin-ventas-dia', dateStr, selectedMachine, maquinas?.map(m => m.id).join(',')],
     queryFn: async () => {
@@ -128,7 +155,7 @@ export const AdminSalesAnalytics = () => {
       const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
 
       const allSales = await Promise.all(
-        uniqueByImei.map(m => fetchDaySales(m.mac_address, m.id, dateStr))
+        uniqueByImei.map(m => fetchSpanishDaySales(m.mac_address, m.id, dateStr))
       );
       return deduplicateSales(allSales.flat());
     },
@@ -146,7 +173,7 @@ export const AdminSalesAnalytics = () => {
         : maquinas.filter(m => m.id === selectedMachine);
       const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
       const allSales = await Promise.all(
-        uniqueByImei.map(m => fetchDaySales(m.mac_address, m.id, yesterdayStr))
+        uniqueByImei.map(m => fetchSpanishDaySales(m.mac_address, m.id, yesterdayStr))
       );
       return deduplicateSales(allSales.flat());
     },
@@ -167,17 +194,25 @@ export const AdminSalesAnalytics = () => {
         : maquinas.filter(m => m.id === selectedMachine);
       const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
 
-      // Build list of all dates in the month
-      const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
-      const dateStrings = days.map(d => formatLocal(d));
+      // Build list of all dates in the month PLUS one extra day after month end
+      // (evening sales on last day of month in Spain = next day in China)
+      const lastDay = endOfMonth(currentMonth);
+      const dayAfterMonth = new Date(lastDay);
+      dayAfterMonth.setDate(dayAfterMonth.getDate() + 1);
+      const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: dayAfterMonth });
+      const apiDates = days.map(d => formatLocal(d));
 
-      // Fetch each day from API for each machine
+      // Fetch each API date from API for each machine
       const allSales = await Promise.all(
         uniqueByImei.flatMap(m =>
-          dateStrings.map(fecha => fetchDaySales(m.mac_address, m.id, fecha))
+          apiDates.map(fecha => fetchDaySalesRaw(m.mac_address, m.id, fecha))
         )
       );
-      return deduplicateSales(allSales.flat());
+
+      // Filter: only keep sales whose Spanish date falls within the month
+      const monthDays = eachDayOfInterval({ start: startOfMonth(currentMonth), end: lastDay });
+      const validDates = new Set(monthDays.map(d => formatLocal(d)));
+      return deduplicateSales(allSales.flat().filter(s => validDates.has(s.fechaSpain)));
     },
     staleTime: 5 * 60 * 1000,
     refetchInterval: isCurrentMonth ? 60000 : false,
@@ -211,7 +246,7 @@ export const AdminSalesAnalytics = () => {
 
     const byHour: Record<string, { ventas: number; euros: number }> = {};
     ventasDia.forEach(v => {
-      const h = convertChinaToSpain(v.hora, v.fecha).split(':')[0] + ':00';
+      const h = (v.horaSpain || convertChinaToSpain(v.hora, v.fecha)).split(':')[0] + ':00';
       if (!byHour[h]) byHour[h] = { ventas: 0, euros: 0 };
       byHour[h].ventas++;
       byHour[h].euros += Number(v.precio);
@@ -238,12 +273,12 @@ export const AdminSalesAnalytics = () => {
   const ventasNormalizadas = useMemo(() => {
     if (!ventasHistorico) return [];
     return ventasHistorico.map(v => {
-      const horaSpain = convertChinaToSpain(v.hora, v.fecha);
+      // fechaSpain and horaSpain are already computed in fetchDaySalesRaw
       const productInfo = parseProductAndToppings(v.producto);
       const toppingNames = Array.isArray(v.toppings) && v.toppings.length > 0
         ? v.toppings.map((t: any) => decodeHtmlEntities(t.nombre || t.posicion || '')).filter(Boolean)
         : productInfo.toppings;
-      return { ...v, fechaSpain: v.fecha, horaSpain, saleDate: new Date(`${v.fecha}T00:00:00`), productoNormalizado: productInfo.productName, toppingNames, metodoPagoNormalizado: normalizePaymentMethod(v.metodo_pago) };
+      return { ...v, saleDate: new Date(`${v.fechaSpain}T00:00:00`), productoNormalizado: productInfo.productName, toppingNames, metodoPagoNormalizado: normalizePaymentMethod(v.metodo_pago) };
     });
   }, [ventasHistorico, currentMonth]);
 
