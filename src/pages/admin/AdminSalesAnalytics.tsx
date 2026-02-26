@@ -19,7 +19,7 @@ const fetchDaySales = async (imei: string, maquinaId: string, fecha: string) => 
     const detalle = await fetchOrdenes(imei, fecha);
     if (!detalle?.ventas) return [];
     return detalle.ventas.map((v: any) => ({
-      id: `api-${maquinaId}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
+      id: v.id || v.numero_orden || `${maquinaId}-${fecha}-${v.hora}-${v.precio}-${Math.random()}`,
       maquina_id: maquinaId,
       imei,
       fecha: (v.fecha || detalle.fecha || fecha).substring(0, 10),
@@ -35,11 +35,12 @@ const fetchDaySales = async (imei: string, maquinaId: string, fecha: string) => 
   } catch { return []; }
 };
 
-/** Helper: deduplicate sales by key */
+/** Helper: deduplicate sales by unique sale ID (not fecha-hora-precio which drops valid sales) */
 const deduplicateSales = (sales: any[]) => {
   const seen = new Set<string>();
   return sales.filter(v => {
-    const key = `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`;
+    // Use the actual sale ID from the API which is unique per transaction
+    const key = v.id;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
