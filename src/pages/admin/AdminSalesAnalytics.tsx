@@ -80,59 +80,48 @@ export const AdminSalesAnalytics = () => {
   const { data: ventasDiaRaw, isLoading: loadingDaily } = useQuery({
     queryKey: ['admin-ventas-dia', dateStr, selectedMachine, maquinas?.map(m => m.id).join(',')],
     queryFn: async () => {
-      if (isTodayFn(selectedDate) && maquinas && maquinas.length > 0) {
-        // For TODAY: fetch from ventas-detalle API (the only working endpoint)
-        const targetMachines = selectedMachine === 'all'
-          ? maquinas
-          : maquinas.filter(m => m.id === selectedMachine);
+      if (!maquinas || maquinas.length === 0) return [];
 
-        const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
+      const targetMachines = selectedMachine === 'all'
+        ? maquinas
+        : maquinas.filter(m => m.id === selectedMachine);
+      const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
 
-        const apiPromises = uniqueByImei.map(async (m) => {
-          try {
-            const detalle = await fetchOrdenes(m.mac_address);
-            if (!detalle?.ventas) return [];
-            return detalle.ventas.map((v: any) => ({
-              id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
-              maquina_id: m.id,
-              imei: m.mac_address,
-              fecha: (detalle.fecha || todayStr).substring(0, 10),
-              hora: v.hora || '00:00',
-              producto: v.producto || '',
-              precio: Number(v.precio || 0),
-              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-              metodo_pago: v.metodo_pago || 'efectivo',
-              numero_orden: v.numero_orden || null,
-              estado: v.estado || 'exitoso',
-              toppings: v.toppings || [],
-            }));
-          } catch { return []; }
-        });
+      // Always call the API with the target date (works for today AND past days)
+      const apiPromises = uniqueByImei.map(async (m) => {
+        try {
+          const detalle = await fetchOrdenes(m.mac_address, dateStr);
+          if (!detalle?.ventas) return [];
+          return detalle.ventas.map((v: any) => ({
+            id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
+            maquina_id: m.id,
+            imei: m.mac_address,
+            fecha: (v.fecha || detalle.fecha || dateStr).substring(0, 10),
+            hora: v.hora || '00:00',
+            producto: v.producto || '',
+            precio: Number(v.precio || 0),
+            cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+            metodo_pago: v.metodo_pago || 'efectivo',
+            numero_orden: v.numero_orden || null,
+            estado: v.estado || 'exitoso',
+            toppings: v.toppings || [],
+          }));
+        } catch { return []; }
+      });
 
-        const results = await Promise.allSettled(apiPromises);
-        const allSales = results
-          .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
-          .flatMap(r => r.value);
+      const results = await Promise.allSettled(apiPromises);
+      const allSales = results
+        .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
+        .flatMap(r => r.value);
 
-        // Deduplicate
-        const seen = new Set<string>();
-        return allSales.filter(v => {
-          const key = `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-      }
-
-      // For PAST days: use DB
-      let query = supabase
-        .from('ventas_historico')
-        .select('*')
-        .in('fecha', chinaDates)
-        .order('hora', { ascending: false });
-      if (selectedMachine !== 'all') query = query.eq('maquina_id', selectedMachine);
-      const { data } = await query;
-      return data || [];
+      // Deduplicate
+      const seen = new Set<string>();
+      return allSales.filter(v => {
+        const key = `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
     },
     refetchInterval: isTodayFn(selectedDate) ? 30000 : false,
     enabled: viewMode === 'daily',
