@@ -158,7 +158,7 @@ export const AdminMachineDetail = () => {
               <Card><CardContent className="p-4 text-center"><Euro className="h-5 w-5 text-primary mx-auto mb-2" /><p className="text-3xl font-bold text-primary">{ventasHoySpain.euros.toFixed(2)}€</p><p className="text-xs text-muted-foreground">{ventasHoySpain.cantidad} ventas hoy</p></CardContent></Card>
               <Card><CardContent className="p-4 text-center"><Package className="h-5 w-5 text-primary mx-auto mb-2" /><p className="text-3xl font-bold">{stock?.total_toppings ?? 0}</p><p className="text-xs text-muted-foreground">toppings configurados</p></CardContent></Card>
             </div>
-            <TemperatureTraceability maquinaId={machineId} temperatura={temperatura} />
+            <TemperatureTraceability maquinaId={machineId} temperatura={temperatura} imei={imei} />
           </TabsContent>
 
           {/* Estado */}
