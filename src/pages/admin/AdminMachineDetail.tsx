@@ -110,32 +110,78 @@ export const AdminMachineDetail = () => {
   if (loadingMachine) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (!maquina) return <div className="text-center py-12"><p className="text-muted-foreground">Máquina no encontrada</p><Button variant="link" onClick={() => navigate('/admin/machines')}>Volver</Button></div>;
 
-  const getEstadoBadge = () => {
-    const estado = estadoMaquina?.estado_general || 'unknown';
-    if (estado === 'ok' || estado === 'normal' || estado === '0') return <Badge className="bg-success text-success-foreground text-lg px-4 py-2">🟢 OK</Badge>;
-    if (estado === 'alerta' || estado === 'warning') return <Badge className="bg-warning text-warning-foreground text-lg px-4 py-2">🟡 ALERTA</Badge>;
-    if (estado === 'error') return <Badge variant="destructive" className="text-lg px-4 py-2">🔴 ERROR</Badge>;
-    return <Badge variant="secondary" className="text-lg px-4 py-2">Desconocido</Badge>;
-  };
-
-  // Parse alertas from API - errors have tipo="error", warnings have tipo="warning"
-  const erroresReales = (estadoMaquina?.alertas || []).filter((a: any) => a.tipo === 'error');
-  const alertasReales = (estadoMaquina?.alertas || []).filter((a: any) => a.tipo === 'warning' || a.tipo === 'alerta');
-
   // Parse componentes - API returns object like {refrigeracion: "ok", venta: "activa", agotado: true}
   const componentesArray = estadoMaquina?.componentes
     ? (Array.isArray(estadoMaquina.componentes)
       ? estadoMaquina.componentes
-      : Object.entries(estadoMaquina.componentes).map(([nombre, valor]: [string, any]) => ({
-          nombre: nombre.charAt(0).toUpperCase() + nombre.slice(1),
-          estado: typeof valor === 'boolean' ? (valor ? 'alerta' : 'ok') : String(valor),
-        }))
+      : Object.entries(estadoMaquina.componentes).map(([nombre, valor]: [string, any]) => {
+          // For boolean flags: interpret based on context
+          // agotado=true when venta=activa is not a real problem
+          let estado: string;
+          if (typeof valor === 'boolean') {
+            const comps = estadoMaquina.componentes;
+            if (nombre === 'agotado' && valor === true && (comps.venta === 'activa' || comps.venta === 'ok')) {
+              estado = 'ok'; // Suppress false positive
+            } else {
+              estado = valor ? 'alerta' : 'ok';
+            }
+          } else {
+            estado = String(valor);
+          }
+          return { nombre: nombre.charAt(0).toUpperCase() + nombre.slice(1), estado };
+        })
     )
     : [];
+
+  // Derive the REAL estado from componentes, not from the unreliable estado_general
+  const deriveEstadoFromComponents = () => {
+    if (!estadoMaquina?.componentes) return 'unknown';
+    const comps = estadoMaquina.componentes;
+    // If venta is "activa" and refrigeracion is "ok", machine is healthy
+    const ventaOk = comps.venta === 'activa' || comps.venta === 'ok';
+    const refrigOk = comps.refrigeracion === 'ok' || comps.refrigeracion === 'normal' || comps.refrigeracion === 'activa';
+    // Check for real problems
+    const hasRealError = componentesArray.some((c: any) => {
+      const e = String(c.estado).toLowerCase();
+      return e === 'error' || e === 'cerrada' || e === 'fallo';
+    });
+    if (hasRealError) return 'error';
+    if (ventaOk && refrigOk) return 'ok';
+    // If agotado is true but venta is active, it's just a warning
+    if (comps.agotado === true) return 'alerta';
+    return 'ok';
+  };
+
+  const estadoReal = deriveEstadoFromComponents();
+
+  const getEstadoBadge = () => {
+    if (estadoReal === 'ok') return <Badge className="bg-success text-success-foreground text-lg px-4 py-2">🟢 OK</Badge>;
+    if (estadoReal === 'alerta') return <Badge className="bg-warning text-warning-foreground text-lg px-4 py-2">🟡 ALERTA</Badge>;
+    if (estadoReal === 'error') return <Badge variant="destructive" className="text-lg px-4 py-2">🔴 ERROR</Badge>;
+    return <Badge variant="secondary" className="text-lg px-4 py-2">Desconocido</Badge>;
+  };
+
+  // Filter alerts: only show alerts that correspond to ACTUAL component problems
+  const erroresReales = (estadoMaquina?.alertas || []).filter((a: any) => {
+    if (a.tipo !== 'error') return false;
+    // Cross-reference with componentes: only show if the component is actually failing
+    const comps = estadoMaquina?.componentes || {};
+    if (a.codigo === 'REFRIGERACION_CERRADA' && (comps.refrigeracion === 'ok' || comps.refrigeracion === 'normal')) return false;
+    return true;
+  });
+  const alertasReales = (estadoMaquina?.alertas || []).filter((a: any) => {
+    if (a.tipo !== 'warning' && a.tipo !== 'alerta') return false;
+    const comps = estadoMaquina?.componentes || {};
+    // If agotado alert but venta is active, suppress it
+    if (a.codigo === 'AGOTADO' && (comps.venta === 'activa' || comps.venta === 'ok')) return false;
+    return true;
+  });
 
   const getComponentIcon = (name: string) => {
     const n = name.toLowerCase();
     if (n.includes('refriger') || n.includes('frio')) return <Snowflake className="h-4 w-4" />;
+    if (n.includes('venta') || n.includes('sale')) return <Euro className="h-4 w-4" />;
+    if (n.includes('agotado') || n.includes('stock')) return <Package className="h-4 w-4" />;
     if (n.includes('tarrina') || n.includes('vaso') || n.includes('package')) return <Package className="h-4 w-4" />;
     return <Circle className="h-4 w-4" />;
   };
@@ -159,12 +205,12 @@ export const AdminMachineDetail = () => {
         <Card className="border-warning/50"><CardContent className="py-8 text-center"><AlertCircle className="h-10 w-10 text-warning mx-auto mb-3" /><p className="text-muted-foreground">{error?.message || 'Sin datos disponibles'}</p></CardContent></Card>
       ) : (
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="overview">General</TabsTrigger>
-            <TabsTrigger value="estado" className="flex items-center gap-1"><Activity className="h-3 w-3" />Estado</TabsTrigger>
-            <TabsTrigger value="sales">Ventas</TabsTrigger>
-            <TabsTrigger value="stock">Stock</TabsTrigger>
-            <TabsTrigger value="control" className="flex items-center gap-1"><Gamepad2 className="h-3 w-3" />Control</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5 h-auto">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm px-1 sm:px-3 py-2">General</TabsTrigger>
+            <TabsTrigger value="estado" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3 py-2"><Activity className="h-3 w-3 hidden sm:block" />Estado</TabsTrigger>
+            <TabsTrigger value="sales" className="text-xs sm:text-sm px-1 sm:px-3 py-2">Ventas</TabsTrigger>
+            <TabsTrigger value="stock" className="text-xs sm:text-sm px-1 sm:px-3 py-2">Stock</TabsTrigger>
+            <TabsTrigger value="control" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3 py-2"><Gamepad2 className="h-3 w-3 hidden sm:block" />Control</TabsTrigger>
           </TabsList>
 
           {/* Overview */}
@@ -234,8 +280,8 @@ export const AdminMachineDetail = () => {
                     <CardContent className="space-y-3">
                       {componentesArray.map((comp: any, i: number) => {
                         const estado = String(comp.estado || '').toLowerCase();
-                        const isOk = estado === 'ok' || estado === 'activa' || estado === 'normal' || estado === 'false';
-                        const isError = estado === 'error' || estado === 'true' || estado === 'alerta';
+                        const isOk = estado === 'ok' || estado === 'activa' || estado === 'normal' || estado === 'false' || estado === '0';
+                        const isError = estado === 'error' || estado === 'cerrada' || estado === 'fallo';
                         return (
                           <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                             <div className="flex items-center gap-3">

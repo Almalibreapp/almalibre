@@ -33,9 +33,9 @@ export const useVentasResumen = (imei: string | undefined) => {
     queryFn: () => fetchVentasResumen(imei!),
     enabled: !!imei && imei.length > 0,
     // Ventas en tiempo real
-    refetchInterval: 60 * 1000,
+    refetchInterval: 30 * 1000,
     retry: 2,
-    staleTime: 30 * 1000,
+    staleTime: 15 * 1000,
   });
 };
 
@@ -45,9 +45,9 @@ export const useVentasDetalle = (imei: string | undefined) => {
     queryFn: () => fetchVentasDetalle(imei!),
     enabled: !!imei && imei.length > 0,
     // Detalle de ventas en tiempo real
-    refetchInterval: 60 * 1000,
+    refetchInterval: 30 * 1000,
     retry: 2,
-    staleTime: 30 * 1000,
+    staleTime: 15 * 1000,
   });
 };
 
