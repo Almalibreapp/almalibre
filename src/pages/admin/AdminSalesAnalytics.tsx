@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { format, subDays, addDays, isToday as isTodayFn, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
-import { convertChinaToSpain, convertChinaToSpainFull } from '@/lib/timezone';
+// API returns times already in Spain local time — no timezone conversion needed
 import { fetchOrdenes } from '@/services/api';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { toast } from 'sonner';
@@ -30,17 +30,16 @@ const fetchDaySalesRaw = async (imei: string, maquinaId: string, apiDate: string
     const detalle = await fetchOrdenes(imei, apiDate);
     if (!detalle?.ventas) return [];
     return detalle.ventas.map((v: any) => {
-      const chinaFecha = (v.fecha || detalle.fecha || apiDate).substring(0, 10);
-      const chinaHora = v.hora || '00:00';
-      const spain = convertChinaToSpainFull(chinaHora, chinaFecha);
+      const fecha = (v.fecha || detalle.fecha || apiDate).substring(0, 10);
+      const hora = v.hora || '00:00';
       return {
-        id: v.id || v.numero_orden || `${maquinaId}-${apiDate}-${chinaHora}-${v.precio}-${Math.random()}`,
+        id: v.id || v.numero_orden || `${maquinaId}-${apiDate}-${hora}-${v.precio}-${Math.random()}`,
         maquina_id: maquinaId,
         imei,
-        fecha: chinaFecha,
-        fechaSpain: spain.fecha,
-        hora: chinaHora,
-        horaSpain: spain.hora,
+        fecha,
+        fechaSpain: fecha,
+        hora,
+        horaSpain: hora,
         producto: v.producto || '',
         precio: Number(v.precio || 0),
         cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
@@ -54,22 +53,11 @@ const fetchDaySalesRaw = async (imei: string, maquinaId: string, apiDate: string
 };
 
 /**
- * For a given Spanish date, fetch both that date and the next day from the API
- * (since evening Spanish sales fall on the next China day), then filter to
- * only include sales whose converted Spanish date matches.
+ * Fetch sales for a given date. API returns dates/times in Spain local time,
+ * so no timezone conversion or dual-date fetching is needed.
  */
 const fetchSpanishDaySales = async (imei: string, maquinaId: string, spanishDate: string) => {
-  // Calculate next day using local date math to avoid toISOString() UTC shift
-  const nextDay = new Date(spanishDate + 'T12:00:00'); // noon to avoid DST edge
-  nextDay.setDate(nextDay.getDate() + 1);
-  const nextDayStr = formatLocal(nextDay);
-
-  const [salesD, salesD1] = await Promise.all([
-    fetchDaySalesRaw(imei, maquinaId, spanishDate),
-    fetchDaySalesRaw(imei, maquinaId, nextDayStr),
-  ]);
-
-  return [...salesD, ...salesD1].filter(s => s.fechaSpain === spanishDate);
+  return fetchDaySalesRaw(imei, maquinaId, spanishDate);
 };
 
 /** Helper: deduplicate sales by unique sale ID */
@@ -195,12 +183,9 @@ export const AdminSalesAnalytics = () => {
         : maquinas.filter(m => m.id === selectedMachine);
       const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
 
-      // Build list of all dates in the month PLUS one extra day after month end
-      // (evening sales on last day of month in Spain = next day in China)
+      // API dates are already Spain dates, no extra day needed
       const lastDay = endOfMonth(currentMonth);
-      const dayAfterMonth = new Date(lastDay);
-      dayAfterMonth.setDate(dayAfterMonth.getDate() + 1);
-      const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: dayAfterMonth });
+      const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: lastDay });
       const apiDates = days.map(d => formatLocal(d));
 
       // Fetch each API date from API for each machine
@@ -247,7 +232,7 @@ export const AdminSalesAnalytics = () => {
 
     const byHour: Record<string, { ventas: number; euros: number }> = {};
     ventasDia.forEach(v => {
-      const h = (v.horaSpain || convertChinaToSpain(v.hora, v.fecha)).split(':')[0] + ':00';
+      const h = v.horaSpain.split(':')[0] + ':00';
       if (!byHour[h]) byHour[h] = { ventas: 0, euros: 0 };
       byHour[h].ventas++;
       byHour[h].euros += Number(v.precio);
@@ -464,7 +449,7 @@ export const AdminSalesAnalytics = () => {
                   </TableRow></TableHeader><TableBody>
                     {ventasDia?.map(v => (
                       <TableRow key={v.id}>
-                        <TableCell className="font-mono text-xs">{convertChinaToSpain(v.hora, v.fecha)}</TableCell>
+                        <TableCell className="font-mono text-xs">{v.horaSpain}</TableCell>
                         {selectedMachine === 'all' && <TableCell className="text-xs">{getMachineName(v.maquina_id)}</TableCell>}
                         <TableCell className="font-medium text-sm max-w-[150px] truncate">{parseProductAndToppings(v.producto).productName}</TableCell>
                         <TableCell className="text-right font-bold text-primary">{Number(v.precio).toFixed(2)}€</TableCell>
