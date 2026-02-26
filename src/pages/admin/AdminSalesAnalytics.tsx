@@ -134,7 +134,7 @@ export const AdminSalesAnalytics = () => {
 
   // ============ DAILY VIEW DATA ============
   // Fetch both dateStr and dateStr+1 from API, filter by Spanish date
-  const { data: ventasDia = [], isLoading: loadingDaily } = useQuery({
+  const { data: ventasDia = [], isLoading: loadingDaily, refetch: refetchDaily } = useQuery({
     queryKey: ['admin-ventas-dia', dateStr, selectedMachine, maquinas?.map(m => m.id).join(',')],
     queryFn: async () => {
       if (!maquinas || maquinas.length === 0) return [];
@@ -205,14 +205,19 @@ export const AdminSalesAnalytics = () => {
     enabled: viewMode === 'monthly' && !!maquinas && maquinas.length > 0,
   });
 
-  // Sync handler
-  const handleSync = async () => {
+  // Refresh handler — works for both daily and monthly
+  const handleRefresh = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-ventas', { body: { dias_atras: 30 } });
-      if (error) throw error;
-      toast.success(`Sincronización completada: ${data?.results?.length || 0} registros`);
-      refetchMonthly();
+      if (viewMode === 'monthly') {
+        const { data, error } = await supabase.functions.invoke('sync-ventas', { body: { dias_atras: 30 } });
+        if (error) throw error;
+        toast.success(`Sincronización completada: ${data?.results?.length || 0} registros`);
+        refetchMonthly();
+      } else {
+        await refetchDaily();
+        toast.success('Datos actualizados');
+      }
     } catch (e: any) {
       toast.error(`Error: ${e.message}`);
     } finally {
@@ -347,12 +352,10 @@ export const AdminSalesAnalytics = () => {
               ))}
             </SelectContent>
           </Select>
-          {viewMode === 'monthly' && (
-            <Button onClick={handleSync} disabled={syncing} variant="outline" size="sm">
-              <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />
-              {syncing ? 'Sincronizando...' : 'Sincronizar'}
-            </Button>
-          )}
+          <Button onClick={handleRefresh} disabled={syncing} variant="outline" size="sm">
+            <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />
+            {syncing ? 'Actualizando...' : 'Actualizar'}
+          </Button>
         </div>
       </div>
 
@@ -477,7 +480,7 @@ export const AdminSalesAnalytics = () => {
           <Card><CardContent className="py-12 text-center">
             <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-30" />
             <p className="text-lg font-medium text-muted-foreground">Sin datos para este período</p>
-            <Button onClick={handleSync} disabled={syncing} className="mt-4"><RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />Sincronizar ventas</Button>
+            <Button onClick={handleRefresh} disabled={syncing} className="mt-4"><RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />Sincronizar ventas</Button>
           </CardContent></Card>
         ) : (
           <>
