@@ -112,15 +112,31 @@ export const AdminMachineDetail = () => {
 
   const getEstadoBadge = () => {
     const estado = estadoMaquina?.estado_general || 'unknown';
-    if (estado === 'ok') return <Badge className="bg-success text-success-foreground text-lg px-4 py-2">🟢 OK</Badge>;
-    if (estado === 'alerta') return <Badge className="bg-warning text-warning-foreground text-lg px-4 py-2">🟡 ALERTA</Badge>;
+    if (estado === 'ok' || estado === 'normal' || estado === '0') return <Badge className="bg-success text-success-foreground text-lg px-4 py-2">🟢 OK</Badge>;
+    if (estado === 'alerta' || estado === 'warning') return <Badge className="bg-warning text-warning-foreground text-lg px-4 py-2">🟡 ALERTA</Badge>;
     if (estado === 'error') return <Badge variant="destructive" className="text-lg px-4 py-2">🔴 ERROR</Badge>;
     return <Badge variant="secondary" className="text-lg px-4 py-2">Desconocido</Badge>;
   };
 
+  // Parse alertas from API - errors have tipo="error", warnings have tipo="warning"
+  const erroresReales = (estadoMaquina?.alertas || []).filter((a: any) => a.tipo === 'error');
+  const alertasReales = (estadoMaquina?.alertas || []).filter((a: any) => a.tipo === 'warning' || a.tipo === 'alerta');
+
+  // Parse componentes - API returns object like {refrigeracion: "ok", venta: "activa", agotado: true}
+  const componentesArray = estadoMaquina?.componentes
+    ? (Array.isArray(estadoMaquina.componentes)
+      ? estadoMaquina.componentes
+      : Object.entries(estadoMaquina.componentes).map(([nombre, valor]: [string, any]) => ({
+          nombre: nombre.charAt(0).toUpperCase() + nombre.slice(1),
+          estado: typeof valor === 'boolean' ? (valor ? 'alerta' : 'ok') : String(valor),
+        }))
+    )
+    : [];
+
   const getComponentIcon = (name: string) => {
-    if (name.toLowerCase().includes('refriger') || name.toLowerCase().includes('frio')) return <Snowflake className="h-4 w-4" />;
-    if (name.toLowerCase().includes('tarrina') || name.toLowerCase().includes('vaso')) return <Package className="h-4 w-4" />;
+    const n = name.toLowerCase();
+    if (n.includes('refriger') || n.includes('frio')) return <Snowflake className="h-4 w-4" />;
+    if (n.includes('tarrina') || n.includes('vaso') || n.includes('package')) return <Package className="h-4 w-4" />;
     return <Circle className="h-4 w-4" />;
   };
 
@@ -176,10 +192,10 @@ export const AdminMachineDetail = () => {
                 </CardContent></Card>
 
                 {/* Errores */}
-                {estadoMaquina.errores && estadoMaquina.errores.length > 0 && (
+                {erroresReales.length > 0 && (
                   <div className="space-y-3">
-                    <h3 className="font-semibold text-critical flex items-center gap-2"><XCircle className="h-5 w-5" /> Errores ({estadoMaquina.errores.length})</h3>
-                    {estadoMaquina.errores.map((err: any, i: number) => (
+                    <h3 className="font-semibold text-critical flex items-center gap-2"><XCircle className="h-5 w-5" /> Errores ({erroresReales.length})</h3>
+                    {erroresReales.map((err: any, i: number) => (
                       <Card key={i} className="border-critical/50 bg-critical/5">
                         <CardContent className="p-4 flex items-start gap-3">
                           <XCircle className="h-5 w-5 text-critical flex-shrink-0 mt-0.5" />
@@ -194,10 +210,10 @@ export const AdminMachineDetail = () => {
                 )}
 
                 {/* Alertas */}
-                {estadoMaquina.alertas && estadoMaquina.alertas.length > 0 && (
+                {alertasReales.length > 0 && (
                   <div className="space-y-3">
-                    <h3 className="font-semibold text-warning flex items-center gap-2"><AlertTriangle className="h-5 w-5" /> Alertas ({estadoMaquina.alertas.length})</h3>
-                    {estadoMaquina.alertas.map((alerta: any, i: number) => (
+                    <h3 className="font-semibold text-warning flex items-center gap-2"><AlertTriangle className="h-5 w-5" /> Alertas ({alertasReales.length})</h3>
+                    {alertasReales.map((alerta: any, i: number) => (
                       <Card key={i} className="border-warning/50 bg-warning/5">
                         <CardContent className="p-4 flex items-start gap-3">
                           <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
@@ -212,33 +228,37 @@ export const AdminMachineDetail = () => {
                 )}
 
                 {/* Estado de componentes */}
-                {estadoMaquina.componentes && estadoMaquina.componentes.length > 0 && (
+                {componentesArray.length > 0 && (
                   <Card>
                     <CardHeader><CardTitle className="text-base flex items-center gap-2"><Activity className="h-4 w-4" /> Estado de Componentes</CardTitle></CardHeader>
                     <CardContent className="space-y-3">
-                      {estadoMaquina.componentes.map((comp: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                          <div className="flex items-center gap-3">
-                            {getComponentIcon(comp.nombre || '')}
-                            <span className="font-medium text-sm">{comp.nombre || `Componente ${i + 1}`}</span>
+                      {componentesArray.map((comp: any, i: number) => {
+                        const estado = String(comp.estado || '').toLowerCase();
+                        const isOk = estado === 'ok' || estado === 'activa' || estado === 'normal' || estado === 'false';
+                        const isError = estado === 'error' || estado === 'true' || estado === 'alerta';
+                        return (
+                          <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                            <div className="flex items-center gap-3">
+                              {getComponentIcon(comp.nombre || '')}
+                              <span className="font-medium text-sm">{comp.nombre || `Componente ${i + 1}`}</span>
+                            </div>
+                            <Badge className={cn(
+                              isOk && "bg-success text-success-foreground",
+                              isError && "bg-critical text-critical-foreground",
+                              !isOk && !isError && "bg-warning text-warning-foreground",
+                            )}>
+                              {isOk ? <CheckCircle className="h-3 w-3 mr-1" /> : isError ? <XCircle className="h-3 w-3 mr-1" /> : <AlertTriangle className="h-3 w-3 mr-1" />}
+                              {comp.estado}
+                            </Badge>
                           </div>
-                          <Badge className={cn(
-                            comp.estado === 'ok' && "bg-success text-success-foreground",
-                            comp.estado === 'alerta' && "bg-warning text-warning-foreground",
-                            comp.estado === 'error' && "bg-critical text-critical-foreground",
-                            !['ok', 'alerta', 'error'].includes(comp.estado) && "bg-muted text-muted-foreground",
-                          )}>
-                            {comp.estado === 'ok' ? <CheckCircle className="h-3 w-3 mr-1" /> : comp.estado === 'error' ? <XCircle className="h-3 w-3 mr-1" /> : <AlertTriangle className="h-3 w-3 mr-1" />}
-                            {comp.estado || 'Desconocido'}
-                          </Badge>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </CardContent>
                   </Card>
                 )}
 
                 {/* Sin errores ni alertas */}
-                {(!estadoMaquina.errores || estadoMaquina.errores.length === 0) && (!estadoMaquina.alertas || estadoMaquina.alertas.length === 0) && (
+                {erroresReales.length === 0 && alertasReales.length === 0 && (
                   <Card className="border-success/30 bg-success/5"><CardContent className="p-6 text-center">
                     <CheckCircle className="h-12 w-12 text-success mx-auto mb-3" />
                     <p className="text-lg font-medium">Sin errores ni alertas</p>
