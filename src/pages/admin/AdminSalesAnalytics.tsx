@@ -12,6 +12,14 @@ import { format, subDays, addDays, isToday as isTodayFn, startOfMonth, endOfMont
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { convertChinaToSpain, convertChinaToSpainFull } from '@/lib/timezone';
+import { fetchOrdenes } from '@/services/api';
+import { useVentasRealtime } from '@/hooks/useVentasRealtime';
+import { toast } from 'sonner';
+import {
+  Euro, TrendingUp, Calendar, Loader2, ChevronLeft, ChevronRight,
+  Clock, CreditCard, List, BarChart3, IceCream, Package, RefreshCw,
+  ArrowUpRight, ArrowDownRight,
+} from 'lucide-react';
 
 /**
  * Fetch sales from API for a given China date, convert to Spain date,
@@ -81,14 +89,6 @@ const formatLocal = (d: Date): string => {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 };
-import { fetchOrdenes } from '@/services/api';
-import { useVentasRealtime } from '@/hooks/useVentasRealtime';
-import { toast } from 'sonner';
-import {
-  Euro, TrendingUp, Calendar, Loader2, ChevronLeft, ChevronRight,
-  Clock, CreditCard, List, BarChart3, IceCream, Package, RefreshCw,
-  ArrowUpRight, ArrowDownRight,
-} from 'lucide-react';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))', '#8884d8', '#82ca9d', '#ffc658'];
 
