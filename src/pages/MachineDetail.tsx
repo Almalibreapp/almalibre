@@ -16,7 +16,7 @@ import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { useLocalNotifications } from '@/hooks/useLocalNotifications';
 import { useTemperatureLog, useLogTemperature } from '@/hooks/useTemperatureLog';
-import { fetchVentasDetalle } from '@/services/api';
+import { fetchOrdenes } from '@/services/api';
 import { ControlTab } from '@/components/control/ControlTab';
 import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
@@ -152,16 +152,16 @@ export const MachineDetail = () => {
     queryKey: ['ventas-detalle-date', imei, selectedDate],
     queryFn: async () => {
       if (!imei || isToday) return null;
-      // Fetch both China dates
+      // Fetch both China dates using paginated endpoint
       const results = await Promise.all(
-        selectedChinaDates.map(d => fetchVentasDetalle(imei, d).catch(() => null))
+        selectedChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
       );
       // Merge ventas from both days
       const allVentas: any[] = [];
       results.forEach(r => {
         if (r?.ventas) {
           r.ventas.forEach((v: any) => {
-            const converted = convertChinaToSpainFull(v.hora, r.fecha);
+            const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
             if (converted.fecha === selectedDate) {
               allVentas.push({ ...v, _spainHora: converted.hora });
             }
