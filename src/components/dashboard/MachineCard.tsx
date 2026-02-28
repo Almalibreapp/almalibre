@@ -20,12 +20,13 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
 
   const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
 
-  // Use API data directly for today's sales (same source as detail view)
+  // Use API data directly for today's sales (fetches both China dates for Spain today)
   const ventasHoy = useMemo(() => {
     if (!ventasDetalle?.ventas) return { euros: 0, cantidad: 0 };
     const exitosas = ventasDetalle.ventas
       .filter((v: any) => {
-        const converted = convertChinaToSpainFull(v.hora, ventasDetalle.fecha);
+        const ventaFecha = v.fecha || ventasDetalle.fecha;
+        const converted = convertChinaToSpainFull(v.hora, ventaFecha);
         return converted.fecha === todaySpain && v.estado === 'exitoso';
       });
     return {
