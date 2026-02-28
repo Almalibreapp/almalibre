@@ -79,10 +79,36 @@ export const ProfitabilityAnalysis = () => {
 
       if (error) throw error;
 
-      setProfitability(data.profitability || null);
+      // Sanitize numeric fields - AI may return strings
+      if (data.profitability) {
+        const p = data.profitability;
+        setProfitability({
+          ingresosTotales: Number(p.ingresosTotales) || 0,
+          costoProductos: Number(p.costoProductos) || 0,
+          beneficioBruto: Number(p.beneficioBruto) || 0,
+          margenBeneficio: Number(p.margenBeneficio) || 0,
+          comparativaMesAnterior: typeof p.comparativaMesAnterior === 'string' ? 0 : Number(p.comparativaMesAnterior) || 0,
+        });
+      } else {
+        setProfitability(null);
+      }
       setInsights(data.insights || []);
-      setToppingData(data.toppingData || []);
-      setProjection(data.projection || null);
+      setToppingData((data.toppingData || []).map((t: any) => ({
+        ...t,
+        ventas: Number(t.ventas) || 0,
+        costo: Number(t.costo) || 0,
+        margen: typeof t.margen === 'string' ? 0 : Number(t.margen) || 0,
+        porcentajeUso: Number(t.porcentajeUso) || 0,
+      })));
+      if (data.projection) {
+        setProjection({
+          min: Number(data.projection.min) || 0,
+          max: Number(data.projection.max) || 0,
+          potential: Number(data.projection.potential) || 0,
+        });
+      } else {
+        setProjection(null);
+      }
     } catch (error) {
       console.error('Error fetching analysis:', error);
       toast({
