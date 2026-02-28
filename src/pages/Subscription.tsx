@@ -94,48 +94,10 @@ export const Subscription = () => {
   };
 
   const handleSubscribe = async (planId: string) => {
-    const plan = planes.find(p => p.id === planId);
-    if (!plan || !user) return;
-
-    setSubscribing(planId);
-
-    if (suscripcion) {
-      // Update existing subscription
-      const { error } = await supabase
-        .from('suscripciones')
-        .update({
-          plan: plan.nombre,
-          precio_mensual: plan.precio,
-          fecha_renovacion: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        })
-        .eq('id', suscripcion.id);
-
-      if (error) {
-        toast({ title: 'Error', description: 'No se pudo cambiar el plan', variant: 'destructive' });
-      } else {
-        toast({ title: 'Plan actualizado', description: `Ahora tienes el ${plan.nombre}` });
-        fetchSuscripcion();
-      }
-    } else {
-      // Create new subscription
-      const { error } = await supabase
-        .from('suscripciones')
-        .insert({
-          usuario_id: user.id,
-          plan: plan.nombre,
-          precio_mensual: plan.precio,
-          fecha_renovacion: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        });
-
-      if (error) {
-        toast({ title: 'Error', description: 'No se pudo activar la suscripción', variant: 'destructive' });
-      } else {
-        toast({ title: 'Suscripción activada', description: `Bienvenido al ${plan.nombre}` });
-        fetchSuscripcion();
-      }
-    }
-
-    setSubscribing(null);
+    toast({
+      title: '🚀 Próximamente',
+      description: 'Los planes de suscripción estarán disponibles muy pronto. ¡Mantente atento!',
+    });
   };
 
   const getPlanActual = () => {

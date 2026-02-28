@@ -71,11 +71,17 @@ export const Support = () => {
       setNuevoMensaje('');
       fetchMensajes();
 
-      // Simulate support response after a delay
+      // Alma virtual assistant response
       setTimeout(async () => {
+        const greetings = [
+          `¡Hola ${profile?.nombre || ''}! 🌿 Soy Alma, tu asistente virtual de Alma Libre Franquicias. He recibido tu mensaje y lo estoy analizando. Si necesitas ayuda urgente con tu máquina, describe el error exacto y te guiaré paso a paso. ¡Estoy aquí para ti!`,
+          `¡Gracias por escribirnos! 🍃 Soy Alma, la asistente virtual de Alma Libre. Tu consulta es importante para nosotros. Un miembro de nuestro equipo técnico revisará tu caso en las próximas horas. Mientras tanto, ¿hay algo más en lo que pueda ayudarte?`,
+          `¡Bienvenido/a al soporte de Alma Libre! 🌱 Soy Alma, tu asistente virtual. He registrado tu consulta con prioridad. Nuestro equipo técnico especializado te responderá lo antes posible. ¡Gracias por confiar en nosotros!`,
+        ];
+        const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
         await supabase.from('mensajes_soporte').insert({
           usuario_id: user.id,
-          mensaje: 'Gracias por contactarnos. Un agente de soporte revisará tu mensaje pronto. Tiempo estimado de respuesta: 24 horas.',
+          mensaje: randomGreeting,
           autor: 'soporte',
         });
         fetchMensajes();
@@ -123,8 +129,8 @@ export const Support = () => {
               <Headphones className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-semibold">Soporte Almalibre</h1>
-              <p className="text-xs text-muted-foreground">Respondemos en 24h</p>
+              <h1 className="font-semibold">Alma - Asistente Virtual</h1>
+              <p className="text-xs text-muted-foreground">Soporte 24/7 · Alma Libre Franquicias</p>
             </div>
           </div>
         </div>
@@ -137,14 +143,16 @@ export const Support = () => {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : mensajes.length === 0 ? (
-            <Card className="animate-fade-in">
+          <Card className="animate-fade-in">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                   <MessageCircle className="h-8 w-8 text-primary" />
                 </div>
-                <h3 className="font-semibold mb-2">¡Hola {profile?.nombre || 'Usuario'}!</h3>
+                <h3 className="font-semibold mb-2">¡Hola {profile?.nombre || 'Usuario'}! 🌿</h3>
                 <p className="text-muted-foreground text-sm text-center max-w-xs">
-                  ¿En qué podemos ayudarte? Escribe tu mensaje y nuestro equipo te responderá lo antes posible.
+                  Soy <span className="font-semibold text-primary">Alma</span>, tu asistente virtual de Alma Libre Franquicias. 
+                  Estoy aquí para ayudarte con cualquier duda sobre tu máquina, pedidos, o soporte técnico. 
+                  ¡Escríbeme y te responderé enseguida! 🍃
                 </p>
               </CardContent>
             </Card>
