@@ -21,7 +21,7 @@ export function FloatingCart({ cart, onUpdateQuantity, onClear }: FloatingCartPr
   if (itemCount === 0) return null;
 
   return (
-    <div className="fixed bottom-24 right-4 z-50 flex flex-col items-end gap-2">
+    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom)+8px)] right-4 z-50 flex flex-col items-end gap-2">
       {/* Expanded panel */}
       {expanded && (
         <div className="animate-fade-in bg-background border border-border rounded-2xl shadow-2xl w-72 overflow-hidden">

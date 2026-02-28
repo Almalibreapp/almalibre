@@ -1,4 +1,4 @@
-import logoAlmalibre from '@/assets/logo-almalibre.png';
+import logoIcon from '@/assets/logo-icon-almalibre.png';
 
 export const SplashScreen = () => {
   return (
@@ -12,25 +12,33 @@ export const SplashScreen = () => {
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center">
-        <div className="animate-fade-in">
-          <img 
-            src={logoAlmalibre} 
-            alt="Almalibre" 
-            className="h-20 w-auto brightness-0 invert mb-8 animate-pulse-slow" 
-          />
+        {/* Animated logo */}
+        <div className="animate-splash-logo">
+          <div className="relative">
+            <div className="absolute inset-0 rounded-3xl bg-white/20 blur-xl animate-glow" />
+            <img 
+              src={logoIcon} 
+              alt="Almalibre" 
+              className="h-24 w-24 rounded-3xl shadow-2xl relative z-10 animate-splash-bounce" 
+            />
+          </div>
         </div>
         
-        {/* Loading indicator */}
-        <div className="flex items-center gap-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-          <div className="flex gap-1">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="w-2 h-2 bg-white/80 rounded-full animate-bounce"
-                style={{ animationDelay: `${i * 0.15}s` }}
-              />
-            ))}
-          </div>
+        {/* Brand name */}
+        <div className="mt-6 animate-fade-in" style={{ animationDelay: '0.5s' }}>
+          <h1 className="text-2xl font-display font-bold text-white tracking-wide">Almalibre</h1>
+          <p className="text-white/50 text-xs text-center mt-1">Franquicias</p>
+        </div>
+
+        {/* Loading dots */}
+        <div className="flex items-center gap-1.5 mt-8 animate-fade-in" style={{ animationDelay: '0.8s' }}>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-2 h-2 bg-white/70 rounded-full animate-bounce"
+              style={{ animationDelay: `${i * 0.15}s` }}
+            />
+          ))}
         </div>
       </div>
     </div>
