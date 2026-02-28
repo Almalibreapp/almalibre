@@ -79,7 +79,7 @@ export const AdminSidebar = () => {
           variant="ghost"
           size="sm"
           className="w-full justify-start text-destructive hover:text-destructive"
-          onClick={signOut}
+          onClick={async () => { await signOut(); navigate('/', { replace: true }); }}
         >
           <LogOut className="h-4 w-4 mr-2" />
           Cerrar Sesión
