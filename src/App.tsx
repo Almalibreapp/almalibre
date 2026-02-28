@@ -65,15 +65,26 @@ async function prefetchStoreProducts() {
   return data?.products ?? [];
 }
 
-// Helper to prefetch today's sales for a machine via API
-async function prefetchTodaySales(imei: string) {
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+// Helper to prefetch sales for a machine via API for a given date
+async function prefetchSalesForDate(imei: string, dateStr: string) {
   try {
-    return await fetchOrdenes(imei, todayStr);
+    return await fetchOrdenes(imei, dateStr);
   } catch {
     return null;
   }
+}
+
+// Get array of date strings for the current month up to today
+function getCurrentMonthDates(): string[] {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const today = now.getDate();
+  const dates: string[] = [];
+  for (let d = 1; d <= today; d++) {
+    dates.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+  }
+  return dates;
 }
 
 // Fired once per session when auth is confirmed — prefetches store + machine data
@@ -107,12 +118,10 @@ const GlobalPrefetch = () => {
               .eq('usuario_id', userId);
 
             if (maquinas && maquinas.length > 0) {
-              const todayStr = (() => {
-                const d = new Date();
-                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-              })();
+              const monthDates = getCurrentMonthDates();
+              const todayStr = monthDates[monthDates.length - 1];
 
-              maquinas.forEach(({ mac_address, id }) => {
+              maquinas.forEach(({ mac_address }) => {
                 queryClientRef.prefetchQuery({
                   queryKey: ['ventas-resumen', mac_address],
                   queryFn: () => fetchVentasResumen(mac_address),
@@ -123,11 +132,32 @@ const GlobalPrefetch = () => {
                   queryFn: () => fetchTemperatura(mac_address),
                   staleTime: 60 * 1000,
                 });
-                // Prefetch today's detailed sales (used by admin dashboard & sales analytics)
+                // Prefetch today's detailed sales
                 queryClientRef.prefetchQuery({
                   queryKey: ['admin-dashboard-ventas-prefetch', todayStr, mac_address],
-                  queryFn: () => prefetchTodaySales(mac_address),
+                  queryFn: () => prefetchSalesForDate(mac_address, todayStr),
                   staleTime: 2 * 60 * 1000,
+                });
+                // Prefetch monthly sales (all days of current month) — cached aggressively
+                const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+                queryClientRef.prefetchQuery({
+                  queryKey: ['ventas-mes-api', mac_address, currentMonth],
+                  queryFn: async () => {
+                    const allSales = await Promise.all(
+                      monthDates.map(async (fecha) => {
+                        const detalle = await prefetchSalesForDate(mac_address, fecha);
+                        return detalle?.ventas || [];
+                      })
+                    );
+                    const seen = new Set<string>();
+                    return allSales.flat().filter((v: any) => {
+                      const key = `${v.id || v.numero_orden}-${v.fecha}`;
+                      if (seen.has(key)) return false;
+                      seen.add(key);
+                      return (v.estado || '').toLowerCase() === 'exitoso';
+                    });
+                  },
+                  staleTime: 5 * 60 * 1000,
                 });
               });
             }
