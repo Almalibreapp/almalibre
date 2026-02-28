@@ -109,19 +109,31 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
+    let error: Error | null = null;
+
     try {
-      const { error } = await supabase.auth.signOut({ scope: 'local' });
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      return { error };
+      const result = await supabase.auth.signOut({ scope: 'local' });
+      if (result.error && result.error.message !== 'Session from session_id claim in JWT does not exist') {
+        error = result.error as Error;
+      }
     } catch (e) {
-      // Force clear local state even if signOut throws
+      error = e as Error;
+    } finally {
+      // Force-clear any persisted auth tokens to avoid stale sessions
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+        .forEach((key) => localStorage.removeItem(key));
+
       setUser(null);
       setSession(null);
       setProfile(null);
-      return { error: e as Error };
+
+      // This app uses useAuth in multiple places without a shared provider,
+      // so we force a hard reload to guarantee all auth states are reset.
+      window.location.replace('/');
     }
+
+    return { error };
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {

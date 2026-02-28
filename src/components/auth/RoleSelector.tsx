@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Shield, IceCream, LogOut } from 'lucide-react';
 import logoIcon from '@/assets/logo-icon-almalibre.png';
 
 export const RoleSelector = () => {
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
 
@@ -57,13 +59,15 @@ export const RoleSelector = () => {
         {/* Sign out */}
         <button
           onClick={async () => {
+            if (isSigningOut) return;
+            setIsSigningOut(true);
             await signOut();
-            navigate('/', { replace: true });
           }}
-          className="w-full flex items-center justify-center gap-2 text-white/50 hover:text-white/80 text-sm transition-colors py-2"
+          disabled={isSigningOut}
+          className="w-full flex items-center justify-center gap-2 text-white/50 hover:text-white/80 text-sm transition-colors py-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <LogOut className="h-4 w-4" />
-          Cerrar sesión
+          {isSigningOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
         </button>
       </div>
     </div>
