@@ -102,18 +102,33 @@ export const AdminSales = () => {
         const todayChinaDates = getChinaDatesForSpainDate(dateStr);
         
         // Fetch BOTH China dates for complete Spain-today coverage
+        const apiHeaders = { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' };
+
+        const fetchAllPages = async (imei: string, fecha: string) => {
+          let all: any[] = [];
+          let page = 1;
+          let totalPages = 1;
+          while (page <= totalPages) {
+            const res = await fetch(
+              `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${imei}?fecha=${fecha}&page=${page}`,
+              { headers: apiHeaders }
+            );
+            if (!res.ok) break;
+            const data = await res.json();
+            const orders = data?.ordenes || data?.ventas || [];
+            all = [...all, ...orders];
+            totalPages = data.total_pages || 1;
+            page++;
+          }
+          return all;
+        };
+
         const apiPromises = targetMachines.flatMap((m) =>
           todayChinaDates.map(async (chinaDate) => {
             try {
-              const apiRes = await fetch(
-                `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${m.mac_address}?fecha=${chinaDate}`,
-                { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
-              );
-              if (!apiRes.ok) return [];
-              const detalle = await apiRes.json();
-              const orders = detalle?.ordenes || detalle?.ventas || [];
+              const orders = await fetchAllPages(m.mac_address, chinaDate);
               return orders.map((v: any) => {
-                const sourceFecha = (v.fecha || detalle?.fecha || chinaDate).substring(0, 10);
+                const sourceFecha = (v.fecha || chinaDate).substring(0, 10);
                 const sourceHora = v.hora || '00:00';
                 const sourceToppings = v.toppings || v.toppings_usados || [];
                 const saleUid = String(

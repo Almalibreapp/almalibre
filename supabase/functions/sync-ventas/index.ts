@@ -74,18 +74,33 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const { imei, maquina_id, fecha, dias_atras } = body
 
-    // Helper: fetch orders from the NEW endpoint
+    // Helper: fetch ALL pages of orders from the endpoint
     const fetchOrders = async (machineImei: string, dateStr: string) => {
-      const url = `${API_BASE_URL}/fabricante-ext/v1/ordenes/${machineImei}?fecha=${dateStr}`
-      console.log(`[sync-ventas] Fetching: ${url}`)
-      const res = await fetch(url, { headers })
-      if (!res.ok) {
-        console.log(`[sync-ventas] HTTP ${res.status} for ${url}`)
-        return null
+      let allOrders: any[] = []
+      let page = 1
+      let totalPages = 1
+      let lastData: any = null
+
+      while (page <= totalPages) {
+        const url = `${API_BASE_URL}/fabricante-ext/v1/ordenes/${machineImei}?fecha=${dateStr}&page=${page}`
+        console.log(`[sync-ventas] Fetching: ${url}`)
+        const res = await fetch(url, { headers })
+        if (!res.ok) {
+          console.log(`[sync-ventas] HTTP ${res.status} for ${url}`)
+          if (page === 1) return null
+          break
+        }
+        const data = await res.json()
+        lastData = data
+        const orders = data?.ordenes || data?.ventas || []
+        allOrders = [...allOrders, ...orders]
+        totalPages = data.total_pages || 1
+        page++
       }
-      const data = await res.json()
-      console.log(`[sync-ventas] Response for ${dateStr}:`, JSON.stringify(data).substring(0, 500))
-      return data
+
+      if (!lastData) return null
+      // Return merged data with all orders
+      return { ...lastData, ordenes: allOrders, total: lastData.total_count || allOrders.length }
     }
 
     // Helper: map orders to DB rows

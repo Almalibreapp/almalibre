@@ -69,31 +69,46 @@ export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
 };
 
 // Ordenes del fabricante (endpoint principal con método de pago real y toppings correctos)
+// Supports pagination: fetches ALL pages automatically
 export const fetchOrdenes = async (imei: string, fecha?: string) => {
-  let url = `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${imei}`;
-  if (fecha) {
-    url += `?fecha=${fecha}`;
-  }
-  
-  const response = await fetch(url, { headers });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener las órdenes`);
+  const baseUrl = `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${imei}`;
+  let allOrdenes: any[] = [];
+  let page = 1;
+  let totalPages = 1;
+  let lastData: any = null;
+
+  while (page <= totalPages) {
+    const params = new URLSearchParams();
+    if (fecha) params.set('fecha', fecha);
+    params.set('page', String(page));
+    const url = `${baseUrl}?${params.toString()}`;
+
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+      if (page === 1) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener las órdenes`);
+      }
+      break;
+    }
+
+    const data = await response.json();
+    lastData = data;
+    const ordenes = data?.ordenes || data?.ventas || [];
+    allOrdenes = [...allOrdenes, ...ordenes];
+
+    totalPages = data.total_pages || 1;
+    page++;
   }
 
-  const data = await response.json();
-  
-  // Normalize: API returns "ordenes" array, map to "ventas" for compatibility
-  const ordenes = data?.ordenes || data?.ventas || [];
   const normalized = {
-    mac_addr: data.imei || imei,
-    fecha: (data.fecha || '').substring(0, 10),
-    total_ventas: data.total || ordenes.length,
-    ventas: ordenes.map((v: any) => ({
+    mac_addr: lastData?.imei || imei,
+    fecha: (lastData?.fecha || '').substring(0, 10),
+    total_ventas: lastData?.total_count || allOrdenes.length,
+    ventas: allOrdenes.map((v: any) => ({
       ...v,
       producto: decodeHtml(v.producto || ''),
-      fecha: (v.fecha || data.fecha || '').substring(0, 10),
+      fecha: (v.fecha || lastData?.fecha || '').substring(0, 10),
       cantidad_unidades: v.cantidad || v.cantidad_unidades || 1,
       toppings: Array.isArray(v.toppings) 
         ? v.toppings.map((t: any) => ({ ...t, nombre: decodeHtml(t.nombre || '') }))
