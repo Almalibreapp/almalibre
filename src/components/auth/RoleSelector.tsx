@@ -56,7 +56,10 @@ export const RoleSelector = () => {
 
         {/* Sign out */}
         <button
-          onClick={signOut}
+          onClick={async () => {
+            await signOut();
+            navigate('/', { replace: true });
+          }}
           className="w-full flex items-center justify-center gap-2 text-white/50 hover:text-white/80 text-sm transition-colors py-2"
         >
           <LogOut className="h-4 w-4" />
