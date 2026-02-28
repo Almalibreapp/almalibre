@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
+import { useLocalNotifications } from '@/hooks/useLocalNotifications';
 import { useTemperatureLog, useLogTemperature } from '@/hooks/useTemperatureLog';
 import { fetchVentasDetalle } from '@/services/api';
 import { ControlTab } from '@/components/control/ControlTab';
@@ -62,6 +63,12 @@ export const MachineDetail = () => {
   // Auto-sync stock from sales
   useStockSync(imei);
   useVentasRealtime(imei);
+  useLocalNotifications(
+    ventasDetalle?.ventas,
+    temperatura?.temperatura,
+    undefined, // estado not directly available from ToppingsResponse
+    imei
+  );
 
   // Last updated tracking
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
