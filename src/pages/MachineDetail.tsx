@@ -211,34 +211,40 @@ export const MachineDetail = () => {
     return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
   }, []);
 
-  // Fetch yesterday's sales from DB using both China dates for accurate Spain-day grouping
+  // Fetch yesterday's sales from API using both China dates for accurate Spain-day grouping
   const yesterdayChinaDates = useMemo(() => getChinaDatesForSpainDate(yesterdaySpain), [yesterdaySpain]);
 
-  const { data: ventasAyerDb } = useQuery({
-    queryKey: ['ventas-ayer', imei, yesterdaySpain],
+  const { data: ventasAyerApi } = useQuery({
+    queryKey: ['ventas-ayer-api', imei, yesterdaySpain],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('ventas_historico')
-        .select('precio, hora, fecha, cantidad_unidades')
-        .eq('imei', imei!)
-        .in('fecha', yesterdayChinaDates);
-      return data || [];
+      if (!imei) return [];
+      const results = await Promise.all(
+        yesterdayChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
+      );
+      const allVentas: any[] = [];
+      results.forEach(r => {
+        if (r?.ventas) {
+          r.ventas.forEach((v: any) => {
+            const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
+            if (converted.fecha === yesterdaySpain) {
+              allVentas.push({ ...v, _spainHora: converted.hora });
+            }
+          });
+        }
+      });
+      return allVentas;
     },
     enabled: !!imei,
     staleTime: 5 * 60 * 1000,
   });
 
   const ventasAyerSpain = useMemo(() => {
-    let euros = 0, cantidad = 0;
-    (ventasAyerDb || []).forEach((v: any) => {
-      const converted = convertChinaToSpainFull(v.hora, v.fecha);
-      if (converted.fecha === yesterdaySpain) {
-        euros += Number(v.precio);
-        cantidad += (v.cantidad_unidades || 1);
-      }
-    });
-    return { euros, cantidad };
-  }, [ventasAyerDb, yesterdaySpain]);
+    const exitosas = (ventasAyerApi || []).filter((v: any) => v.estado === 'exitoso');
+    return {
+      euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0),
+      cantidad: exitosas.length,
+    };
+  }, [ventasAyerApi]);
 
   // Monthly sales: DB for historical days + API for today (hybrid approach)
   const { data: ventasMesDbExclToday } = useQuery({
@@ -671,18 +677,32 @@ export const MachineDetail = () => {
                                     </div>
                                   )}
                                 </div>
-                                <div className="text-right">
+                                <div className="text-right space-y-1">
                                   <span className="font-semibold text-primary">{venta.precio.toFixed(2)} €</span>
-                                  <Badge 
-                                    variant="outline" 
-                                    className={cn(
-                                      "ml-2 text-xs",
-                                      venta.estado === 'exitoso' && "border-success/30 text-success",
-                                      venta.estado === 'fallido' && "border-critical/30 text-critical"
-                                    )}
-                                  >
-                                    {venta.estado}
-                                  </Badge>
+                                  <div className="flex items-center gap-1 justify-end">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={cn(
+                                        "text-xs",
+                                        venta.metodo_pago === 'tarjeta' && "border-blue-500/30 text-blue-600",
+                                        venta.metodo_pago === 'efectivo' && "border-green-500/30 text-green-600",
+                                        venta.metodo_pago === 'cupón' && "border-purple-500/30 text-purple-600",
+                                        !['tarjeta', 'efectivo', 'cupón'].includes(venta.metodo_pago) && "border-muted-foreground/30"
+                                      )}
+                                    >
+                                      {venta.metodo_pago === 'tarjeta' ? '💳' : venta.metodo_pago === 'efectivo' ? '💵' : venta.metodo_pago === 'cupón' ? '🎟️' : '💳'} {venta.metodo_pago || 'tarjeta'}
+                                    </Badge>
+                                    <Badge 
+                                      variant="outline" 
+                                      className={cn(
+                                        "text-xs",
+                                        venta.estado === 'exitoso' && "border-success/30 text-success",
+                                        venta.estado === 'fallido' && "border-critical/30 text-critical"
+                                      )}
+                                    >
+                                      {venta.estado}
+                                    </Badge>
+                                  </div>
                                 </div>
                               </div>
                             ))}
