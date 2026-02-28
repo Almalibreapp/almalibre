@@ -112,21 +112,34 @@ export const AdminSales = () => {
               if (!apiRes.ok) return [];
               const detalle = await apiRes.json();
               const orders = detalle?.ordenes || detalle?.ventas || [];
-              return orders.map((v: any) => ({
-                id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
-                maquina_id: m.id,
-                imei: m.mac_address,
-                // FIX: Extract date-only from datetime strings like "2026-02-24 23:30:58"
-                fecha: (v.fecha || detalle?.fecha || chinaDate).substring(0, 10),
-                hora: v.hora || '00:00',
-                producto: v.producto || '',
-                precio: Number(v.precio || 0),
-                cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-                metodo_pago: v.metodo_pago || v.payment_method || v.pay_type || 'efectivo',
-                numero_orden: v.numero_orden || v.order_no || null,
-                estado: v.estado || 'exitoso',
-                toppings: v.toppings || v.toppings_usados || [],
-              }));
+              return orders.map((v: any) => {
+                const sourceFecha = (v.fecha || detalle?.fecha || chinaDate).substring(0, 10);
+                const sourceHora = v.hora || '00:00';
+                const sourceToppings = v.toppings || v.toppings_usados || [];
+                const saleUid = String(
+                  v.id
+                  ?? v.venta_api_id
+                  ?? v.numero_orden
+                  ?? `${m.mac_address}|${sourceFecha}|${sourceHora}|${Number(v.precio || 0)}|${v.producto || ''}|${JSON.stringify(sourceToppings)}`
+                );
+
+                return {
+                  id: `api-${m.id}-${saleUid}`,
+                  sale_uid: saleUid,
+                  maquina_id: m.id,
+                  imei: m.mac_address,
+                  // FIX: Extract date-only from datetime strings like "2026-02-24 23:30:58"
+                  fecha: sourceFecha,
+                  hora: sourceHora,
+                  producto: v.producto || '',
+                  precio: Number(v.precio || 0),
+                  cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+                  metodo_pago: v.metodo_pago || v.payment_method || v.pay_type || 'efectivo',
+                  numero_orden: v.numero_orden || v.order_no || null,
+                  estado: v.estado || 'exitoso',
+                  toppings: sourceToppings,
+                };
+              });
             } catch {
               return [];
             }
@@ -138,10 +151,10 @@ export const AdminSales = () => {
           .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
           .flatMap((r) => r.value);
         
-        // Deduplicate
+        // Deduplicate only by real sale identity (never by hora/precio to avoid dropping valid sales)
         const seen = new Set<string>();
         return allSales.filter(v => {
-          const key = `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`;
+          const key = String(v.sale_uid || v.id || `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`);
           if (seen.has(key)) return false;
           seen.add(key);
           return true;

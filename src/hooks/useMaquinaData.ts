@@ -69,7 +69,12 @@ export const useVentasDetalle = (imei: string | undefined) => {
         if (!r?.ventas) return;
         fecha = r.fecha || fecha;
         r.ventas.forEach((v: any) => {
-          const uid = v.id || v.numero_orden || `${v.hora}-${v.precio}-${v.producto}`;
+          const uid = String(
+            v.id
+            ?? v.venta_api_id
+            ?? v.numero_orden
+            ?? `${v.fecha || r.fecha || todaySpain}|${v.hora || ''}|${Number(v.precio || 0)}|${v.producto || ''}|${JSON.stringify(v.toppings || [])}`
+          );
           if (!seenIds.has(uid)) {
             seenIds.add(uid);
             allVentas.push(v);
