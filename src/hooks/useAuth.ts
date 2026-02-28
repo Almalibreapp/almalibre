@@ -109,8 +109,19 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    return { error };
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      return { error };
+    } catch (e) {
+      // Force clear local state even if signOut throws
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      return { error: e as Error };
+    }
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {
