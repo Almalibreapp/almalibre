@@ -8,6 +8,7 @@ import { NotificationCenter } from '@/components/notifications/NotificationCente
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { initPushNotifications } from '@/services/pushNotifications';
+import { initLocalNotifications } from '@/services/localNotifications';
 import { Plus, Settings, IceCream, RefreshCw, Loader2, Network } from 'lucide-react';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
 
@@ -17,10 +18,11 @@ export const Dashboard = () => {
   const { maquinas, loading, refetch } = useMaquinas(user?.id);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Inicializar notificaciones push al cargar el dashboard
+  // Inicializar notificaciones push y locales al cargar el dashboard
   useEffect(() => {
     if (user) {
       initPushNotifications();
+      initLocalNotifications();
     }
   }, [user]);
 
