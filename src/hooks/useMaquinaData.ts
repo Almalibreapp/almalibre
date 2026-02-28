@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   fetchMiMaquina,
   fetchVentasResumen, 
   fetchVentasDetalle, 
+  fetchOrdenes,
   fetchToppings, 
   fetchTemperatura,
   fetchEstadisticasToppings 
@@ -13,6 +15,7 @@ import {
   VentasDetalleResponse, 
   ToppingsResponse 
 } from '@/types';
+import { getChinaDatesForSpainDate } from '@/lib/timezone';
 
 export const useMiMaquina = (imei: string | undefined) => {
   return useQuery({
@@ -39,12 +42,48 @@ export const useVentasResumen = (imei: string | undefined) => {
   });
 };
 
+/**
+ * Fetches today's sales using BOTH China dates that map to the current Spain day.
+ * This prevents the "sales stop summing" bug around midnight China time (~18h Spain).
+ * 
+ * Spain is 6-7h behind China, so when China crosses midnight, some of Spain's
+ * "today" sales are on the previous China date. We fetch both and merge.
+ */
 export const useVentasDetalle = (imei: string | undefined) => {
+  const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const chinaDates = useMemo(() => getChinaDatesForSpainDate(todaySpain), [todaySpain]);
+
   return useQuery<VentasDetalleResponse>({
-    queryKey: ['ventas-detalle', imei],
-    queryFn: () => fetchVentasDetalle(imei!),
+    queryKey: ['ventas-detalle', imei, todaySpain],
+    queryFn: async () => {
+      if (!imei) throw new Error('No IMEI');
+      // Fetch both China dates in parallel
+      const results = await Promise.all(
+        chinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
+      );
+      // Merge all ventas from both days into a single response
+      const allVentas: any[] = [];
+      const seenIds = new Set<string>();
+      let fecha = todaySpain;
+      results.forEach(r => {
+        if (!r?.ventas) return;
+        fecha = r.fecha || fecha;
+        r.ventas.forEach((v: any) => {
+          const uid = v.id || v.numero_orden || `${v.hora}-${v.precio}-${v.producto}`;
+          if (!seenIds.has(uid)) {
+            seenIds.add(uid);
+            allVentas.push(v);
+          }
+        });
+      });
+      return {
+        mac_addr: imei,
+        fecha,
+        total_ventas: allVentas.length,
+        ventas: allVentas,
+      } as VentasDetalleResponse;
+    },
     enabled: !!imei && imei.length > 0,
-    // Detalle de ventas en tiempo real
     refetchInterval: 30 * 1000,
     retry: 2,
     staleTime: 15 * 1000,

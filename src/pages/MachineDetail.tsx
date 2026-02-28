@@ -167,11 +167,14 @@ export const MachineDetail = () => {
   });
 
   // For today, filter API ventas-detalle by Spain date and add _spainHora
+  // ventas now come from two China dates, so each venta may have a different source fecha
   const ventasHoyFiltered = useMemo(() => {
     if (!ventasDetalle?.ventas) return [];
     return ventasDetalle.ventas
       .map((v: any) => {
-        const converted = convertChinaToSpainFull(v.hora, ventasDetalle.fecha);
+        // Each venta has its own fecha from the China date it was fetched from
+        const ventaFecha = v.fecha || ventasDetalle.fecha;
+        const converted = convertChinaToSpainFull(v.hora, ventaFecha);
         return { ...v, _spainHora: converted.hora, _spainFecha: converted.fecha };
       })
       .filter((v: any) => v._spainFecha === todaySpain);
