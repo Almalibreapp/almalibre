@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -246,51 +247,62 @@ export const MachineDetail = () => {
     };
   }, [ventasAyerApi]);
 
-  // Monthly sales: DB for historical days + API for today (hybrid approach)
-  const { data: ventasMesDbExclToday } = useQuery({
-    queryKey: ['ventas-mes', imei, currentMonthSpain],
+  // Monthly sales: fetch ALL days from API (same approach as Admin)
+  const monthDays = useMemo(() => {
+    const now = new Date();
+    const start = startOfMonth(now);
+    const end = endOfMonth(now);
+    // Only up to today
+    const realEnd = end > now ? now : end;
+    return eachDayOfInterval({ start, end: realEnd }).map(d => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    });
+  }, [todaySpain]);
+
+  const { data: ventasMesApi } = useQuery({
+    queryKey: ['ventas-mes-api', imei, currentMonthSpain],
     queryFn: async () => {
-      if (!imei) return null;
-      const startOfMonth = `${currentMonthSpain}-01`;
-      // Get all month data from DB
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 2);
-      const endStr = format(endDate, 'yyyy-MM-dd');
-      
-      const { data } = await supabase
-        .from('ventas_historico')
-        .select('precio, hora, fecha, cantidad_unidades')
-        .eq('imei', imei)
-        .gte('fecha', startOfMonth)
-        .lte('fecha', endStr);
-      
-      // Filter by Spain timezone, EXCLUDE today (we'll add today from API)
-      const dbSales = (data || []).filter(v => {
-        const converted = convertChinaToSpainFull(v.hora, v.fecha);
-        return converted.fecha.startsWith(currentMonthSpain) && converted.fecha !== todaySpain;
+      if (!imei) return [];
+      // Fetch each day of the month from API (same as Admin)
+      const allSales = await Promise.all(
+        monthDays.map(async (fecha) => {
+          try {
+            const detalle = await fetchOrdenes(imei, fecha);
+            if (!detalle?.ventas) return [];
+            return detalle.ventas.map((v: any) => ({
+              ...v,
+              fecha: (v.fecha || detalle.fecha || fecha).substring(0, 10),
+              precio: Number(v.precio || 0),
+            }));
+          } catch { return []; }
+        })
+      );
+      // Deduplicate by id/numero_orden
+      const seen = new Set<string>();
+      return allSales.flat().filter(v => {
+        const key = v.id || v.numero_orden || `${v.fecha}-${v.hora}-${v.precio}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
       });
-      
-      return {
-        cantidad: dbSales.reduce((s, v) => s + (v.cantidad_unidades || 1), 0),
-        total_euros: dbSales.reduce((s, v) => s + Number(v.precio), 0),
-      };
     },
     enabled: !!imei,
     staleTime: 5 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
   });
 
-  // Monthly total = DB (past days) + API (today) for always-accurate totals
   const ventasMesFinal = useMemo(() => {
-    const dbQty = ventasMesDbExclToday?.cantidad ?? 0;
-    const dbEuros = ventasMesDbExclToday?.total_euros ?? 0;
+    const exitosas = (ventasMesApi || []).filter((v: any) => v.estado === 'exitoso');
     const total = {
-      cantidad: dbQty + ventasHoySpain.cantidad,
-      total_euros: dbEuros + ventasHoySpain.euros,
+      cantidad: exitosas.length,
+      total_euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0),
     };
-    console.log(`[Dashboard] Mes: DB(${dbQty}) + Hoy API(${ventasHoySpain.cantidad}) = ${total.cantidad} ventas, ${total.total_euros.toFixed(2)}€`);
+    console.log(`[Dashboard] Mes desde API: ${total.cantidad} ventas, ${total.total_euros.toFixed(2)}€`);
     return total;
-  }, [ventasMesDbExclToday, ventasHoySpain]);
+  }, [ventasMesApi]);
 
   // Temperature traceability
   const { data: tempLog } = useTemperatureLog(maquina?.id, tempLogHours, imei);
