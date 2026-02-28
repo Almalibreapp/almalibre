@@ -491,32 +491,32 @@ export const MachineDetail = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Hoy</p>
-                      <p className="text-xl font-bold text-primary">
-                        {ventasHoySpain.euros.toFixed(2)}€
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-center p-2 bg-muted/30 rounded-lg min-w-0">
+                      <p className="text-[10px] text-muted-foreground mb-0.5 truncate">Hoy</p>
+                      <p className="text-base sm:text-xl font-bold text-primary truncate">
+                        {ventasHoySpain.euros.toFixed(0)}€
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {ventasHoySpain.cantidad} ventas
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Ayer</p>
-                      <p className="text-xl font-bold">
-                        {ventasAyerSpain.euros.toFixed(2)}€
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {ventasAyerSpain.cantidad} ventas
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {ventasHoySpain.cantidad} vtas
                       </p>
                     </div>
-                    <div className="text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Este mes</p>
-                      <p className="text-xl font-bold">
-                        {ventasMesFinal.total_euros.toFixed(2)}€
+                    <div className="text-center p-2 bg-muted/30 rounded-lg min-w-0">
+                      <p className="text-[10px] text-muted-foreground mb-0.5 truncate">Ayer</p>
+                      <p className="text-base sm:text-xl font-bold truncate">
+                        {ventasAyerSpain.euros.toFixed(0)}€
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {ventasMesFinal.cantidad} ventas
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {ventasAyerSpain.cantidad} vtas
+                      </p>
+                    </div>
+                    <div className="text-center p-2 bg-muted/30 rounded-lg min-w-0">
+                      <p className="text-[10px] text-muted-foreground mb-0.5 truncate">Mes</p>
+                      <p className="text-base sm:text-xl font-bold truncate">
+                        {ventasMesFinal.total_euros.toFixed(0)}€
+                      </p>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {ventasMesFinal.cantidad} vtas
                       </p>
                     </div>
                   </div>

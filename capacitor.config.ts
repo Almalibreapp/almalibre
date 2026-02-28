@@ -7,11 +7,6 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://4afffd78-9c74-45be-a863-e5bffd6b80ac.lovableproject.com?forceHideBadge=true',
     cleartext: true
-  },
-  plugins: {
-    PushNotifications: {
-      presentationOptions: ['badge', 'sound', 'alert']
-    }
   }
 };
 

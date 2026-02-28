@@ -141,7 +141,7 @@ export const Dashboard = () => {
 
       {/* FAB */}
       {maquinas.length > 0 && (
-        <div className="fixed bottom-24 right-6">
+        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom)+8px)] right-6 z-40">
           <Button
             size="lg"
             className="rounded-full shadow-lg h-14 w-14"
