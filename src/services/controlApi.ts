@@ -1,4 +1,5 @@
 const API_BASE_URL = 'https://nonstopmachine.com/wp-json';
+const API_BASE_URL_EXT = 'https://nonstopmachine.com/wp-json';
 const API_TOKEN = 'b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE';
 
 const headers = {
@@ -397,6 +398,42 @@ export const controlDeshielo = async (imei: string) => {
   return response.json();
 };
 
+export const controlDescongelacionOn = async (imei: string) => {
+  console.log('DESCONGELACION CONTROL:', { endpoint: '/fabricante-ext/v1/descongelacion/control', body: { imei, action: 'open' } });
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/descongelacion/control`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ imei, action: 'open' }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Error al activar descongelación');
+  }
+
+  const data = await response.json();
+  console.log('DESCONGELACION CONTROL response:', data);
+  return data;
+};
+
+export const controlDescongelacionOff = async (imei: string) => {
+  console.log('DESCONGELACION CONTROL:', { endpoint: '/fabricante-ext/v1/descongelacion/control', body: { imei, action: 'close' } });
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/descongelacion/control`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ imei, action: 'close' }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Error al desactivar descongelación');
+  }
+
+  const data = await response.json();
+  console.log('DESCONGELACION CONTROL response:', data);
+  return data;
+};
+
 export const controlPausarVentas = async (imei: string) => {
   const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/pausar-ventas`, {
     method: 'POST',
@@ -491,4 +528,23 @@ export const actualizarStockTopping = async (imei: string, posiciones: string[])
   }
 
   return response.json();
+};
+
+// Actualizar stock con sincronización a máquina física
+export const actualizarStockConSync = async (imei: string, position: string, cantidad: number): Promise<{ success: boolean; sync_status?: string; warning?: string; message?: string }> => {
+  console.log('STOCK UPDATE:', { endpoint: '/fabricante-ext/v1/stock/actualizar', body: { imei, position, cantidad } });
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/stock/actualizar`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ imei, position, cantidad }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Error al actualizar stock');
+  }
+
+  const data = await response.json();
+  console.log('STOCK UPDATE response:', data);
+  return data;
 };

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import { actualizarStockConSync } from '@/services/controlApi';
 
 export interface StockConfigItem {
   id: string;
@@ -117,10 +118,27 @@ export const useStockConfig = (imei: string | undefined) => {
 
     if (error) {
       toast({ title: 'Error', description: 'No se pudo rellenar el stock', variant: 'destructive' });
-    } else {
-      toast({ title: `✅ ${item.topping_name} rellenado`, description: `Rellenado a ${item.capacidad_maxima} unidades` });
-      await fetchStock();
+      return { sync_status: 'failed' as const };
     }
+
+    // Sync to physical machine
+    let syncStatus: string = 'skipped';
+    try {
+      const syncResult = await actualizarStockConSync(imei, position, item.capacidad_maxima);
+      syncStatus = syncResult.sync_status || 'success';
+      if (syncResult.sync_status === 'failed') {
+        toast({ title: `⚠️ ${item.topping_name} rellenado`, description: 'Stock actualizado pero no sincronizado con la máquina' });
+      } else {
+        toast({ title: `✅ ${item.topping_name} rellenado y sincronizado`, description: `Rellenado a ${item.capacidad_maxima} unidades` });
+      }
+    } catch (syncError) {
+      console.error('Error syncing stock to machine:', syncError);
+      toast({ title: `⚠️ ${item.topping_name} rellenado`, description: 'Stock actualizado en el sistema pero falló la sincronización con la máquina' });
+      syncStatus = 'failed';
+    }
+
+    await fetchStock();
+    return { sync_status: syncStatus };
   };
 
   const updateToppingCapacity = async (position: string, nuevaCapacidad: number) => {

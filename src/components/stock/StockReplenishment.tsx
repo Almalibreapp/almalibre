@@ -7,7 +7,7 @@ import { StockBar } from '@/components/dashboard/StockBar';
 import { toast } from '@/hooks/use-toast';
 import { useStockConfig } from '@/hooks/useStockConfig';
 import { ToppingsResponse } from '@/types';
-import { Package, RefreshCw, Loader2, CheckCircle } from 'lucide-react';
+import { Package, RefreshCw, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 
 type StockConfigReturn = ReturnType<typeof useStockConfig>;
 
@@ -21,6 +21,7 @@ export const StockReplenishment = ({ imei, stock, stockConfig: externalConfig }:
   const [selectedToppings, setSelectedToppings] = useState<Set<string>>(new Set());
   const [isUpdating, setIsUpdating] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
+  const [lastSyncStatus, setLastSyncStatus] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const internalConfig = useStockConfig(externalConfig ? undefined : imei);
@@ -80,15 +81,29 @@ export const StockReplenishment = ({ imei, stock, stockConfig: externalConfig }:
     }
 
     setIsUpdating(true);
+    setLastSyncStatus(null);
+    let overallSyncStatus = 'success';
     try {
       for (const position of Array.from(selectedToppings)) {
-        await refillTopping(position);
+        const result = await refillTopping(position);
+        if (result?.sync_status === 'failed') {
+          overallSyncStatus = 'failed';
+        }
       }
 
-      toast({
-        title: '✅ Stock actualizado',
-        description: `Se han repuesto ${selectedToppings.size} topping(s) a su capacidad máxima configurada`,
-      });
+      setLastSyncStatus(overallSyncStatus);
+
+      if (overallSyncStatus === 'success') {
+        toast({
+          title: '✅ Stock actualizado y sincronizado',
+          description: `Se han repuesto ${selectedToppings.size} topping(s) y sincronizado con la máquina`,
+        });
+      } else {
+        toast({
+          title: '⚠️ Stock actualizado parcialmente',
+          description: 'Algunos toppings no se sincronizaron con la máquina',
+        });
+      }
 
       setSelectedToppings(new Set());
       setSelectionMode(false);
@@ -141,6 +156,34 @@ export const StockReplenishment = ({ imei, stock, stockConfig: externalConfig }:
                 onSelect={handleToggleTopping}
               />
             ))}
+
+            {lastSyncStatus && (
+              <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-md ${
+                lastSyncStatus === 'success' 
+                  ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300' 
+                  : 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
+              }`}>
+                {lastSyncStatus === 'success' ? (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Sincronizado con la máquina</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>Pendiente sincronización</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto h-6 text-xs"
+                      onClick={() => setLastSyncStatus(null)}
+                    >
+                      Cerrar
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="pt-4 border-t space-y-3">
               {selectionMode ? (
