@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useStockConfig } from '@/hooks/useStockConfig';
+import { fetchProductos } from '@/services/controlApi';
 import { ToppingsResponse } from '@/types';
 import { Loader2, Save } from 'lucide-react';
 
@@ -22,11 +24,29 @@ export const StockCapacitySettings = ({ imei, stock, stockConfig: externalConfig
   const [draftCapacities, setDraftCapacities] = useState<Record<string, string>>({});
   const [savingPosition, setSavingPosition] = useState<string | null>(null);
 
+  // Fetch products to include Position 1 (Açaí)
+  const { data: productosData } = useQuery({
+    queryKey: ['productos-stock', imei],
+    queryFn: () => fetchProductos(imei),
+    enabled: !!imei,
+    staleTime: 5 * 60 * 1000,
+  });
+
   useEffect(() => {
+    const toppings: { posicion: string; nombre: string }[] = [];
     if (stock?.toppings?.length) {
-      initializeStock(stock.toppings.map((t) => ({ posicion: t.posicion, nombre: t.nombre })));
+      toppings.push(...stock.toppings.map((t) => ({ posicion: t.posicion, nombre: t.nombre })));
     }
-  }, [stock?.toppings]);
+    if (productosData?.productos) {
+      const prod1 = productosData.productos.find((p) => p.position === 1);
+      if (prod1 && !toppings.some((t) => t.posicion === '1')) {
+        toppings.unshift({ posicion: '1', nombre: prod1.goodsName });
+      }
+    }
+    if (toppings.length > 0) {
+      initializeStock(toppings);
+    }
+  }, [stock?.toppings, productosData?.productos]);
 
   useEffect(() => {
     const initialDrafts: Record<string, string> = {};

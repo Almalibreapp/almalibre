@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { StockBar } from '@/components/dashboard/StockBar';
 import { toast } from '@/hooks/use-toast';
 import { useStockConfig } from '@/hooks/useStockConfig';
+import { fetchProductos } from '@/services/controlApi';
 import { ToppingsResponse } from '@/types';
 import { Package, RefreshCw, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 
@@ -27,26 +28,67 @@ export const StockReplenishment = ({ imei, stock, stockConfig: externalConfig }:
   const internalConfig = useStockConfig(externalConfig ? undefined : imei);
   const { items: stockConfigItems, initializeStock, refillTopping } = externalConfig || internalConfig;
 
+  // Fetch products to include Position 1 (Açaí) which may not be in toppings API
+  const { data: productosData } = useQuery({
+    queryKey: ['productos-stock', imei],
+    queryFn: () => fetchProductos(imei),
+    enabled: !!imei,
+    staleTime: 5 * 60 * 1000,
+  });
+
   useEffect(() => {
+    const toppings: { posicion: string; nombre: string }[] = [];
+    
+    // Add toppings from API
     if (stock?.toppings?.length) {
-      initializeStock(stock.toppings.map((t) => ({ posicion: t.posicion, nombre: t.nombre })));
+      toppings.push(...stock.toppings.map((t) => ({ posicion: t.posicion, nombre: t.nombre })));
     }
-  }, [stock?.toppings]);
+    
+    // Add position 1 from products if not already in toppings
+    if (productosData?.productos) {
+      const prod1 = productosData.productos.find((p) => p.position === 1);
+      if (prod1 && !toppings.some((t) => t.posicion === '1')) {
+        toppings.unshift({ posicion: '1', nombre: prod1.goodsName });
+      }
+    }
+    
+    if (toppings.length > 0) {
+      initializeStock(toppings);
+    }
+  }, [stock?.toppings, productosData?.productos]);
 
   const mergedToppings = useMemo(() => {
-    if (!stock?.toppings?.length) return [];
+    const apiToppings = stock?.toppings || [];
+    
+    // Build full toppings list including position 1 from products
+    let allToppings = [...apiToppings];
+    const hasPosition1 = allToppings.some((t) => t.posicion === '1');
+    
+    if (!hasPosition1 && productosData?.productos) {
+      const prod1 = productosData.productos.find((p) => p.position === 1);
+      if (prod1) {
+        allToppings.unshift({
+          posicion: '1',
+          nombre: prod1.goodsName,
+          stock_actual: prod1.stock ?? 0,
+          capacidad_maxima: 100,
+        });
+      }
+    }
+    
+    if (allToppings.length === 0) return [];
 
     const stockConfigMap = new Map(stockConfigItems.map((item) => [item.topping_position, item]));
 
-    return stock.toppings.map((topping) => {
-      const stockConfig = stockConfigMap.get(topping.posicion);
+    return allToppings.map((topping) => {
+      const config = stockConfigMap.get(topping.posicion);
       return {
         ...topping,
-        stock_actual: stockConfig?.unidades_actuales ?? topping.stock_actual,
-        capacidad_maxima: stockConfig?.capacidad_maxima ?? topping.capacidad_maxima,
+        stock_actual: config?.unidades_actuales ?? topping.stock_actual,
+        capacidad_maxima: config?.capacidad_maxima ?? topping.capacidad_maxima,
       };
     });
-  }, [stock?.toppings, stockConfigItems]);
+  }, [stock?.toppings, stockConfigItems, productosData]);
 
   const handleToggleTopping = (posicion: string, selected: boolean) => {
     setSelectedToppings((prev) => {

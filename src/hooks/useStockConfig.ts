@@ -146,12 +146,13 @@ export const useStockConfig = (imei: string | undefined) => {
 
     const capacidad = Math.max(1, Math.round(nuevaCapacidad));
     const item = items.find((i) => i.topping_position === position);
+    const newCurrentStock = item ? Math.min(item.unidades_actuales, capacidad) : capacidad;
 
     const { error } = await supabase
       .from('stock_config')
       .update({
         capacidad_maxima: capacidad,
-        unidades_actuales: item ? Math.min(item.unidades_actuales, capacidad) : capacidad,
+        unidades_actuales: newCurrentStock,
       })
       .eq('machine_imei', imei)
       .eq('topping_position', position);
@@ -161,7 +162,19 @@ export const useStockConfig = (imei: string | undefined) => {
       return;
     }
 
-    toast({ title: 'Capacidad actualizada', description: `Nuevo máximo: ${capacidad} unidades` });
+    // Sync current stock to physical machine
+    try {
+      const syncResult = await actualizarStockConSync(imei, position, newCurrentStock);
+      if (syncResult.sync_status === 'failed') {
+        toast({ title: '⚠️ Capacidad actualizada', description: `Nuevo máximo: ${capacidad}. No se pudo sincronizar con la máquina.` });
+      } else {
+        toast({ title: '✅ Capacidad actualizada y sincronizada', description: `Nuevo máximo: ${capacidad} unidades` });
+      }
+    } catch (syncError) {
+      console.error('Error syncing capacity change:', syncError);
+      toast({ title: '⚠️ Capacidad actualizada', description: `Nuevo máximo: ${capacidad}. Falló la sincronización.` });
+    }
+
     await fetchStock();
   };
 
