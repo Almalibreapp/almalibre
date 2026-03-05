@@ -532,19 +532,44 @@ export const actualizarStockTopping = async (imei: string, posiciones: string[])
 
 // Actualizar stock con sincronización a máquina física
 export const actualizarStockConSync = async (imei: string, position: string, cantidad: number): Promise<{ success: boolean; sync_status?: string; warning?: string; message?: string }> => {
-  console.log('STOCK UPDATE:', { endpoint: '/fabricante-ext/v1/stock/actualizar', body: { imei, position, cantidad } });
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/stock/actualizar`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ imei, position, cantidad }),
-  });
+  const positionStr = position.toString();
+  const body = { imei, position: positionStr, cantidad };
+  
+  console.log('=== SINCRONIZACIÓN STOCK ===');
+  console.log('IMEI:', imei);
+  console.log('Position:', positionStr);
+  console.log('Cantidad:', cantidad);
+  console.log('URL:', `${API_BASE_URL_EXT}/fabricante-ext/v1/stock/actualizar`);
+  console.log('Body:', JSON.stringify(body));
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al actualizar stock');
+  try {
+    const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/stock/actualizar`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    console.log('Response status:', response.status);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('STOCK SYNC ERROR:', response.status, errorData);
+      return { success: false, sync_status: 'failed', message: errorData.message || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    console.log('STOCK UPDATE response:', JSON.stringify(data));
+    console.log('Sync Status:', data.sync_status);
+    if (data.debug) console.log('Debug Info:', JSON.stringify(data.debug));
+    
+    return {
+      success: data.success ?? true,
+      sync_status: data.sync_status || 'unknown',
+      warning: data.warning,
+      message: data.message,
+    };
+  } catch (error) {
+    console.error('STOCK SYNC FETCH ERROR:', error);
+    return { success: false, sync_status: 'failed', message: (error as Error).message };
   }
-
-  const data = await response.json();
-  console.log('STOCK UPDATE response:', data);
-  return data;
 };
