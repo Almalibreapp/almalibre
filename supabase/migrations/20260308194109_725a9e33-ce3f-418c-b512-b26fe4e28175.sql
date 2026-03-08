@@ -1,0 +1,1 @@
+DELETE FROM stock_config WHERE topping_position LIKE 'topping_%';
