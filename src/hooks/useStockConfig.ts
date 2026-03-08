@@ -163,9 +163,10 @@ export const useStockConfig = (imei: string | undefined) => {
       return;
     }
 
-    // Sync current stock to physical machine
+    // Sync current stock to physical machine — convert position to API format
+    const apiPos = position.startsWith('topping_') ? position.replace('topping_', '') : position;
     try {
-      const syncResult = await actualizarStockConSync(imei, position, newCurrentStock);
+      const syncResult = await actualizarStockConSync(imei, apiPos, newCurrentStock);
       if (syncResult.sync_status === 'failed') {
         toast({ title: '⚠️ Capacidad actualizada', description: `Nuevo máximo: ${capacidad}. No se pudo sincronizar con la máquina.` });
       } else {

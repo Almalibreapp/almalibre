@@ -13,7 +13,7 @@ import { Venta } from '@/types';
 const toApiPosition = (stockPosition: string): string => {
   if (stockPosition === '1') return '1';
   const match = stockPosition.match(/^topping_(\d+)$/);
-  if (match) return String(Number(match[1]) + 1); // topping_1 → 2, topping_2 → 3, etc.
+  if (match) return match[1]; // topping_1 → "1", topping_5 → "5"
   return stockPosition;
 };
 
