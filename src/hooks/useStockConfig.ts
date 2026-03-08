@@ -92,13 +92,20 @@ export const useStockConfig = (imei: string | undefined) => {
   };
 
   const refillTopping = async (position: string) => {
-    if (!imei) return;
+    console.log('[refillTopping] START position:', position, 'imei:', imei);
+    if (!imei) { console.log('[refillTopping] No IMEI, aborting'); return { sync_status: 'failed' }; }
 
     const userId = await resolveUserId();
-    if (!userId) return;
+    if (!userId) { console.log('[refillTopping] No userId, aborting'); return { sync_status: 'failed' }; }
 
+    console.log('[refillTopping] items:', items.map(i => `${i.topping_position}=${i.unidades_actuales}`));
     const item = items.find((i) => i.topping_position === position);
-    if (!item) return;
+    if (!item) { 
+      console.log('[refillTopping] ❌ Position not found in items:', position);
+      return { sync_status: 'failed' }; 
+    }
+
+    console.log('[refillTopping] Found item:', item.topping_name, 'current:', item.unidades_actuales, 'max:', item.capacidad_maxima);
 
     await supabase.from('stock_history').insert({
       machine_imei: imei,
@@ -117,27 +124,35 @@ export const useStockConfig = (imei: string | undefined) => {
       .eq('topping_position', position);
 
     if (error) {
+      console.error('[refillTopping] ❌ Supabase update error:', error);
       toast({ title: 'Error', description: 'No se pudo rellenar el stock', variant: 'destructive' });
-      return { sync_status: 'failed' as const };
+      return { sync_status: 'failed' };
     }
+
+    console.log('[refillTopping] ✅ Supabase updated, now syncing with machine...');
 
     // Sync to physical machine — convert position to API format
     const apiPos = position.startsWith('topping_') ? position.replace('topping_', '') : position;
+    console.log('[refillTopping] 📡 API position:', apiPos, 'cantidad:', item.capacidad_maxima);
+    
     let syncStatus: string = 'skipped';
     try {
       const syncResult = await actualizarStockConSync(imei, apiPos, item.capacidad_maxima);
-      syncStatus = syncResult.sync_status || 'success';
-      if (syncResult.sync_status === 'failed') {
-        toast({ title: `⚠️ ${item.topping_name} rellenado`, description: 'Stock actualizado pero no sincronizado con la máquina' });
-      } else {
+      console.log('[refillTopping] 📡 Sync result:', JSON.stringify(syncResult));
+      syncStatus = syncResult.sync_status || 'unknown';
+      
+      if (syncResult.success && syncResult.sync_status === 'success') {
         toast({ title: `✅ ${item.topping_name} rellenado y sincronizado`, description: `Rellenado a ${item.capacidad_maxima} unidades` });
+      } else {
+        toast({ title: `⚠️ ${item.topping_name} rellenado`, description: 'Stock actualizado pero no sincronizado con la máquina' });
       }
     } catch (syncError) {
-      console.error('Error syncing stock to machine:', syncError);
+      console.error('[refillTopping] ❌ Sync exception:', syncError);
       toast({ title: `⚠️ ${item.topping_name} rellenado`, description: 'Stock actualizado en el sistema pero falló la sincronización con la máquina' });
       syncStatus = 'failed';
     }
 
+    console.log('[refillTopping] Final sync_status:', syncStatus);
     await fetchStock();
     return { sync_status: syncStatus };
   };
