@@ -98,7 +98,6 @@ export const useStockConfig = (imei: string | undefined) => {
     const userId = await resolveUserId();
     if (!userId) { console.log('[refillTopping] No userId, aborting'); return { sync_status: 'failed' }; }
 
-    console.log('[refillTopping] items:', items.map(i => `${i.topping_position}=${i.unidades_actuales}`));
     const item = items.find((i) => i.topping_position === position);
     if (!item) { 
       console.log('[refillTopping] ❌ Position not found in items:', position);
@@ -129,15 +128,12 @@ export const useStockConfig = (imei: string | undefined) => {
       return { sync_status: 'failed' };
     }
 
-    console.log('[refillTopping] ✅ Supabase updated, now syncing with machine...');
-
-    // Sync to physical machine — convert position to API format
-    const apiPos = position.startsWith('topping_') ? position.replace('topping_', '') : position;
-    console.log('[refillTopping] 📡 API position:', apiPos, 'cantidad:', item.capacidad_maxima);
+    // Position is already a pure numeric string (e.g. "1", "2", "5") — no conversion needed
+    console.log('[refillTopping] ✅ Supabase updated, syncing position:', position, 'cantidad:', item.capacidad_maxima);
     
     let syncStatus: string = 'skipped';
     try {
-      const syncResult = await actualizarStockConSync(imei, apiPos, item.capacidad_maxima);
+      const syncResult = await actualizarStockConSync(imei, position, item.capacidad_maxima);
       console.log('[refillTopping] 📡 Sync result:', JSON.stringify(syncResult));
       syncStatus = syncResult.sync_status || 'unknown';
       
@@ -148,7 +144,7 @@ export const useStockConfig = (imei: string | undefined) => {
       }
     } catch (syncError) {
       console.error('[refillTopping] ❌ Sync exception:', syncError);
-      toast({ title: `⚠️ ${item.topping_name} rellenado`, description: 'Stock actualizado en el sistema pero falló la sincronización con la máquina' });
+      toast({ title: `⚠️ ${item.topping_name} rellenado`, description: 'Stock actualizado en el sistema pero falló la sincronización' });
       syncStatus = 'failed';
     }
 
