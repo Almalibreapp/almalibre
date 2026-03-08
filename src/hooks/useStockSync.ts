@@ -2,11 +2,24 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchVentasDetalle } from '@/services/api';
+import { actualizarStockConSync } from '@/services/controlApi';
 import { Venta } from '@/types';
 
 /**
- * Polls ventas-detalle every 30s, detects new sales, and deducts from stock_config.
- * Only runs when the machine view is active (component mounted).
+ * Convert stock_config topping_position to the numeric position the machine API expects.
+ * stock_config: "1" (Açaí), "topping_1" (Oreo=pos2), "topping_2" (Granola=pos3), etc.
+ * API expects: 1, 2, 3, 4, 5, 6, 7
+ */
+const toApiPosition = (stockPosition: string): string => {
+  if (stockPosition === '1') return '1';
+  const match = stockPosition.match(/^topping_(\d+)$/);
+  if (match) return String(Number(match[1]) + 1); // topping_1 → 2, topping_2 → 3, etc.
+  return stockPosition;
+};
+
+/**
+ * Polls ventas-detalle every 30s, detects new sales, deducts from stock_config,
+ * and syncs each position with the physical machine.
  */
 export const useStockSync = (imei: string | undefined) => {
   const { user } = useAuth();
@@ -19,7 +32,6 @@ export const useStockSync = (imei: string | undefined) => {
     isRunningRef.current = true;
 
     try {
-      // Get last sync timestamp
       const { data: syncLog } = await supabase
         .from('stock_sync_log')
         .select('*')
@@ -29,7 +41,6 @@ export const useStockSync = (imei: string | undefined) => {
       const lastSync = syncLog?.ultima_sincronizacion || new Date(0).toISOString();
       lastSyncRef.current = lastSync;
 
-      // Fetch today's sales
       const ventasData = await fetchVentasDetalle(imei);
       const ventas: Venta[] = ventasData?.ventas || [];
 
@@ -38,35 +49,27 @@ export const useStockSync = (imei: string | undefined) => {
         return;
       }
 
-      // Find new sales (by comparing IDs or using last known sale ID)
       const lastSaleId = syncLog?.ultima_venta_id;
       let newVentas: Venta[];
 
       if (lastSaleId) {
-        // API returns sales newest-first; new sales are BEFORE the last known ID
         const lastIdx = ventas.findIndex((v) => v.id === lastSaleId);
         newVentas = lastIdx > 0 ? ventas.slice(0, lastIdx) : (lastIdx === -1 ? ventas : []);
         console.log(`[StockSync] lastSaleId=${lastSaleId}, lastIdx=${lastIdx}, newVentas=${newVentas.length}`);
       } else {
-        // First sync - don't deduct, just mark current position
         newVentas = [];
       }
 
-      // Deduct stock from new sales
       for (const venta of newVentas) {
-        // Skip non-successful sales
         if (venta.estado && venta.estado !== 'exitoso') {
           console.log('[StockSync] Skipping non-exitoso sale:', venta.id, venta.estado);
           continue;
         }
 
-        // Collect ALL positions to deduct
-        const positionsToDeduct = new Map<string, number>(); // position -> qty
+        // Collect ALL positions to deduct (using stock_config format)
+        const positionsToDeduct = new Map<string, number>();
+        positionsToDeduct.set('1', 1); // Always deduct Açaí
 
-        // ALWAYS deduct position 1 (base product - Açaí)
-        positionsToDeduct.set('1', 1);
-
-        // Deduct toppings used in the sale
         if (venta.toppings && Array.isArray(venta.toppings) && venta.toppings.length > 0) {
           for (const topping of venta.toppings) {
             const pos = topping.posicion?.toString();
@@ -78,7 +81,7 @@ export const useStockSync = (imei: string | undefined) => {
 
         console.log(`[StockSync] Sale ${venta.id}: deducting positions:`, Object.fromEntries(positionsToDeduct));
 
-        // Deduct each position
+        // Deduct each position in Supabase AND sync with physical machine
         for (const [position, qty] of positionsToDeduct) {
           const { data: current } = await supabase
             .from('stock_config')
@@ -95,14 +98,27 @@ export const useStockSync = (imei: string | undefined) => {
               .eq('machine_imei', imei)
               .eq('topping_position', position);
             console.log(`[StockSync] ✅ Position ${position}: ${current.unidades_actuales} → ${newQty}`);
+
+            // Sync with physical machine using numeric position
+            const apiPos = toApiPosition(position);
+            console.log(`[StockSync] 🔄 Syncing position ${position} (API pos=${apiPos}) qty=${newQty} with machine...`);
+            try {
+              const syncResult = await actualizarStockConSync(imei, apiPos, newQty);
+              if (syncResult.success && syncResult.sync_status === 'success') {
+                console.log(`[StockSync] ✅ Position ${position} synced with machine`);
+              } else {
+                console.warn(`[StockSync] ⚠️ Position ${position} sync: ${syncResult.sync_status} - ${syncResult.message || ''}`);
+              }
+            } catch (syncErr) {
+              console.error(`[StockSync] ❌ Position ${position} sync error:`, syncErr);
+            }
           } else if (!current) {
             console.log(`[StockSync] ⚠️ Position ${position} not found in stock_config for IMEI ${imei}`);
           }
         }
       }
 
-      // Update sync log
-      const latestSaleId = ventas[0]?.id || lastSaleId; // ventas[0] is newest
+      const latestSaleId = ventas[0]?.id || lastSaleId;
       await supabase
         .from('stock_sync_log')
         .upsert(
@@ -123,13 +139,8 @@ export const useStockSync = (imei: string | undefined) => {
 
   useEffect(() => {
     if (!imei || !user) return;
-
-    // Initial sync
     syncStock();
-
-    // Poll every 30 seconds
     intervalRef.current = setInterval(syncStock, 30000);
-
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
