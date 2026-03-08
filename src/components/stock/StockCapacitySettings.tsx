@@ -33,20 +33,15 @@ export const StockCapacitySettings = ({ imei, stock, stockConfig: externalConfig
   });
 
   useEffect(() => {
-    const toppings: { posicion: string; nombre: string }[] = [];
-    if (stock?.toppings?.length) {
-      toppings.push(...stock.toppings.map((t) => ({ posicion: t.posicion, nombre: t.nombre })));
-    }
-    if (productosData?.productos) {
-      const prod1 = productosData.productos.find((p) => p.position === 1);
-      if (prod1 && !toppings.some((t) => t.posicion === '1')) {
-        toppings.unshift({ posicion: '1', nombre: prod1.goodsName });
-      }
-    }
-    if (toppings.length > 0) {
+    // Use productos as source of truth for positions (real machine positions)
+    if (productosData?.productos && productosData.productos.length > 0) {
+      const toppings = productosData.productos.map((p) => ({
+        posicion: String(p.position),
+        nombre: p.goodsName,
+      }));
       initializeStock(toppings);
     }
-  }, [stock?.toppings, productosData?.productos]);
+  }, [productosData?.productos]);
 
   useEffect(() => {
     const initialDrafts: Record<string, string> = {};
