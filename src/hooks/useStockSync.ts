@@ -87,11 +87,10 @@ export const useStockSync = (imei: string | undefined) => {
               .eq('topping_position', position);
             console.log(`[StockSync] ✅ Position ${position}: ${current.unidades_actuales} → ${newQty}`);
 
-            // Sync with physical machine using numeric position
-            const apiPos = toApiPosition(position);
-            console.log(`[StockSync] 🔄 Syncing position ${position} (API pos=${apiPos}) qty=${newQty} with machine...`);
+            // Position is already a pure numeric string — no conversion needed
+            console.log(`[StockSync] 🔄 Syncing position ${position} qty=${newQty} with machine...`);
             try {
-              const syncResult = await actualizarStockConSync(imei, apiPos, newQty);
+              const syncResult = await actualizarStockConSync(imei, position, newQty);
               if (syncResult.success && syncResult.sync_status === 'success') {
                 console.log(`[StockSync] ✅ Position ${position} synced with machine`);
               } else {
