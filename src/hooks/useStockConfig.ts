@@ -121,10 +121,11 @@ export const useStockConfig = (imei: string | undefined) => {
       return { sync_status: 'failed' as const };
     }
 
-    // Sync to physical machine
+    // Sync to physical machine — convert position to API format
+    const apiPos = position.startsWith('topping_') ? position.replace('topping_', '') : position;
     let syncStatus: string = 'skipped';
     try {
-      const syncResult = await actualizarStockConSync(imei, position, item.capacidad_maxima);
+      const syncResult = await actualizarStockConSync(imei, apiPos, item.capacidad_maxima);
       syncStatus = syncResult.sync_status || 'success';
       if (syncResult.sync_status === 'failed') {
         toast({ title: `⚠️ ${item.topping_name} rellenado`, description: 'Stock actualizado pero no sincronizado con la máquina' });
