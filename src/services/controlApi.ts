@@ -531,14 +531,28 @@ export const actualizarStockTopping = async (imei: string, posiciones: string[])
 };
 
 // Actualizar stock con sincronización a máquina física
-export const actualizarStockConSync = async (imei: string, position: string, cantidad: number): Promise<{ success: boolean; sync_status?: string; warning?: string; message?: string }> => {
-  const positionStr = position.toString();
-  const body = { imei, position: positionStr, cantidad };
+export const actualizarStockConSync = async (imei: string, position: string | number, cantidad: number): Promise<{ success: boolean; sync_status?: string; warning?: string; message?: string }> => {
+  const toApiPosition = (input: string | number): string => {
+    if (typeof input === 'number') return input.toString();
+    if (input.startsWith('topping_')) return input.replace('topping_', '');
+    return input;
+  };
+
+  const positionStr = toApiPosition(position);
+  const cantidadNum = Number(cantidad);
+
+  if (!Number.isFinite(cantidadNum)) {
+    console.error('STOCK SYNC ERROR: cantidad inválida', { cantidad });
+    return { success: false, sync_status: 'failed', message: 'Cantidad inválida' };
+  }
+
+  const body = { imei, position: positionStr, cantidad: cantidadNum };
   
   console.log('=== SINCRONIZACIÓN STOCK ===');
   console.log('IMEI:', imei);
-  console.log('Position:', positionStr);
-  console.log('Cantidad:', cantidad);
+  console.log('Position (original):', position, typeof position);
+  console.log('Position (convertido):', positionStr);
+  console.log('Cantidad:', cantidadNum, typeof cantidadNum);
   console.log('URL:', `${API_BASE_URL_EXT}/fabricante-ext/v1/stock/actualizar`);
   console.log('Body:', JSON.stringify(body));
 
