@@ -37,58 +37,35 @@ export const StockReplenishment = ({ imei, stock, stockConfig: externalConfig }:
   });
 
   useEffect(() => {
-    const toppings: { posicion: string; nombre: string }[] = [];
-    
-    // Add toppings from API
-    if (stock?.toppings?.length) {
-      toppings.push(...stock.toppings.map((t) => ({ posicion: t.posicion, nombre: t.nombre })));
-    }
-    
-    // Add position 1 from products if not already in toppings
-    if (productosData?.productos) {
-      const prod1 = productosData.productos.find((p) => p.position === 1);
-      if (prod1 && !toppings.some((t) => t.posicion === '1')) {
-        toppings.unshift({ posicion: '1', nombre: prod1.goodsName });
-      }
-    }
-    
-    if (toppings.length > 0) {
+    // Use productos (fetchProductos) as source of truth for positions
+    // Products have real machine positions (1, 2, 3, etc.)
+    if (productosData?.productos && productosData.productos.length > 0) {
+      const toppings = productosData.productos.map((p) => ({
+        posicion: String(p.position),
+        nombre: p.goodsName,
+      }));
       initializeStock(toppings);
     }
-  }, [stock?.toppings, productosData?.productos]);
+  }, [productosData?.productos]);
 
   const mergedToppings = useMemo(() => {
-    const apiToppings = stock?.toppings || [];
-    
-    // Build full toppings list including position 1 from products
-    let allToppings = [...apiToppings];
-    const hasPosition1 = allToppings.some((t) => t.posicion === '1');
-    
-    if (!hasPosition1 && productosData?.productos) {
-      const prod1 = productosData.productos.find((p) => p.position === 1);
-      if (prod1) {
-        allToppings.unshift({
-          posicion: '1',
-          nombre: prod1.goodsName,
-          stock_actual: prod1.stock ?? 0,
-          capacidad_maxima: 100,
-        });
-      }
-    }
-    
-    if (allToppings.length === 0) return [];
+    // Use productos as source of truth for positions and names
+    const productos = productosData?.productos || [];
+    if (productos.length === 0) return [];
 
     const stockConfigMap = new Map(stockConfigItems.map((item) => [item.topping_position, item]));
 
-    return allToppings.map((topping) => {
-      const config = stockConfigMap.get(topping.posicion);
+    return productos.map((prod) => {
+      const posStr = String(prod.position);
+      const config = stockConfigMap.get(posStr);
       return {
-        ...topping,
-        stock_actual: config?.unidades_actuales ?? topping.stock_actual,
-        capacidad_maxima: config?.capacidad_maxima ?? topping.capacidad_maxima,
+        posicion: posStr,
+        nombre: prod.goodsName,
+        stock_actual: config?.unidades_actuales ?? prod.stock ?? 0,
+        capacidad_maxima: config?.capacidad_maxima ?? 100,
       };
     });
-  }, [stock?.toppings, stockConfigItems, productosData]);
+  }, [productosData?.productos, stockConfigItems]);
 
   const handleToggleTopping = (posicion: string, selected: boolean) => {
     setSelectedToppings((prev) => {

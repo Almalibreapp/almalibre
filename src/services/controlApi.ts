@@ -532,13 +532,8 @@ export const actualizarStockTopping = async (imei: string, posiciones: string[])
 
 // Actualizar stock con sincronización a máquina física
 export const actualizarStockConSync = async (imei: string, position: string | number, cantidad: number): Promise<{ success: boolean; sync_status?: string; warning?: string; message?: string }> => {
-  const toApiPosition = (input: string | number): string => {
-    if (typeof input === 'number') return input.toString();
-    if (input.startsWith('topping_')) return input.replace('topping_', '');
-    return input;
-  };
-
-  const positionStr = toApiPosition(position);
+  // Position should already be a pure numeric string (e.g. "1", "2", "5")
+  const positionStr = String(position);
   const cantidadNum = Number(cantidad);
 
   if (!Number.isFinite(cantidadNum)) {
@@ -550,10 +545,8 @@ export const actualizarStockConSync = async (imei: string, position: string | nu
   
   console.log('=== SINCRONIZACIÓN STOCK ===');
   console.log('IMEI:', imei);
-  console.log('Position (original):', position, typeof position);
-  console.log('Position (convertido):', positionStr);
-  console.log('Cantidad:', cantidadNum, typeof cantidadNum);
-  console.log('URL:', `${API_BASE_URL_EXT}/fabricante-ext/v1/stock/actualizar`);
+  console.log('Position:', positionStr);
+  console.log('Cantidad:', cantidadNum);
   console.log('Body:', JSON.stringify(body));
 
   try {
@@ -572,12 +565,13 @@ export const actualizarStockConSync = async (imei: string, position: string | nu
     }
 
     const data = await response.json();
-    console.log('STOCK UPDATE response:', JSON.stringify(data));
-    console.log('Sync Status:', data.sync_status);
-    if (data.debug) console.log('Debug Info:', JSON.stringify(data.debug));
+    console.log('=== SYNC RESPONSE ===');
+    console.log('data.success:', data.success, typeof data.success);
+    console.log('data.sync_status:', data.sync_status, typeof data.sync_status);
+    console.log('Full response:', JSON.stringify(data));
     
     return {
-      success: data.success ?? true,
+      success: data.success === true,
       sync_status: data.sync_status || 'unknown',
       warning: data.warning,
       message: data.message,

@@ -6,18 +6,6 @@ import { actualizarStockConSync } from '@/services/controlApi';
 import { Venta } from '@/types';
 
 /**
- * Convert stock_config topping_position to the numeric position the machine API expects.
- * stock_config: "1" (Açaí), "topping_1" (Oreo=pos2), "topping_2" (Granola=pos3), etc.
- * API expects: 1, 2, 3, 4, 5, 6, 7
- */
-const toApiPosition = (stockPosition: string): string => {
-  if (stockPosition === '1') return '1';
-  const match = stockPosition.match(/^topping_(\d+)$/);
-  if (match) return match[1]; // topping_1 → "1", topping_5 → "5"
-  return stockPosition;
-};
-
-/**
  * Polls ventas-detalle every 30s, detects new sales, deducts from stock_config,
  * and syncs each position with the physical machine.
  */
@@ -99,11 +87,10 @@ export const useStockSync = (imei: string | undefined) => {
               .eq('topping_position', position);
             console.log(`[StockSync] ✅ Position ${position}: ${current.unidades_actuales} → ${newQty}`);
 
-            // Sync with physical machine using numeric position
-            const apiPos = toApiPosition(position);
-            console.log(`[StockSync] 🔄 Syncing position ${position} (API pos=${apiPos}) qty=${newQty} with machine...`);
+            // Position is already a pure numeric string — no conversion needed
+            console.log(`[StockSync] 🔄 Syncing position ${position} qty=${newQty} with machine...`);
             try {
-              const syncResult = await actualizarStockConSync(imei, apiPos, newQty);
+              const syncResult = await actualizarStockConSync(imei, position, newQty);
               if (syncResult.success && syncResult.sync_status === 'success') {
                 console.log(`[StockSync] ✅ Position ${position} synced with machine`);
               } else {
