@@ -18,7 +18,7 @@ import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { useLocalNotifications } from '@/hooks/useLocalNotifications';
 import { useTemperatureLog, useLogTemperature } from '@/hooks/useTemperatureLog';
-import { fetchOrdenes } from '@/services/api';
+import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
 import { ControlTab } from '@/components/control/ControlTab';
 import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
@@ -41,6 +41,11 @@ import {
   Calendar,
   Clock,
   Download,
+  Activity,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Snowflake,
 } from 'lucide-react';
 const decodeHtml = (text: string): string => {
   if (!text || typeof window === 'undefined') return text || '';
@@ -306,6 +311,42 @@ export const MachineDetail = () => {
     return total;
   }, [ventasMesApi]);
 
+  // Machine estado - periodic polling every 3 minutes
+  const { data: estadoMaquina, isLoading: loadingEstado } = useQuery({
+    queryKey: ['machine-estado', imei],
+    queryFn: () => fetchEstadoMaquina(imei!),
+    enabled: !!imei,
+    refetchInterval: 3 * 60 * 1000,
+    retry: 1,
+  });
+
+  // Derive real estado from componentes
+  const deriveEstadoFromComponents = () => {
+    if (!estadoMaquina?.componentes) return 'unknown';
+    const comps = estadoMaquina.componentes;
+    const ventaOk = comps.venta === 'activa' || comps.venta === 'ok';
+    const refrigOk = comps.refrigeracion === 'ok' || comps.refrigeracion === 'normal' || comps.refrigeracion === 'activa';
+    const componentesArr = Object.entries(comps).map(([nombre, valor]: [string, any]) => {
+      let estado: string;
+      if (typeof valor === 'boolean') {
+        if (nombre === 'agotado' && valor === true && ventaOk) estado = 'ok';
+        else estado = valor ? 'alerta' : 'ok';
+      } else {
+        estado = String(valor);
+      }
+      return { nombre, estado };
+    });
+    const hasRealError = componentesArr.some(c => {
+      const e = c.estado.toLowerCase();
+      return e === 'error' || e === 'cerrada' || e === 'fallo';
+    });
+    if (hasRealError) return 'error';
+    if (ventaOk && refrigOk) return 'ok';
+    if (comps.agotado === true) return 'alerta';
+    return 'ok';
+  };
+  const estadoReal = deriveEstadoFromComponents();
+
   // Temperature traceability
   const { data: tempLog } = useTemperatureLog(maquina?.id, tempLogHours, imei);
   const logTemperature = useLogTemperature();
@@ -522,6 +563,73 @@ export const MachineDetail = () => {
                       </p>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Machine Status Card */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-primary" />
+                      Estado de la Máquina
+                    </CardTitle>
+                    {loadingEstado ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    ) : estadoReal === 'ok' ? (
+                      <Badge className="bg-success text-success-foreground">🟢 OK</Badge>
+                    ) : estadoReal === 'alerta' ? (
+                      <Badge className="bg-warning text-warning-foreground">🟡 Alerta</Badge>
+                    ) : estadoReal === 'error' ? (
+                      <Badge variant="destructive">🔴 Error</Badge>
+                    ) : (
+                      <Badge variant="secondary">Desconocido</Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {estadoMaquina?.componentes ? (
+                    <div className="space-y-2">
+                      {Object.entries(estadoMaquina.componentes).map(([nombre, valor]: [string, any]) => {
+                        const displayName = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+                        let estadoStr: string;
+                        if (typeof valor === 'boolean') {
+                          const comps = estadoMaquina.componentes;
+                          if (nombre === 'agotado' && valor === true && (comps.venta === 'activa' || comps.venta === 'ok')) {
+                            estadoStr = 'ok';
+                          } else {
+                            estadoStr = valor ? 'alerta' : 'ok';
+                          }
+                        } else {
+                          estadoStr = String(valor);
+                        }
+                        const e = estadoStr.toLowerCase();
+                        const isOk = e === 'ok' || e === 'activa' || e === 'normal' || e === 'false' || e === '0';
+                        const isError = e === 'error' || e === 'cerrada' || e === 'fallo';
+                        return (
+                          <div key={nombre} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                            <div className="flex items-center gap-2">
+                              {nombre.toLowerCase().includes('refriger') ? <Snowflake className="h-3.5 w-3.5" /> :
+                               nombre.toLowerCase().includes('venta') ? <Euro className="h-3.5 w-3.5" /> :
+                               <Package className="h-3.5 w-3.5" />}
+                              <span className="text-sm font-medium">{displayName}</span>
+                            </div>
+                            <Badge variant="outline" className={cn(
+                              "text-xs",
+                              isOk && "border-success text-success",
+                              isError && "border-critical text-critical",
+                              !isOk && !isError && "border-warning text-warning",
+                            )}>
+                              {isOk ? <CheckCircle className="h-3 w-3 mr-1" /> : isError ? <XCircle className="h-3 w-3 mr-1" /> : <AlertTriangle className="h-3 w-3 mr-1" />}
+                              {estadoStr}
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : !loadingEstado ? (
+                    <p className="text-sm text-muted-foreground">No se pudo obtener el estado</p>
+                  ) : null}
                 </CardContent>
               </Card>
 
