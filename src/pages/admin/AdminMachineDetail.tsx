@@ -117,13 +117,11 @@ export const AdminMachineDetail = () => {
     ? (Array.isArray(estadoMaquina.componentes)
       ? estadoMaquina.componentes
       : Object.entries(estadoMaquina.componentes).map(([nombre, valor]: [string, any]) => {
-          // For boolean flags: interpret based on context
-          // agotado=true when venta=activa is not a real problem
           let estado: string;
           if (typeof valor === 'boolean') {
             const comps = estadoMaquina.componentes;
             if (nombre === 'agotado' && valor === true && (comps.venta === 'activa' || comps.venta === 'ok')) {
-              estado = 'ok'; // Suppress false positive
+              estado = 'ok';
             } else {
               estado = valor ? 'alerta' : 'ok';
             }
