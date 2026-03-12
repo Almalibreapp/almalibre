@@ -18,7 +18,7 @@ import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { useLocalNotifications } from '@/hooks/useLocalNotifications';
 import { useTemperatureLog, useLogTemperature } from '@/hooks/useTemperatureLog';
-import { fetchOrdenes } from '@/services/api';
+import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
 import { ControlTab } from '@/components/control/ControlTab';
 import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
