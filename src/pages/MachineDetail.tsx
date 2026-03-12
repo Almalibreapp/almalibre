@@ -64,6 +64,7 @@ export const MachineDetail = () => {
   // Auto-sync stock from sales
   useStockSync(imei);
   useVentasRealtime(imei);
+  const { ultimaActualizacion: stockLastUpdate, polling: stockPolling, refrescarAhora: refrescarStock } = useStockPolling(imei, 2);
   useLocalNotifications(
     ventasDetalle?.ventas,
     temperatura?.temperatura,
