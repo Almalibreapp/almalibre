@@ -11,6 +11,7 @@ import { TemperatureChart } from '@/components/dashboard/TemperatureChart';
 import { StockReplenishment } from '@/components/stock/StockReplenishment';
 import { SalesChart } from '@/components/dashboard/SalesChart';
 import { useStockSync } from '@/hooks/useStockSync';
+import { useStockPolling } from '@/hooks/useStockPolling';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
