@@ -41,6 +41,11 @@ import {
   Calendar,
   Clock,
   Download,
+  Activity,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Snowflake,
 } from 'lucide-react';
 const decodeHtml = (text: string): string => {
   if (!text || typeof window === 'undefined') return text || '';
