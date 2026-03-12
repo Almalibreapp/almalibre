@@ -14,6 +14,7 @@ import { ControlTab } from '@/components/control/ControlTab';
 import { TemperatureTraceability } from '@/components/temperature/TemperatureTraceability';
 import { supabase } from '@/integrations/supabase/client';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
+import { useStockPolling } from '@/hooks/useStockPolling';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,7 @@ export const AdminMachineDetail = () => {
   const stockConfig = useStockConfig(imei);
   useStockSync(imei);
   useVentasRealtime(imei);
+  const { ultimaActualizacion: stockLastUpdate, polling: stockPolling, refrescarAhora: refrescarStock } = useStockPolling(imei, 2);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 

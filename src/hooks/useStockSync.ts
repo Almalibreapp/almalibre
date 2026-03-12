@@ -11,7 +11,7 @@ import { Venta } from '@/types';
  */
 export const useStockSync = (imei: string | undefined) => {
   const { user } = useAuth();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSyncRef = useRef<string | null>(null);
   const isRunningRef = useRef(false);
 
