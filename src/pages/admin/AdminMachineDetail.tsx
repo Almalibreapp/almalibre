@@ -280,7 +280,7 @@ export const AdminMachineDetail = () => {
                     <CardContent className="space-y-3">
                       {componentesArray.map((comp: any, i: number) => {
                         const estado = String(comp.estado || '').toLowerCase();
-                        const isOk = estado === 'ok' || estado === 'activa' || estado === 'normal' || estado === 'false' || estado === '0';
+                        const isOk = estado === 'ok' || estado === 'activa' || estado === 'normal' || estado === 'false' || estado === '0' || estado === 'inactiva';
                         const isError = estado === 'error' || estado === 'cerrada' || estado === 'fallo';
                         return (
                           <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
