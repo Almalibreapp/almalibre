@@ -48,6 +48,7 @@ export const AdminMachineDetail = () => {
   const stockConfig = useStockConfig(imei);
   useStockSync(imei);
   useVentasRealtime(imei);
+  const { ultimaActualizacion: stockLastUpdate, polling: stockPolling, refrescarAhora: refrescarStock } = useStockPolling(imei, 2);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
