@@ -311,6 +311,42 @@ export const MachineDetail = () => {
     return total;
   }, [ventasMesApi]);
 
+  // Machine estado - periodic polling every 3 minutes
+  const { data: estadoMaquina, isLoading: loadingEstado } = useQuery({
+    queryKey: ['machine-estado', imei],
+    queryFn: () => fetchEstadoMaquina(imei!),
+    enabled: !!imei,
+    refetchInterval: 3 * 60 * 1000,
+    retry: 1,
+  });
+
+  // Derive real estado from componentes
+  const deriveEstadoFromComponents = () => {
+    if (!estadoMaquina?.componentes) return 'unknown';
+    const comps = estadoMaquina.componentes;
+    const ventaOk = comps.venta === 'activa' || comps.venta === 'ok';
+    const refrigOk = comps.refrigeracion === 'ok' || comps.refrigeracion === 'normal' || comps.refrigeracion === 'activa';
+    const componentesArr = Object.entries(comps).map(([nombre, valor]: [string, any]) => {
+      let estado: string;
+      if (typeof valor === 'boolean') {
+        if (nombre === 'agotado' && valor === true && ventaOk) estado = 'ok';
+        else estado = valor ? 'alerta' : 'ok';
+      } else {
+        estado = String(valor);
+      }
+      return { nombre, estado };
+    });
+    const hasRealError = componentesArr.some(c => {
+      const e = c.estado.toLowerCase();
+      return e === 'error' || e === 'cerrada' || e === 'fallo';
+    });
+    if (hasRealError) return 'error';
+    if (ventaOk && refrigOk) return 'ok';
+    if (comps.agotado === true) return 'alerta';
+    return 'ok';
+  };
+  const estadoReal = deriveEstadoFromComponents();
+
   // Temperature traceability
   const { data: tempLog } = useTemperatureLog(maquina?.id, tempLogHours, imei);
   const logTemperature = useLogTemperature();
