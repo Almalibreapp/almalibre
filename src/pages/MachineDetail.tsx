@@ -604,7 +604,7 @@ export const MachineDetail = () => {
                           estadoStr = String(valor);
                         }
                         const e = estadoStr.toLowerCase();
-                        const isOk = e === 'ok' || e === 'activa' || e === 'normal' || e === 'false' || e === '0';
+                        const isOk = e === 'ok' || e === 'activa' || e === 'normal' || e === 'false' || e === '0' || e === 'inactiva';
                         const isError = e === 'error' || e === 'cerrada' || e === 'fallo';
                         return (
                           <div key={nombre} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">

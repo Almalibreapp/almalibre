@@ -117,13 +117,11 @@ export const AdminMachineDetail = () => {
     ? (Array.isArray(estadoMaquina.componentes)
       ? estadoMaquina.componentes
       : Object.entries(estadoMaquina.componentes).map(([nombre, valor]: [string, any]) => {
-          // For boolean flags: interpret based on context
-          // agotado=true when venta=activa is not a real problem
           let estado: string;
           if (typeof valor === 'boolean') {
             const comps = estadoMaquina.componentes;
             if (nombre === 'agotado' && valor === true && (comps.venta === 'activa' || comps.venta === 'ok')) {
-              estado = 'ok'; // Suppress false positive
+              estado = 'ok';
             } else {
               estado = valor ? 'alerta' : 'ok';
             }
@@ -282,7 +280,7 @@ export const AdminMachineDetail = () => {
                     <CardContent className="space-y-3">
                       {componentesArray.map((comp: any, i: number) => {
                         const estado = String(comp.estado || '').toLowerCase();
-                        const isOk = estado === 'ok' || estado === 'activa' || estado === 'normal' || estado === 'false' || estado === '0';
+                        const isOk = estado === 'ok' || estado === 'activa' || estado === 'normal' || estado === 'false' || estado === '0' || estado === 'inactiva';
                         const isError = estado === 'error' || estado === 'cerrada' || estado === 'fallo';
                         return (
                           <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
