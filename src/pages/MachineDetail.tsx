@@ -566,6 +566,73 @@ export const MachineDetail = () => {
                 </CardContent>
               </Card>
 
+              {/* Machine Status Card */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-primary" />
+                      Estado de la Máquina
+                    </CardTitle>
+                    {loadingEstado ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    ) : estadoReal === 'ok' ? (
+                      <Badge className="bg-success text-success-foreground">🟢 OK</Badge>
+                    ) : estadoReal === 'alerta' ? (
+                      <Badge className="bg-warning text-warning-foreground">🟡 Alerta</Badge>
+                    ) : estadoReal === 'error' ? (
+                      <Badge variant="destructive">🔴 Error</Badge>
+                    ) : (
+                      <Badge variant="secondary">Desconocido</Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {estadoMaquina?.componentes ? (
+                    <div className="space-y-2">
+                      {Object.entries(estadoMaquina.componentes).map(([nombre, valor]: [string, any]) => {
+                        const displayName = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+                        let estadoStr: string;
+                        if (typeof valor === 'boolean') {
+                          const comps = estadoMaquina.componentes;
+                          if (nombre === 'agotado' && valor === true && (comps.venta === 'activa' || comps.venta === 'ok')) {
+                            estadoStr = 'ok';
+                          } else {
+                            estadoStr = valor ? 'alerta' : 'ok';
+                          }
+                        } else {
+                          estadoStr = String(valor);
+                        }
+                        const e = estadoStr.toLowerCase();
+                        const isOk = e === 'ok' || e === 'activa' || e === 'normal' || e === 'false' || e === '0';
+                        const isError = e === 'error' || e === 'cerrada' || e === 'fallo';
+                        return (
+                          <div key={nombre} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                            <div className="flex items-center gap-2">
+                              {nombre.toLowerCase().includes('refriger') ? <Snowflake className="h-3.5 w-3.5" /> :
+                               nombre.toLowerCase().includes('venta') ? <Euro className="h-3.5 w-3.5" /> :
+                               <Package className="h-3.5 w-3.5" />}
+                              <span className="text-sm font-medium">{displayName}</span>
+                            </div>
+                            <Badge variant="outline" className={cn(
+                              "text-xs",
+                              isOk && "border-success text-success",
+                              isError && "border-critical text-critical",
+                              !isOk && !isError && "border-warning text-warning",
+                            )}>
+                              {isOk ? <CheckCircle className="h-3 w-3 mr-1" /> : isError ? <XCircle className="h-3 w-3 mr-1" /> : <AlertTriangle className="h-3 w-3 mr-1" />}
+                              {estadoStr}
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : !loadingEstado ? (
+                    <p className="text-sm text-muted-foreground">No se pudo obtener el estado</p>
+                  ) : null}
+                </CardContent>
+              </Card>
+
               {/* Stock Alert Card */}
               {lowStockToppings.length > 0 && (
                 <Card className="border-warning/50 bg-warning-light">
