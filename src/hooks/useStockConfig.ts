@@ -43,7 +43,13 @@ export const useStockConfig = (imei: string | undefined) => {
     setLoading(false);
   }, [imei]);
 
-  useEffect(() => { fetchStock(); }, [fetchStock]);
+  // Fetch on mount and refetch every 30 seconds to pick up polling updates
+  useEffect(() => {
+    fetchStock();
+    if (!imei) return;
+    const interval = setInterval(fetchStock, 30 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchStock]);
 
   const initializeStock = async (toppings: { posicion: string; nombre: string }[]) => {
     if (!imei || toppings.length === 0) return;
