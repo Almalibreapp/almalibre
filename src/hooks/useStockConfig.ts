@@ -57,6 +57,22 @@ export const useStockConfig = (imei: string | undefined) => {
     const userId = await resolveUserId();
     if (!userId) return;
 
+    // Valid positions from manufacturer
+    const validPositions = new Set(toppings.map((t) => t.posicion));
+
+    // Clean up orphaned positions (e.g. "topping_1" format from old data)
+    const orphanedItems = items.filter((i) => !validPositions.has(i.topping_position));
+    if (orphanedItems.length > 0) {
+      console.log('[initializeStock] Cleaning orphaned positions:', orphanedItems.map(i => i.topping_position));
+      for (const orphan of orphanedItems) {
+        await supabase
+          .from('stock_config')
+          .delete()
+          .eq('machine_imei', imei)
+          .eq('topping_position', orphan.topping_position);
+      }
+    }
+
     // Only insert positions that don't already exist — never overwrite existing config
     const existingPositions = new Set(items.map((i) => i.topping_position));
     const newToppings = toppings.filter((t) => !existingPositions.has(t.posicion));
@@ -73,6 +89,7 @@ export const useStockConfig = (imei: string | undefined) => {
             .eq('topping_position', t.posicion);
         }
       }
+      if (orphanedItems.length > 0) await fetchStock();
       return;
     }
 
