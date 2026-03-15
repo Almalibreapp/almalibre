@@ -217,6 +217,7 @@ const AppContent = () => {
           <Route path="sales" element={<AdminSalesAnalytics />} />
           <Route path="analytics" element={<AdminSalesAnalytics />} />
           <Route path="incidents" element={<AdminIncidents />} />
+          <Route path="notifications" element={<AdminEmailNotifications />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
