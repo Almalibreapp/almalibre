@@ -10,6 +10,7 @@ import {
   LogOut,
   ArrowLeft,
   AlertTriangle,
+  Mail,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
