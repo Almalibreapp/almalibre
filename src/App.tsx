@@ -45,6 +45,7 @@ import { AdminFranchisees } from "./pages/admin/AdminFranchisees";
 import { AdminStock } from "./pages/admin/AdminStock";
 import { AdminSalesAnalytics } from "./pages/admin/AdminSalesAnalytics";
 import { AdminIncidents } from "./pages/admin/AdminIncidents";
+import { AdminEmailNotifications } from "./pages/admin/AdminEmailNotifications";
 
 const queryClient = new QueryClient({
   defaultOptions: {
