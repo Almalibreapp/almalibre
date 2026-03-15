@@ -10,6 +10,7 @@ import {
   LogOut,
   ArrowLeft,
   AlertTriangle,
+  Mail,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
@@ -20,6 +21,7 @@ const navItems = [
   { path: '/admin/franchisees', icon: Users, label: 'Franquiciados' },
   { path: '/admin/sales', icon: Euro, label: 'Ventas y Análisis' },
   { path: '/admin/incidents', icon: AlertTriangle, label: 'Incidencias' },
+  { path: '/admin/notifications', icon: Mail, label: 'Notificaciones' },
 ];
 
 export const AdminSidebar = () => {
