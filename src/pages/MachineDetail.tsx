@@ -251,7 +251,10 @@ export const MachineDetail = () => {
   });
 
   const ventasAyerSpain = useMemo(() => {
-    const exitosas = (ventasAyerApi || []).filter((v: any) => v.estado === 'exitoso');
+    const exitosas = (ventasAyerApi || []).filter((v: any) => {
+      const estado = (v.estado || '').toLowerCase();
+      return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
+    });
     return {
       euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0),
       cantidad: exitosas.length,
