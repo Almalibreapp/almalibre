@@ -4,12 +4,11 @@ import { convertChinaToSpain } from '@/lib/timezone';
 
 interface SalesChartProps {
   ventas: Venta[];
-  fecha?: string; // fecha del día de las ventas (formato YYYY-MM-DD)
+  fecha?: string;
 }
 
 export const SalesChart = ({ ventas, fecha }: SalesChartProps) => {
-  // La API devuelve ventas del día actual con hora, no historial de 7 días
-  // Agrupamos por hora para mostrar actividad del día
+  // Group sales by hour (Spanish time)
   const ventasPorHora = ventas.reduce((acc, venta) => {
     const horaSpain = (venta as any)._spainHora || convertChinaToSpain(venta.hora, fecha);
     const horaKey = horaSpain.split(':')[0] + ':00';
@@ -37,40 +36,79 @@ export const SalesChart = ({ ventas, fecha }: SalesChartProps) => {
     );
   }
 
+  const totalVentas = data.reduce((s, d) => s + d.ventas, 0);
+  const totalIngresos = data.reduce((s, d) => s + d.ingresos, 0);
+
   return (
-    <div className="h-48 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-          <XAxis 
-            dataKey="hora" 
-            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis 
-            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
-              borderRadius: '8px',
-              fontSize: '12px',
-            }}
-            formatter={(value: number, name: string) => [
-              name === 'ingresos' ? `${value.toFixed(2)}€` : value,
-              name === 'ingresos' ? 'Ingresos' : 'Ventas'
-            ]}
-          />
-          <Bar 
-            dataKey="ingresos" 
-            fill="hsl(var(--primary))" 
-            radius={[4, 4, 0, 0]}
-          />
-        </BarChart>
-      </ResponsiveContainer>
+    <div className="space-y-3">
+      {/* Summary stats */}
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="p-2 bg-muted/50 rounded-lg">
+          <p className="text-lg font-bold text-primary">{totalVentas}</p>
+          <p className="text-[10px] text-muted-foreground">Ventas</p>
+        </div>
+        <div className="p-2 bg-muted/50 rounded-lg">
+          <p className="text-lg font-bold text-primary">{totalIngresos.toFixed(2)}€</p>
+          <p className="text-[10px] text-muted-foreground">Ingresos</p>
+        </div>
+        <div className="p-2 bg-muted/50 rounded-lg">
+          <p className="text-lg font-bold text-primary">
+            {totalVentas > 0 ? (totalIngresos / totalVentas).toFixed(2) : '0.00'}€
+          </p>
+          <p className="text-[10px] text-muted-foreground">Ticket medio</p>
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div className="h-48 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <XAxis 
+              dataKey="hora" 
+              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis 
+              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '8px',
+                fontSize: '12px',
+              }}
+              formatter={(value: number, name: string) => [
+                name === 'ingresos' ? `${value.toFixed(2)}€` : value,
+                name === 'ingresos' ? 'Ingresos' : 'Ventas'
+              ]}
+              labelFormatter={(label) => `${label} (hora española)`}
+            />
+            <Bar 
+              dataKey="ingresos" 
+              fill="hsl(var(--primary))" 
+              radius={[4, 4, 0, 0]}
+              name="ingresos"
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Detailed hour breakdown */}
+      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+        {data.map((d) => (
+          <div key={d.hora} className="flex items-center justify-between text-sm py-1.5 px-2 rounded-md bg-muted/30">
+            <span className="font-medium text-muted-foreground">{d.hora}h</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground">{d.ventas} venta{d.ventas !== 1 ? 's' : ''}</span>
+              <span className="font-semibold text-primary">{d.ingresos.toFixed(2)}€</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
