@@ -27,7 +27,9 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
       .filter((v: any) => {
         const ventaFecha = v.fecha || ventasDetalle.fecha;
         const converted = convertChinaToSpainFull(v.hora, ventaFecha);
-        return converted.fecha === todaySpain && v.estado === 'exitoso';
+        const estado = (v.estado || '').toLowerCase();
+        const noFailed = estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
+        return converted.fecha === todaySpain && noFailed;
       });
     return {
       euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0),

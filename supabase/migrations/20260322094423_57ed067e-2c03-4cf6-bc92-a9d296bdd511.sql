@@ -1,0 +1,1 @@
+UPDATE stock_config SET user_id = '5e4e488a-cc37-4ee0-8486-4a4f7a193455' WHERE machine_imei = '865622072045888';
