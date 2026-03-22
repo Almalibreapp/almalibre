@@ -205,10 +205,14 @@ export const MachineDetail = () => {
   // TODAY: Use API data directly (same source as detail view) for real-time accuracy
   const ventasHoySpain = useMemo(() => {
     // ventasHoyFiltered comes from the API, already filtered by Spain date
-    const exitosas = ventasHoyFiltered.filter((v: any) => v.estado === 'exitoso');
+    // Accept sales unless explicitly marked as failed/cancelled
+    const exitosas = ventasHoyFiltered.filter((v: any) => {
+      const estado = (v.estado || '').toLowerCase();
+      return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
+    });
     const euros = exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0);
     const cantidad = exitosas.length;
-    console.log(`[Dashboard] Hoy desde API: ${cantidad} ventas, ${euros.toFixed(2)}€`);
+    console.log(`[Dashboard] Hoy desde API: ${cantidad} ventas, ${euros.toFixed(2)}€ (total sin filtrar: ${ventasHoyFiltered.length})`);
     return { euros, cantidad };
   }, [ventasHoyFiltered]);
 
