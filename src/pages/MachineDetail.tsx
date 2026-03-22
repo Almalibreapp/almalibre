@@ -309,7 +309,10 @@ export const MachineDetail = () => {
   });
 
   const ventasMesFinal = useMemo(() => {
-    const exitosas = (ventasMesApi || []).filter((v: any) => v.estado === 'exitoso');
+    const exitosas = (ventasMesApi || []).filter((v: any) => {
+      const estado = (v.estado || '').toLowerCase();
+      return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
+    });
     const total = {
       cantidad: exitosas.length,
       total_euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0),
