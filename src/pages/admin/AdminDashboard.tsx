@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchTemperatura, fetchOrdenes } from '@/services/api';
-import { format } from 'date-fns';
+
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lucide-react';
