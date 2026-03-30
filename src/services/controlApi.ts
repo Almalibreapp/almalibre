@@ -49,7 +49,7 @@ export interface ImagenDisponible {
 // === PRODUCTOS ===
 
 export const fetchProductos = async (imei: string): Promise<ProductosResponse> => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/productos/${imei}`, { headers });
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/productos/${imei}`, { headers });
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -229,7 +229,7 @@ export const crearCupon = async (data: {
   console.log('Tipo descuento:', typeof body.descuento);
   console.log('========================');
 
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupon/crear`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/crear`, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
@@ -254,7 +254,7 @@ export const crearCupon = async (data: {
 };
 
 export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupones/${imei}`, { headers });
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/cupones/${imei}`, { headers });
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -298,7 +298,7 @@ export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
 };
 
 export const fetchCodigosCupon = async (cuponId: string): Promise<CodigoCupon[]> => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupon/codigos/${cuponId}`, { headers });
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/codigos/${cuponId}`, { headers });
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
