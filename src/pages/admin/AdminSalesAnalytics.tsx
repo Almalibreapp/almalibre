@@ -22,24 +22,25 @@ import {
 } from 'lucide-react';
 
 /**
- * Fetch sales from API for a given China date, convert to Spain date,
- * and tag each sale with its real Spanish date.
+ * Fetch sales from API for a given China date, convert to Spain date/time,
+ * and tag each sale with its real Spanish date and time.
  */
 const fetchDaySalesRaw = async (imei: string, maquinaId: string, apiDate: string) => {
   try {
     const detalle = await fetchOrdenes(imei, apiDate);
     if (!detalle?.ventas) return [];
     return detalle.ventas.map((v: any) => {
-      const fecha = (v.fecha || detalle.fecha || apiDate).substring(0, 10);
-      const hora = v.hora || '00:00';
+      const ventaFecha = (v.fecha || detalle.fecha || apiDate).substring(0, 10);
+      const ventaHora = v.hora || '00:00';
+      const converted = convertChinaToSpainFull(ventaHora, ventaFecha);
       return {
-        id: v.id || v.numero_orden || `${maquinaId}-${apiDate}-${hora}-${v.precio}-${Math.random()}`,
+        id: v.id || v.numero_orden || `${maquinaId}-${apiDate}-${ventaHora}-${v.precio}`,
         maquina_id: maquinaId,
         imei,
-        fecha,
-        fechaSpain: fecha,
-        hora,
-        horaSpain: hora,
+        fecha: ventaFecha,
+        fechaSpain: converted.fecha,
+        hora: ventaHora,
+        horaSpain: converted.hora,
         producto: v.producto || '',
         precio: Number(v.precio || 0),
         cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
@@ -53,11 +54,15 @@ const fetchDaySalesRaw = async (imei: string, maquinaId: string, apiDate: string
 };
 
 /**
- * Fetch sales for a given date. API returns dates/times in Spain local time,
- * so no timezone conversion or dual-date fetching is needed.
+ * Fetch sales for a Spanish date by querying BOTH China dates that could contain
+ * sales for that day, then filtering by the target Spanish date.
  */
 const fetchSpanishDaySales = async (imei: string, maquinaId: string, spanishDate: string) => {
-  return fetchDaySalesRaw(imei, maquinaId, spanishDate);
+  const chinaDates = getChinaDatesForSpainDate(spanishDate);
+  const allSales = await Promise.all(
+    chinaDates.map(d => fetchDaySalesRaw(imei, maquinaId, d))
+  );
+  return allSales.flat().filter(s => s.fechaSpain === spanishDate);
 };
 
 /** Helper: deduplicate sales by unique sale ID */
