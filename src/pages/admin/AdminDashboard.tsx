@@ -112,7 +112,7 @@ export const AdminDashboard = () => {
       lowStockAlerts,
       tempAlerts,
     };
-  }, [ventasHoy, machines, lowStockAlerts, tempAlerts, todayStr]);
+  }, [ventasHoy, machines, lowStockAlerts, tempAlerts, todaySpain]);
 
   if (loadingSales && ventasHoy.length === 0) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
