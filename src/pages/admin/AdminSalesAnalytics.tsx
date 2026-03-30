@@ -188,21 +188,26 @@ export const AdminSalesAnalytics = () => {
         : maquinas.filter(m => m.id === selectedMachine);
       const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
 
-      // API dates are already Spain dates, no extra day needed
+      // For monthly, fetch each Spanish date using dual China dates
       const lastDay = endOfMonth(currentMonth);
       const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: lastDay });
-      const apiDates = days.map(d => formatLocal(d));
+      const spanishDates = days.map(d => formatLocal(d));
 
-      // Fetch each API date from API for each machine
+      // Collect all unique China dates needed
+      const allChinaDates = new Set<string>();
+      spanishDates.forEach(sd => {
+        getChinaDatesForSpainDate(sd).forEach(cd => allChinaDates.add(cd));
+      });
+
+      // Fetch all China dates for each machine
       const allSales = await Promise.all(
         uniqueByImei.flatMap(m =>
-          apiDates.map(fecha => fetchDaySalesRaw(m.mac_address, m.id, fecha))
+          Array.from(allChinaDates).map(fecha => fetchDaySalesRaw(m.mac_address, m.id, fecha))
         )
       );
 
       // Filter: only keep sales whose Spanish date falls within the month
-      const monthDays = eachDayOfInterval({ start: startOfMonth(currentMonth), end: lastDay });
-      const validDates = new Set(monthDays.map(d => formatLocal(d)));
+      const validDates = new Set(spanishDates);
       return deduplicateSales(allSales.flat().filter(s => validDates.has(s.fechaSpain)));
     },
     staleTime: 5 * 60 * 1000,
