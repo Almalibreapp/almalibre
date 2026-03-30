@@ -334,11 +334,11 @@ export const eliminarCupon = async (cuponId: string) => {
   ];
 
   const attempts: Array<{ url: string; method: 'POST' | 'DELETE'; body?: Record<string, unknown> }> = [
-    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/eliminar`, method: 'POST', body: payloads[0] },
-    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/eliminar`, method: 'POST', body: payloads[1] },
-    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/${cuponId}`, method: 'DELETE' },
-    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/eliminar/${cuponId}`, method: 'DELETE' },
-    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/delete`, method: 'POST', body: payloads[0] },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar`, method: 'POST', body: payloads[0] },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar`, method: 'POST', body: payloads[1] },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/${cuponId}`, method: 'DELETE' },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar/${cuponId}`, method: 'DELETE' },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/delete`, method: 'POST', body: payloads[0] },
   ];
 
   const errors: string[] = [];
