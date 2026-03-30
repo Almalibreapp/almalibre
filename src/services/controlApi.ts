@@ -49,7 +49,7 @@ export interface ImagenDisponible {
 // === PRODUCTOS ===
 
 export const fetchProductos = async (imei: string): Promise<ProductosResponse> => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/productos/${imei}`, { headers });
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/productos/${imei}`, { headers });
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -60,7 +60,7 @@ export const fetchProductos = async (imei: string): Promise<ProductosResponse> =
 };
 
 export const updateProductoPrecio = async (imei: string, position: number, precio: string) => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/producto/precio`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/producto/precio`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -84,7 +84,7 @@ export const updateProductoNombre = async (imei: string, position: number, nombr
   console.log('Position:', position);
   console.log('Nuevo nombre:', nombre);
 
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/producto/nombre`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/producto/nombre`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -110,7 +110,7 @@ export const updateProductoNombre = async (imei: string, position: number, nombr
 };
 
 export const updateProductoImagen = async (imei: string, position: number, imageUrl: string) => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/producto/imagen`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/producto/imagen`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -134,7 +134,7 @@ export const updateProductoImagen = async (imei: string, position: number, image
 };
 
 export const fetchImagenesDisponibles = async (): Promise<ImagenDisponible[]> => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/imagenes-disponibles`, { headers });
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/imagenes-disponibles`, { headers });
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -149,7 +149,7 @@ export const subirImagen = async (file: File): Promise<string> => {
   const formData = new FormData();
   formData.append('imagen', file);
 
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/subir-imagen`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/subir-imagen`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${API_TOKEN}`,
@@ -169,7 +169,7 @@ export const subirImagen = async (file: File): Promise<string> => {
 // === SINCRONIZACIÓN ===
 
 export const sincronizarProductos = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/sincronizar-productos`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/sincronizar-productos`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -183,7 +183,7 @@ export const sincronizarProductos = async (imei: string) => {
 };
 
 export const sincronizarMedios = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/sincronizar-medios`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/sincronizar-medios`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -229,7 +229,7 @@ export const crearCupon = async (data: {
   console.log('Tipo descuento:', typeof body.descuento);
   console.log('========================');
 
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/crear`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupon/crear`, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
@@ -254,7 +254,7 @@ export const crearCupon = async (data: {
 };
 
 export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/cupones/${imei}`, { headers });
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupones/${imei}`, { headers });
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -298,7 +298,7 @@ export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
 };
 
 export const fetchCodigosCupon = async (cuponId: string): Promise<CodigoCupon[]> => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/codigos/${cuponId}`, { headers });
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupon/codigos/${cuponId}`, { headers });
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -334,11 +334,11 @@ export const eliminarCupon = async (cuponId: string) => {
   ];
 
   const attempts: Array<{ url: string; method: 'POST' | 'DELETE'; body?: Record<string, unknown> }> = [
-    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/eliminar`, method: 'POST', body: payloads[0] },
-    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/eliminar`, method: 'POST', body: payloads[1] },
-    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/${cuponId}`, method: 'DELETE' },
-    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/eliminar/${cuponId}`, method: 'DELETE' },
-    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/delete`, method: 'POST', body: payloads[0] },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar`, method: 'POST', body: payloads[0] },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar`, method: 'POST', body: payloads[1] },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/${cuponId}`, method: 'DELETE' },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar/${cuponId}`, method: 'DELETE' },
+    { url: `${API_BASE_URL}/fabricante/v1/cupon/delete`, method: 'POST', body: payloads[0] },
   ];
 
   const errors: string[] = [];
@@ -369,7 +369,7 @@ export const eliminarCupon = async (cuponId: string) => {
 // === CONTROL REMOTO ===
 
 export const controlOrigen = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/origen`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/origen`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -384,7 +384,7 @@ export const controlOrigen = async (imei: string) => {
 };
 
 export const controlDeshielo = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/deshielo`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/deshielo`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -435,7 +435,7 @@ export const controlDescongelacionOff = async (imei: string) => {
 };
 
 export const controlPausarVentas = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/pausar-ventas`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/pausar-ventas`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -450,7 +450,7 @@ export const controlPausarVentas = async (imei: string) => {
 };
 
 export const controlReanudarVentas = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/reanudar-ventas`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/reanudar-ventas`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -465,7 +465,7 @@ export const controlReanudarVentas = async (imei: string) => {
 };
 
 export const controlHacerHelado = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/hacer-helado`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/hacer-helado`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -480,7 +480,7 @@ export const controlHacerHelado = async (imei: string) => {
 };
 
 export const controlRefrigeracionOn = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/refrigeracion/on`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/refrigeracion/on`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -495,7 +495,7 @@ export const controlRefrigeracionOn = async (imei: string) => {
 };
 
 export const controlRefrigeracionOff = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/refrigeracion/off`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/refrigeracion/off`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -512,7 +512,7 @@ export const controlRefrigeracionOff = async (imei: string) => {
 // === REPOSICIÓN DE STOCK ===
 
 export const actualizarStockTopping = async (imei: string, posiciones: string[]) => {
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/stock/reponer`, {
+  const response = await fetch(`${API_BASE_URL}/fabricante/v1/stock/reponer`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ 
