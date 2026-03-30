@@ -11,8 +11,8 @@ import { cn } from '@/lib/utils';
 import { format, subDays, addDays, isToday as isTodayFn, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
-// API returns times already in Spain local time — no timezone conversion needed
 import { fetchOrdenes } from '@/services/api';
+import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { toast } from 'sonner';
 import {

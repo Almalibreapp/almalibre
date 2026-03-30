@@ -31,28 +31,39 @@ export const AdminDashboard = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch today's sales — API returns dates/times already in Spain local time
+  // Fetch today's sales using dual China dates to capture all Spain-day sales
+  const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const chinaDates = useMemo(() => getChinaDatesForSpainDate(todaySpain), [todaySpain]);
+
   const { data: ventasHoy = [], isLoading: loadingSales } = useQuery({
-    queryKey: ['admin-dashboard-ventas', todayStr, machines.map(m => m.mac_address).join(',')],
+    queryKey: ['admin-dashboard-ventas', todaySpain, machines.map(m => m.mac_address).join(',')],
     queryFn: async () => {
       if (machines.length === 0) return [];
       const uniqueByImei = Array.from(new Map(machines.map(m => [m.mac_address, m])).values());
 
-      const promises = uniqueByImei.map(async (m) => {
-        try {
-          const detalle = await fetchOrdenes(m.mac_address, todayStr);
-          if (!detalle?.ventas) return [];
-          return detalle.ventas.map((v: any) => ({
-            id: v.id || v.numero_orden || `${m.id}-${v.hora}-${v.precio}-${Math.random()}`,
-            precio: Number(v.precio || 0),
-            hora: v.hora || '00:00',
-            fechaSpain: (v.fecha || detalle.fecha || todayStr).substring(0, 10),
-            cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-            maquina_id: m.id,
-            estado: v.estado || 'exitoso',
-          }));
-        } catch { return []; }
-      });
+      const promises = uniqueByImei.flatMap((m) =>
+        chinaDates.map(async (chinaDate) => {
+          try {
+            const detalle = await fetchOrdenes(m.mac_address, chinaDate);
+            if (!detalle?.ventas) return [];
+            return detalle.ventas
+              .map((v: any) => {
+                const ventaFecha = v.fecha || detalle.fecha || chinaDate;
+                const converted = convertChinaToSpainFull(v.hora || '00:00', ventaFecha);
+                return {
+                  id: v.id || v.numero_orden || `${m.id}-${chinaDate}-${v.hora}-${v.precio}`,
+                  precio: Number(v.precio || 0),
+                  hora: converted.hora,
+                  fechaSpain: converted.fecha,
+                  cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+                  maquina_id: m.id,
+                  estado: v.estado || 'exitoso',
+                };
+              })
+              .filter((v: any) => v.fechaSpain === todaySpain);
+          } catch { return []; }
+        })
+      );
       const results = await Promise.allSettled(promises);
       const allSales = results
         .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
