@@ -334,11 +334,11 @@ export const eliminarCupon = async (cuponId: string) => {
   ];
 
   const attempts: Array<{ url: string; method: 'POST' | 'DELETE'; body?: Record<string, unknown> }> = [
-    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar`, method: 'POST', body: payloads[0] },
-    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar`, method: 'POST', body: payloads[1] },
-    { url: `${API_BASE_URL}/fabricante/v1/cupon/${cuponId}`, method: 'DELETE' },
-    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar/${cuponId}`, method: 'DELETE' },
-    { url: `${API_BASE_URL}/fabricante/v1/cupon/delete`, method: 'POST', body: payloads[0] },
+    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/eliminar`, method: 'POST', body: payloads[0] },
+    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/eliminar`, method: 'POST', body: payloads[1] },
+    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/${cuponId}`, method: 'DELETE' },
+    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/eliminar/${cuponId}`, method: 'DELETE' },
+    { url: `${API_BASE_URL_EXT}/fabricante-ext/v1/cupon/delete`, method: 'POST', body: payloads[0] },
   ];
 
   const errors: string[] = [];
@@ -369,7 +369,7 @@ export const eliminarCupon = async (cuponId: string) => {
 // === CONTROL REMOTO ===
 
 export const controlOrigen = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/origen`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/origen`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -384,7 +384,7 @@ export const controlOrigen = async (imei: string) => {
 };
 
 export const controlDeshielo = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/deshielo`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/deshielo`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -435,7 +435,7 @@ export const controlDescongelacionOff = async (imei: string) => {
 };
 
 export const controlPausarVentas = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/pausar-ventas`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/pausar-ventas`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -450,7 +450,7 @@ export const controlPausarVentas = async (imei: string) => {
 };
 
 export const controlReanudarVentas = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/reanudar-ventas`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/reanudar-ventas`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -465,7 +465,7 @@ export const controlReanudarVentas = async (imei: string) => {
 };
 
 export const controlHacerHelado = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/hacer-helado`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/hacer-helado`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -480,7 +480,7 @@ export const controlHacerHelado = async (imei: string) => {
 };
 
 export const controlRefrigeracionOn = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/refrigeracion/on`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/refrigeracion/on`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -495,7 +495,7 @@ export const controlRefrigeracionOn = async (imei: string) => {
 };
 
 export const controlRefrigeracionOff = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/refrigeracion/off`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/refrigeracion/off`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -512,7 +512,7 @@ export const controlRefrigeracionOff = async (imei: string) => {
 // === REPOSICIÓN DE STOCK ===
 
 export const actualizarStockTopping = async (imei: string, posiciones: string[]) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/stock/reponer`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/stock/reponer`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ 
