@@ -11,7 +11,7 @@ import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lu
 
 export const AdminDashboard = () => {
   useVentasRealtime();
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  
 
   const { data: machines = [] } = useQuery({
     queryKey: ['admin-all-machines'],
