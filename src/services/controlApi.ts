@@ -60,7 +60,7 @@ export const fetchProductos = async (imei: string): Promise<ProductosResponse> =
 };
 
 export const updateProductoPrecio = async (imei: string, position: number, precio: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/producto/precio`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/producto/precio`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -84,7 +84,7 @@ export const updateProductoNombre = async (imei: string, position: number, nombr
   console.log('Position:', position);
   console.log('Nuevo nombre:', nombre);
 
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/producto/nombre`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/producto/nombre`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -110,7 +110,7 @@ export const updateProductoNombre = async (imei: string, position: number, nombr
 };
 
 export const updateProductoImagen = async (imei: string, position: number, imageUrl: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/producto/imagen`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/producto/imagen`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -134,7 +134,7 @@ export const updateProductoImagen = async (imei: string, position: number, image
 };
 
 export const fetchImagenesDisponibles = async (): Promise<ImagenDisponible[]> => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/imagenes-disponibles`, { headers });
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/imagenes-disponibles`, { headers });
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -149,7 +149,7 @@ export const subirImagen = async (file: File): Promise<string> => {
   const formData = new FormData();
   formData.append('imagen', file);
 
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/subir-imagen`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/subir-imagen`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${API_TOKEN}`,
@@ -169,7 +169,7 @@ export const subirImagen = async (file: File): Promise<string> => {
 // === SINCRONIZACIÓN ===
 
 export const sincronizarProductos = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/sincronizar-productos`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/sincronizar-productos`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
@@ -183,7 +183,7 @@ export const sincronizarProductos = async (imei: string) => {
 };
 
 export const sincronizarMedios = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/sincronizar-medios`, {
+  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/control/sincronizar-medios`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ imei }),
