@@ -56,6 +56,7 @@ const decodeHtml = (text: string): string => {
 
 export const MachineDetail = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { maquinas } = useMaquinas(user?.id);
