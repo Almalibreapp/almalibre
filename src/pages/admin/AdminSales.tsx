@@ -199,8 +199,8 @@ export const AdminSales = () => {
   const ventasDia = useMemo(() => {
     if (!ventasDiaRaw) return [];
     return ventasDiaRaw.filter(v => {
-      const converted = convertChinaToSpainFull(v.hora, v.fecha);
-      return converted.fecha === dateStr;
+      // API times are already in Spanish timezone - filter by raw fecha
+      return (v.fecha || '').substring(0, 10) === dateStr;
     });
   }, [ventasDiaRaw, dateStr]);
 
