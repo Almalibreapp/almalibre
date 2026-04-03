@@ -19,6 +19,7 @@ import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { useStockPolling } from '@/hooks/useStockPolling';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
+import type { Venta } from '@/types';
 import { cn } from '@/lib/utils';
 import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import { format } from 'date-fns';
@@ -37,8 +38,18 @@ type MachineSaleLike = {
   hora?: string;
   precio?: number | string;
   producto?: string;
+  estado?: string;
   toppings?: unknown;
-  [key: string]: unknown;
+  cantidad_unidades?: number;
+  metodo_pago?: string;
+};
+
+type NormalizedMachineSale = Venta & {
+  fecha: string;
+  _spainFecha: string;
+  _spainHora: string;
+  saleUid: string;
+  venta_api_id?: string | number;
 };
 
 const normalizeSaleDate = (value: unknown, fallback = '') => String(value || fallback).substring(0, 10);
@@ -55,25 +66,39 @@ const buildSaleUid = (sale: MachineSaleLike, fallbackDate: string) => String(
     ?? `${normalizeSaleDate(sale.fecha, fallbackDate)}|${normalizeSaleTime(sale.hora)}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
 );
 
+const normalizeMachineSale = (sale: MachineSaleLike, fallbackDate: string): NormalizedMachineSale => {
+  const fecha = normalizeSaleDate(sale.fecha, fallbackDate);
+  const hora = normalizeSaleTime(sale.hora);
+  const saleUid = buildSaleUid(sale, fallbackDate);
+
+  return {
+    ...sale,
+    id: String(sale.id ?? saleUid),
+    fecha,
+    hora,
+    precio: Number(sale.precio || 0),
+    producto: String(sale.producto || ''),
+    estado: String(sale.estado || 'exitoso'),
+    toppings: Array.isArray(sale.toppings) ? (sale.toppings as Venta['toppings']) : [],
+    _spainFecha: fecha,
+    _spainHora: hora,
+    saleUid,
+    numero_orden: sale.numero_orden ? String(sale.numero_orden) : undefined,
+  };
+};
+
 const prepareSalesForChartDate = <T extends MachineSaleLike>(sales: T[], targetDate: string, fallbackDate: string) => {
   const seen = new Set<string>();
 
   return sales.flatMap((sale) => {
-    const fecha = normalizeSaleDate(sale.fecha, fallbackDate);
-    if (fecha !== targetDate) return [];
+    const normalizedSale = normalizeMachineSale(sale, fallbackDate);
+    if (normalizedSale.fecha !== targetDate) return [];
 
-    const saleUid = buildSaleUid(sale, fallbackDate);
+    const saleUid = normalizedSale.saleUid;
     if (seen.has(saleUid)) return [];
     seen.add(saleUid);
 
-    return [{
-      ...sale,
-      fecha,
-      hora: normalizeSaleTime(sale.hora),
-      _spainFecha: fecha,
-      _spainHora: normalizeSaleTime(sale.hora),
-      saleUid,
-    }];
+    return [normalizedSale];
   });
 };
 
@@ -90,21 +115,14 @@ const mergeSalesResponsesForDate = (
     const fallbackDate = normalizeSaleDate(response.fecha, fallbackDates[index] || targetDate);
 
     return response.ventas.flatMap((sale) => {
-      const fecha = normalizeSaleDate(sale.fecha, fallbackDate);
-      if (fecha !== targetDate) return [];
+      const normalizedSale = normalizeMachineSale(sale, fallbackDate);
+      if (normalizedSale.fecha !== targetDate) return [];
 
-      const saleUid = buildSaleUid(sale, fallbackDate);
+      const saleUid = normalizedSale.saleUid;
       if (seen.has(saleUid)) return [];
       seen.add(saleUid);
 
-      return [{
-        ...sale,
-        fecha,
-        hora: normalizeSaleTime(sale.hora),
-        _spainFecha: fecha,
-        _spainHora: normalizeSaleTime(sale.hora),
-        saleUid,
-      }];
+      return [normalizedSale];
     });
   });
 };
@@ -205,7 +223,7 @@ export const AdminMachineDetail = () => {
 
   const ventasHoyChart = useMemo(() => {
     if (!ventasDetalle?.ventas) return [];
-    return prepareSalesForChartDate(ventasDetalle.ventas as MachineSaleLike[], todayStr, todayStr);
+    return prepareSalesForChartDate(ventasDetalle.ventas, todayStr, todayStr);
   }, [ventasDetalle, todayStr]);
 
   const currentVentas = isToday
