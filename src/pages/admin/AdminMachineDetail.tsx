@@ -29,6 +29,7 @@ import {
 
 export const AdminMachineDetail = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { id } = useParams<{ id: string }>();
   const [maquina, setMaquina] = useState<any>(null);
   const [loadingMachine, setLoadingMachine] = useState(true);
