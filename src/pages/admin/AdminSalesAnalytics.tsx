@@ -12,7 +12,6 @@ import { format, subDays, addDays, isToday as isTodayFn, startOfMonth, endOfMont
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { fetchOrdenes } from '@/services/api';
-import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { toast } from 'sonner';
 import {
@@ -22,25 +21,28 @@ import {
 } from 'lucide-react';
 
 /**
- * Fetch sales from API for a given China date, convert to Spain date/time,
- * and tag each sale with its real Spanish date and time.
+ * The manufacturer orders API already returns date/time in Spain local time.
+ * We preserve those raw values as the source of truth here.
  */
 const fetchDaySalesRaw = async (imei: string, maquinaId: string, apiDate: string) => {
   try {
     const detalle = await fetchOrdenes(imei, apiDate);
     if (!detalle?.ventas) return [];
+
+    const fallbackDate = (detalle.fecha || apiDate).substring(0, 10);
+
     return detalle.ventas.map((v: any) => {
-      const ventaFecha = (v.fecha || detalle.fecha || apiDate).substring(0, 10);
-      const ventaHora = v.hora || '00:00';
-      const converted = convertChinaToSpainFull(ventaHora, ventaFecha);
+      const ventaFecha = (v.fecha || fallbackDate).substring(0, 10);
+      const ventaHora = String(v.hora || '00:00').substring(0, 5);
+
       return {
-        id: v.id || v.numero_orden || `${maquinaId}-${apiDate}-${ventaHora}-${v.precio}`,
+        id: v.id || v.numero_orden || `${maquinaId}-${ventaFecha}-${ventaHora}-${v.precio}`,
         maquina_id: maquinaId,
         imei,
         fecha: ventaFecha,
-        fechaSpain: converted.fecha,
+        fechaSpain: ventaFecha,
         hora: ventaHora,
-        horaSpain: converted.hora,
+        horaSpain: ventaHora,
         producto: v.producto || '',
         precio: Number(v.precio || 0),
         cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
@@ -50,19 +52,14 @@ const fetchDaySalesRaw = async (imei: string, maquinaId: string, apiDate: string
         toppings: v.toppings || [],
       };
     });
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 };
 
-/**
- * Fetch sales for a Spanish date by querying BOTH China dates that could contain
- * sales for that day, then filtering by the target Spanish date.
- */
 const fetchSpanishDaySales = async (imei: string, maquinaId: string, spanishDate: string) => {
-  const chinaDates = getChinaDatesForSpainDate(spanishDate);
-  const allSales = await Promise.all(
-    chinaDates.map(d => fetchDaySalesRaw(imei, maquinaId, d))
-  );
-  return allSales.flat().filter(s => s.fechaSpain === spanishDate);
+  const sales = await fetchDaySalesRaw(imei, maquinaId, spanishDate);
+  return sales.filter(s => s.fechaSpain === spanishDate);
 };
 
 /** Helper: deduplicate sales by unique sale ID */
@@ -188,26 +185,16 @@ export const AdminSalesAnalytics = () => {
         : maquinas.filter(m => m.id === selectedMachine);
       const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
 
-      // For monthly, fetch each Spanish date using dual China dates
-      const lastDay = endOfMonth(currentMonth);
-      const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: lastDay });
-      const spanishDates = days.map(d => formatLocal(d));
+      const spanishDates = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) })
+        .map(d => formatLocal(d));
+      const validDates = new Set(spanishDates);
 
-      // Collect all unique China dates needed
-      const allChinaDates = new Set<string>();
-      spanishDates.forEach(sd => {
-        getChinaDatesForSpainDate(sd).forEach(cd => allChinaDates.add(cd));
-      });
-
-      // Fetch all China dates for each machine
       const allSales = await Promise.all(
         uniqueByImei.flatMap(m =>
-          Array.from(allChinaDates).map(fecha => fetchDaySalesRaw(m.mac_address, m.id, fecha))
+          spanishDates.map(fecha => fetchDaySalesRaw(m.mac_address, m.id, fecha))
         )
       );
 
-      // Filter: only keep sales whose Spanish date falls within the month
-      const validDates = new Set(spanishDates);
       return deduplicateSales(allSales.flat().filter(s => validDates.has(s.fechaSpain)));
     },
     staleTime: 5 * 60 * 1000,
