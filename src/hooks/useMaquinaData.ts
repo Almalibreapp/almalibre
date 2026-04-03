@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   fetchMiMaquina,
@@ -18,7 +17,13 @@ import { fetchSpanishDayOrders } from '@/lib/sales';
 
 const mapSpanishSaleToVenta = (sale: any) => ({
   ...sale,
-  id: String(sale.id ?? sale.saleUid ?? sale.venta_api_id ?? sale.numero_orden ?? crypto.randomUUID()),
+  id: String(
+    sale.id
+      ?? sale.saleUid
+      ?? sale.venta_api_id
+      ?? sale.numero_orden
+      ?? `${sale.fechaSpain || sale.fecha || ''}|${sale.horaSpain || sale.hora || '00:00'}|${Number(sale.precio || 0)}|${String(sale.producto || '')}`
+  ),
   fecha: sale.fechaSpain || sale.fecha || '',
   hora: sale.horaSpain || sale.hora || '00:00',
   precio: Number(sale.precio || 0),
