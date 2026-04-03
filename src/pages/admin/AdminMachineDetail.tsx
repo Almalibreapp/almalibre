@@ -19,6 +19,7 @@ import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { useStockPolling } from '@/hooks/useStockPolling';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
+import type { Venta } from '@/types';
 import { cn } from '@/lib/utils';
 import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import { format } from 'date-fns';
@@ -28,6 +29,103 @@ import {
   ChevronLeft, ChevronRight, Clock, Activity, CheckCircle, AlertTriangle, XCircle,
   Snowflake, Circle, CalendarIcon,
 } from 'lucide-react';
+
+type MachineSaleLike = {
+  id?: string | number;
+  venta_api_id?: string | number;
+  numero_orden?: string | number;
+  fecha?: string;
+  hora?: string;
+  precio?: number | string;
+  producto?: string;
+  estado?: string;
+  toppings?: unknown;
+  cantidad_unidades?: number;
+  metodo_pago?: string;
+};
+
+type NormalizedMachineSale = Venta & {
+  fecha: string;
+  _spainFecha: string;
+  _spainHora: string;
+  saleUid: string;
+  venta_api_id?: string | number;
+};
+
+const normalizeSaleDate = (value: unknown, fallback = '') => String(value || fallback).substring(0, 10);
+
+const normalizeSaleTime = (value: unknown) => {
+  const raw = String(value || '00:00');
+  return raw.length >= 5 ? raw.substring(0, 5) : '00:00';
+};
+
+const buildSaleUid = (sale: MachineSaleLike, fallbackDate: string) => String(
+  sale.id
+    ?? sale.venta_api_id
+    ?? sale.numero_orden
+    ?? `${normalizeSaleDate(sale.fecha, fallbackDate)}|${normalizeSaleTime(sale.hora)}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
+);
+
+const normalizeMachineSale = (sale: MachineSaleLike, fallbackDate: string): NormalizedMachineSale => {
+  const fecha = normalizeSaleDate(sale.fecha, fallbackDate);
+  const hora = normalizeSaleTime(sale.hora);
+  const saleUid = buildSaleUid(sale, fallbackDate);
+
+  return {
+    ...sale,
+    id: String(sale.id ?? saleUid),
+    fecha,
+    hora,
+    precio: Number(sale.precio || 0),
+    producto: String(sale.producto || ''),
+    estado: String(sale.estado || 'exitoso'),
+    toppings: Array.isArray(sale.toppings) ? (sale.toppings as Venta['toppings']) : [],
+    _spainFecha: fecha,
+    _spainHora: hora,
+    saleUid,
+    numero_orden: sale.numero_orden ? String(sale.numero_orden) : undefined,
+  };
+};
+
+const prepareSalesForChartDate = <T extends MachineSaleLike>(sales: T[], targetDate: string, fallbackDate: string) => {
+  const seen = new Set<string>();
+
+  return sales.flatMap((sale) => {
+    const normalizedSale = normalizeMachineSale(sale, fallbackDate);
+    if (normalizedSale.fecha !== targetDate) return [];
+
+    const saleUid = normalizedSale.saleUid;
+    if (seen.has(saleUid)) return [];
+    seen.add(saleUid);
+
+    return [normalizedSale];
+  });
+};
+
+const mergeSalesResponsesForDate = (
+  responses: Array<{ fecha?: string; ventas?: MachineSaleLike[] } | null>,
+  targetDate: string,
+  fallbackDates: string[]
+) => {
+  const seen = new Set<string>();
+
+  return responses.flatMap((response, index) => {
+    if (!response?.ventas?.length) return [];
+
+    const fallbackDate = normalizeSaleDate(response.fecha, fallbackDates[index] || targetDate);
+
+    return response.ventas.flatMap((sale) => {
+      const normalizedSale = normalizeMachineSale(sale, fallbackDate);
+      if (normalizedSale.fecha !== targetDate) return [];
+
+      const saleUid = normalizedSale.saleUid;
+      if (seen.has(saleUid)) return [];
+      seen.add(saleUid);
+
+      return [normalizedSale];
+    });
+  });
+};
 
 export const AdminMachineDetail = () => {
   const navigate = useNavigate();
@@ -54,7 +152,7 @@ export const AdminMachineDetail = () => {
   useVentasRealtime(imei);
   const { ultimaActualizacion: stockLastUpdate, polling: stockPolling, refrescarAhora: refrescarStock } = useStockPolling(imei, 1);
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
 
   // Today's sales from API
   const { data: ventasHoyAPI } = useQuery({
@@ -117,22 +215,20 @@ export const AdminMachineDetail = () => {
       const results = await Promise.all(
         selectedChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
       );
-      const allVentas: any[] = [];
-      results.forEach(r => {
-        if (r?.ventas) {
-          r.ventas.forEach((v: any) => {
-            const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
-            if (converted.fecha === selectedDate) {
-              allVentas.push({ ...v, _spainHora: converted.hora });
-            }
-          });
-        }
-      });
-      return { ventas: allVentas, fecha: selectedDate };
+      const ventas = mergeSalesResponsesForDate(results, selectedDate, selectedChinaDates);
+      return { ventas, fecha: selectedDate, total_ventas: ventas.length };
     },
     enabled: !!imei && !isToday && !!selectedDate,
   });
-  const currentVentas = isToday ? ventasDetalle : ventasSelectedDate;
+
+  const ventasHoyChart = useMemo(() => {
+    if (!ventasDetalle?.ventas) return [];
+    return prepareSalesForChartDate(ventasDetalle.ventas, todayStr, todayStr);
+  }, [ventasDetalle, todayStr]);
+
+  const currentVentas = isToday
+    ? { ventas: ventasHoyChart, fecha: todayStr, total_ventas: ventasHoyChart.length }
+    : ventasSelectedDate;
 
   // Prefetch adjacent days for faster navigation
   useEffect(() => {
@@ -151,18 +247,8 @@ export const AdminMachineDetail = () => {
         const results = await Promise.all(
           prevChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
         );
-        const allVentas: any[] = [];
-        results.forEach(r => {
-          if (r?.ventas) {
-            r.ventas.forEach((v: any) => {
-              const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
-              if (converted.fecha === prevStr) {
-                allVentas.push({ ...v, _spainHora: converted.hora });
-              }
-            });
-          }
-        });
-        return { ventas: allVentas, fecha: prevStr };
+        const ventas = mergeSalesResponsesForDate(results, prevStr, prevChinaDates);
+        return { ventas, fecha: prevStr, total_ventas: ventas.length };
       },
       staleTime: 5 * 60 * 1000,
     });
