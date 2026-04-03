@@ -514,7 +514,7 @@ export const AdminSales = () => {
                       <TableBody>
                         {ventasDia?.map(v => (
                           <TableRow key={v.id}>
-                            <TableCell className="font-mono text-xs">{convertChinaToSpain(v.hora, v.fecha)}</TableCell>
+                            <TableCell className="font-mono text-xs">{(v.hora || '00:00').substring(0, 5)}</TableCell>
                             {selectedMachine === 'all' && (
                               <TableCell className="text-xs">{getMachineName(v.maquina_id)}</TableCell>
                             )}
