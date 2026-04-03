@@ -2,16 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchVentasResumen, fetchOrdenes, fetchTemperatura } from '@/services/api';
-import { VentasResumenResponse, VentasDetalleResponse, TemperaturaResponse, ToppingVenta } from '@/types';
-
-// Fetch ordenes for a specific machine and date
-const fetchMachineOrdenes = async (imei: string, fecha?: string) => {
-  try {
-    return await fetchOrdenes(imei, fecha);
-  } catch {
-    return null;
-  }
-};
+import { VentasResumenResponse, TemperaturaResponse, ToppingVenta } from '@/types';
+import { fetchSpanishDayOrders, isSuccessfulSale, buildHourlySalesData, getPeakSalesHour, getCurrentSpainDate } from '@/lib/sales';
 
 const fetchMachineVentasResumen = async (imei: string) => {
   try {
@@ -39,7 +31,7 @@ export interface NetworkSalesData {
 }
 
 export interface NetworkDetailData {
-  detallePorMaquina: { maquinaId: string; nombre: string; imei: string; detalle: VentasDetalleResponse | null }[];
+  detallePorMaquina: { maquinaId: string; nombre: string; imei: string; ventas: any[] }[];
   horaCaliente: { hora: string; ventas: number; ingresos: number } | null;
   todasLasVentas: { maquina: string; id: string; hora: string; producto: string; precio: number; estado: string; toppings: ToppingVenta[] }[];
 }
@@ -93,51 +85,41 @@ export const useNetworkDetail = (fecha?: string) => {
   const { maquinas } = useMaquinas(user?.id);
 
   const imeis = maquinas.map(m => ({ id: m.id, nombre: m.nombre_personalizado, imei: m.mac_address }));
+  const spainDate = fecha || getCurrentSpainDate();
 
   return useQuery<NetworkDetailData>({
-    queryKey: ['network-detail', imeis.map(m => m.imei).join(','), fecha],
+    queryKey: ['network-detail', imeis.map(m => m.imei).join(','), spainDate],
     queryFn: async () => {
+      // Use centralized fetchSpanishDayOrders for each machine — handles timezone detection & normalization
       const results = await Promise.all(
-        imeis.map(async (m) => ({
-          maquinaId: m.id,
-          nombre: m.nombre,
-          imei: m.imei,
-          detalle: await fetchMachineOrdenes(m.imei, fecha),
-        }))
+        imeis.map(async (m) => {
+          const ventas = await fetchSpanishDayOrders(m.imei, spainDate, fetchOrdenes).catch(() => []);
+          return {
+            maquinaId: m.id,
+            nombre: m.nombre,
+            imei: m.imei,
+            ventas,
+          };
+        })
       );
 
-      // Aggregate all sales with machine name and toppings
+      // Aggregate all sales with machine name — hours are already in Spain time (_spainHora)
       const todasLasVentas = results
         .flatMap(r =>
-          (r.detalle?.ventas ?? []).map(v => ({
+          r.ventas.map((v: any) => ({
             maquina: r.nombre,
-            id: v.id,
-            hora: v.hora,
+            id: v.saleUid || v.id || String(Math.random()),
+            hora: v.horaSpain || v._spainHora || v.hora,
             producto: v.producto,
-            precio: v.precio,
-            estado: v.estado,
-            toppings: v.toppings || [],
+            precio: Number(v.precio || 0),
+            estado: String(v.estado || 'exitoso'),
+            toppings: Array.isArray(v.toppings) ? v.toppings : [],
           }))
         )
         .sort((a, b) => b.hora.localeCompare(a.hora));
 
-      // Calculate peak hour (hora caliente) in Spanish local time
-      const ventasPorHora: Record<string, { ventas: number; ingresos: number }> = {};
-      todasLasVentas.forEach(v => {
-        const hora = v.hora.split(':')[0] + ':00';
-        if (!ventasPorHora[hora]) ventasPorHora[hora] = { ventas: 0, ingresos: 0 };
-        ventasPorHora[hora].ventas += 1;
-        ventasPorHora[hora].ingresos += v.precio;
-      });
-
-      let horaCaliente: NetworkDetailData['horaCaliente'] = null;
-      let maxVentas = 0;
-      Object.entries(ventasPorHora).forEach(([hora, data]) => {
-        if (data.ventas > maxVentas) {
-          maxVentas = data.ventas;
-          horaCaliente = { hora, ventas: data.ventas, ingresos: data.ingresos };
-        }
-      });
+      // Peak hour using already-normalized Spain hours
+      const horaCaliente = getPeakSalesHour(todasLasVentas);
 
       return { detallePorMaquina: results, horaCaliente, todasLasVentas };
     },
@@ -158,7 +140,6 @@ export const useNetworkTemperatures = () => {
       const results = await Promise.all(
         imeis.map(async (m) => {
           const temperatura = await fetchMachineTemperatura(m.imei);
-          // Machine is online if API returns valid temperature data (not null)
           const isOnline = temperatura !== null && temperatura.temperatura !== null && temperatura.temperatura !== undefined;
           return {
             maquinaId: m.id,
