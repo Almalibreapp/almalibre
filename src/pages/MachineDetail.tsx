@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -26,7 +25,8 @@ import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
-import { convertChinaToSpain, convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
+import { convertChinaToSpainFull } from '@/lib/timezone';
+import { fetchSpanishDayOrders, isSuccessfulSale, summarizeSales, getCurrentSpainDate, shiftSpainDate, getMonthDatesUntil } from '@/lib/sales';
 import {
   ArrowLeft,
   Settings,
@@ -117,9 +117,8 @@ export const MachineDetail = () => {
   }, [refetchAll]);
   
   // Spain timezone constants (declared early for use in queries)
-  const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const todaySpain = getCurrentSpainDate();
   const currentMonthSpain = todaySpain.substring(0, 7);
-  const todayChinaDates = useMemo(() => getChinaDatesForSpainDate(todaySpain), [todaySpain]);
 
   // State for date navigation  
   const [selectedDate, setSelectedDate] = useState<string | null>(null); // null = today
@@ -154,33 +153,12 @@ export const MachineDetail = () => {
     ? format(new Date(selectedDate), "EEEE d 'de' MMMM", { locale: es })
     : 'Hoy';
   
-  // Query for selected date's sales - fetch both China dates that could contain Spain-date sales
-  const selectedChinaDates = useMemo(() => {
-    const spainDate = selectedDate || todaySpain;
-    return getChinaDatesForSpainDate(spainDate);
-  }, [selectedDate, todaySpain]);
-
+  // Query for selected date's sales using centralized fetchSpanishDayOrders
   const { data: ventasSelectedDateRaw, isLoading: loadingSelected } = useQuery({
     queryKey: ['ventas-detalle-date', imei, selectedDate],
     queryFn: async () => {
       if (!imei || isToday) return null;
-      // Fetch both China dates using paginated endpoint
-      const results = await Promise.all(
-        selectedChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
-      );
-      // Merge ventas from both days
-      const allVentas: any[] = [];
-      results.forEach(r => {
-        if (r?.ventas) {
-          r.ventas.forEach((v: any) => {
-            const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
-            if (converted.fecha === selectedDate) {
-              allVentas.push({ ...v, _spainHora: converted.hora });
-            }
-          });
-        }
-      });
-      return allVentas;
+      return fetchSpanishDayOrders(imei, selectedDate!, fetchOrdenes);
     },
     enabled: !!imei && !isToday,
   });
@@ -189,82 +167,31 @@ export const MachineDetail = () => {
   useEffect(() => {
     if (!imei) return;
     const currentDateStr = selectedDate || todaySpain;
-    const currentD = new Date(currentDateStr);
     
     // Prefetch previous day
-    const prevDay = new Date(currentD);
-    prevDay.setDate(prevDay.getDate() - 1);
-    const prevStr = prevDay.toISOString().split('T')[0];
-    const prevChinaDates = getChinaDatesForSpainDate(prevStr);
-    
+    const prevStr = shiftSpainDate(currentDateStr, -1);
     queryClient.prefetchQuery({
       queryKey: ['ventas-detalle-date', imei, prevStr],
-      queryFn: async () => {
-        const results = await Promise.all(
-          prevChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
-        );
-        const allVentas: any[] = [];
-        results.forEach(r => {
-          if (r?.ventas) {
-            r.ventas.forEach((v: any) => {
-              const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
-              if (converted.fecha === prevStr) {
-                allVentas.push({ ...v, _spainHora: converted.hora });
-              }
-            });
-          }
-        });
-        return allVentas;
-      },
+      queryFn: () => fetchSpanishDayOrders(imei, prevStr, fetchOrdenes),
       staleTime: 5 * 60 * 1000,
     });
 
     // Prefetch next day (if not future)
-    const nextDay = new Date(currentD);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    nextDay.setHours(0,0,0,0);
-    if (nextDay <= today) {
-      const nextStr = nextDay.toISOString().split('T')[0];
-      const nextChinaDates = getChinaDatesForSpainDate(nextStr);
+    const nextStr = shiftSpainDate(currentDateStr, 1);
+    if (nextStr <= todaySpain) {
       queryClient.prefetchQuery({
         queryKey: ['ventas-detalle-date', imei, nextStr],
-        queryFn: async () => {
-          const results = await Promise.all(
-            nextChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
-          );
-          const allVentas: any[] = [];
-          results.forEach(r => {
-            if (r?.ventas) {
-              r.ventas.forEach((v: any) => {
-                const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
-                if (converted.fecha === nextStr) {
-                  allVentas.push({ ...v, _spainHora: converted.hora });
-                }
-              });
-            }
-          });
-          return allVentas;
-        },
+        queryFn: () => fetchSpanishDayOrders(imei, nextStr, fetchOrdenes),
         staleTime: 5 * 60 * 1000,
       });
     }
   }, [imei, selectedDate, todaySpain, queryClient]);
 
-
-  // ventas now come from two China dates, so each venta may have a different source fecha
+  // Today's sales already come pre-normalized from useVentasDetalle
   const ventasHoyFiltered = useMemo(() => {
     if (!ventasDetalle?.ventas) return [];
-    return ventasDetalle.ventas
-      .map((v: any) => {
-        // Each venta has its own fecha from the China date it was fetched from
-        const ventaFecha = v.fecha || ventasDetalle.fecha;
-        const converted = convertChinaToSpainFull(v.hora, ventaFecha);
-        return { ...v, _spainHora: converted.hora, _spainFecha: converted.fecha };
-      })
-      .filter((v: any) => v._spainFecha === todaySpain);
-  }, [ventasDetalle, todaySpain]);
+    return ventasDetalle.ventas;
+  }, [ventasDetalle]);
 
   const currentVentas = isToday 
     ? { ventas: ventasHoyFiltered, total_ventas: ventasHoyFiltered.length }
@@ -288,87 +215,43 @@ export const MachineDetail = () => {
   }, [ventasHoyFiltered]);
 
   // Yesterday in Spain
-  const yesterdaySpain = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  }, []);
+  const yesterdaySpain = useMemo(() => shiftSpainDate(todaySpain, -1), [todaySpain]);
 
-  // Fetch yesterday's sales from API using both China dates for accurate Spain-day grouping
-  const yesterdayChinaDates = useMemo(() => getChinaDatesForSpainDate(yesterdaySpain), [yesterdaySpain]);
-
+  // Fetch yesterday's sales using centralized normalization
   const { data: ventasAyerApi } = useQuery({
     queryKey: ['ventas-ayer-api', imei, yesterdaySpain],
-    queryFn: async () => {
+    queryFn: () => {
       if (!imei) return [];
-      const results = await Promise.all(
-        yesterdayChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
-      );
-      const allVentas: any[] = [];
-      results.forEach(r => {
-        if (r?.ventas) {
-          r.ventas.forEach((v: any) => {
-            const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
-            if (converted.fecha === yesterdaySpain) {
-              allVentas.push({ ...v, _spainHora: converted.hora });
-            }
-          });
-        }
-      });
-      return allVentas;
+      return fetchSpanishDayOrders(imei, yesterdaySpain, fetchOrdenes);
     },
     enabled: !!imei,
     staleTime: 5 * 60 * 1000,
   });
 
   const ventasAyerSpain = useMemo(() => {
-    const exitosas = (ventasAyerApi || []).filter((v: any) => {
-      const estado = (v.estado || '').toLowerCase();
-      return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
-    });
+    const exitosas = (ventasAyerApi || []).filter(isSuccessfulSale);
     return {
       euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0),
       cantidad: exitosas.length,
     };
   }, [ventasAyerApi]);
 
-  // Monthly sales: fetch ALL days from API (same approach as Admin)
-  const monthDays = useMemo(() => {
-    const now = new Date();
-    const start = startOfMonth(now);
-    const end = endOfMonth(now);
-    // Only up to today
-    const realEnd = end > now ? now : end;
-    return eachDayOfInterval({ start, end: realEnd }).map(d => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${day}`;
-    });
-  }, [todaySpain]);
+  // Monthly sales: fetch each day using centralized normalization
+  const monthDays = useMemo(() => getMonthDatesUntil(todaySpain), [todaySpain]);
 
   const { data: ventasMesApi } = useQuery({
     queryKey: ['ventas-mes-api', imei, currentMonthSpain],
     queryFn: async () => {
       if (!imei) return [];
-      // Fetch each day of the month from API (same as Admin)
       const allSales = await Promise.all(
-        monthDays.map(async (fecha) => {
-          try {
-            const detalle = await fetchOrdenes(imei, fecha);
-            if (!detalle?.ventas) return [];
-            return detalle.ventas.map((v: any) => ({
-              ...v,
-              fecha: (v.fecha || detalle.fecha || fecha).substring(0, 10),
-              precio: Number(v.precio || 0),
-            }));
-          } catch { return []; }
-        })
+        monthDays.map(fecha =>
+          fetchSpanishDayOrders(imei, fecha, fetchOrdenes).catch(() => [])
+        )
       );
-      // Deduplicate by id/numero_orden
+      // Deduplicate by saleUid
       const seen = new Set<string>();
-      return allSales.flat().filter(v => {
-        const key = v.id || v.numero_orden || `${v.fecha}-${v.hora}-${v.precio}`;
+      return allSales.flat().filter((v: any) => {
+        const key = v.saleUid || v.id || `${v.fecha}-${v.hora}-${v.precio}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
@@ -380,16 +263,11 @@ export const MachineDetail = () => {
   });
 
   const ventasMesFinal = useMemo(() => {
-    const exitosas = (ventasMesApi || []).filter((v: any) => {
-      const estado = (v.estado || '').toLowerCase();
-      return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
-    });
-    const total = {
+    const exitosas = (ventasMesApi || []).filter(isSuccessfulSale);
+    return {
       cantidad: exitosas.length,
       total_euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0),
     };
-    console.log(`[Dashboard] Mes desde API: ${total.cantidad} ventas, ${total.total_euros.toFixed(2)}€`);
-    return total;
   }, [ventasMesApi]);
 
   // Machine estado - periodic polling every 3 minutes
@@ -857,7 +735,7 @@ export const MachineDetail = () => {
                     </CardHeader>
                     <CardContent>
                       <SalesChart 
-                        ventas={currentVentas?.ventas || []} 
+                        ventas={(currentVentas?.ventas || []) as any[]} 
                       />
                     </CardContent>
                   </Card>

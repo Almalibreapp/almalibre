@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Maquina } from '@/types';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
-import { convertChinaToSpainFull } from '@/lib/timezone';
+import { isSuccessfulSale, summarizeSales } from '@/lib/sales';
 import { MapPin, Thermometer, AlertTriangle, Wifi, WifiOff, AlertCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,22 +22,16 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
   const ventasList = Array.isArray(ventasDetalle?.ventas) ? ventasDetalle.ventas : [];
   const toppingsList = Array.isArray(stock?.toppings) ? stock.toppings : [];
 
-  // Use API data directly for today's sales (fetches both China dates for Spain today)
+  // Sales already come pre-normalized to Spain time from useVentasDetalle
   const ventasHoy = useMemo(() => {
     if (ventasList.length === 0) return { euros: 0, cantidad: 0 };
-    const exitosas = ventasList
-      .filter((v: any) => {
-        const ventaFecha = v.fecha || ventasDetalle.fecha;
-        const converted = convertChinaToSpainFull(v.hora, ventaFecha);
-        const estado = (v.estado || '').toLowerCase();
-        const noFailed = estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
-        return converted.fecha === todaySpain && noFailed;
-      });
+    // ventas already filtered to todaySpain by the hook, just filter successful
+    const exitosas = ventasList.filter((v: any) => isSuccessfulSale(v));
     return {
       euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0),
       cantidad: exitosas.length,
     };
-  }, [ventasDetalle?.fecha, ventasList, todaySpain]);
+  }, [ventasList]);
 
   const lowStockCount = toppingsList.filter(t => t.capacidad_maxima > 0 && (t.stock_actual / t.capacidad_maxima) <= 0.25).length;
   const isOnline = maquina.activa && !hasError;
