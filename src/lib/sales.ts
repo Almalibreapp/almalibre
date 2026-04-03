@@ -26,20 +26,55 @@ const getHour = (value: unknown) => {
   return Number.isFinite(hour) ? hour : 0;
 };
 
-export const detectSalesTimezoneMode = (sales: Array<{ hora?: string }>): SalesTimezoneMode => {
+type TimezoneDetection = {
+  mode: SalesTimezoneMode;
+  ambiguous: boolean;
+};
+
+const timezoneModeCache = new Map<string, SalesTimezoneMode>();
+
+const shiftIsoDate = (date: string, days: number) => {
+  const [year, month, day] = date.split('-').map(Number);
+  const value = new Date(Date.UTC(year, (month || 1) - 1, day || 1));
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().substring(0, 10);
+};
+
+const inspectSalesTimezoneMode = (sales: Array<{ hora?: string }>): TimezoneDetection => {
   const hours = sales.map((sale) => getHour(sale.hora));
   const earlyCount = hours.filter((hour) => hour >= 0 && hour <= 5).length;
+  const middayCount = hours.filter((hour) => hour >= 6 && hour <= 17).length;
   const eveningCount = hours.filter((hour) => hour >= 18).length;
 
   if (earlyCount >= 2 && eveningCount >= 2) {
-    return 'china';
+    return { mode: 'china', ambiguous: false };
   }
 
-  return 'spain';
+  if (hours.length === 0) {
+    return { mode: 'spain', ambiguous: true };
+  }
+
+  if (earlyCount >= 2 && eveningCount === 0 && middayCount === 0) {
+    return { mode: 'spain', ambiguous: true };
+  }
+
+  if (eveningCount >= 2 && earlyCount === 0 && middayCount === 0) {
+    return { mode: 'spain', ambiguous: true };
+  }
+
+  return { mode: 'spain', ambiguous: false };
 };
 
-export const normalizeSalesBatchToSpain = <T extends SaleLike>(sales: T[], fallbackDate: string) => {
-  const timezoneMode = detectSalesTimezoneMode(sales);
+export const detectSalesTimezoneMode = (sales: Array<{ hora?: string }>): SalesTimezoneMode => {
+  return inspectSalesTimezoneMode(sales).mode;
+};
+
+export const normalizeSalesBatchToSpain = <T extends SaleLike>(
+  sales: T[],
+  fallbackDate: string,
+  forcedTimezoneMode?: SalesTimezoneMode
+) => {
+  const timezoneMode = forcedTimezoneMode ?? detectSalesTimezoneMode(sales);
 
   return sales.map((sale) => {
     const fecha = normalizeDate(sale.fecha, fallbackDate);
@@ -85,11 +120,38 @@ export const fetchSpanishDayOrders = async (
 ) => {
   const sourceDates = getChinaDatesForSpainDate(spainDate);
   const responses = await Promise.all(sourceDates.map((date) => fetcher(imei, date).catch(() => null)));
+  const sampledSales = responses.flatMap((response) => response?.ventas ?? []);
+
+  let timezoneMode = timezoneModeCache.get(imei);
+
+  if (!timezoneMode) {
+    let detection = inspectSalesTimezoneMode(sampledSales);
+
+    if (detection.ambiguous) {
+      const previousDate = shiftIsoDate(sourceDates[0], -1);
+      const nextDate = shiftIsoDate(sourceDates[sourceDates.length - 1], 1);
+      const extraResponses = await Promise.all([
+        fetcher(imei, previousDate).catch(() => null),
+        fetcher(imei, nextDate).catch(() => null),
+      ]);
+
+      detection = inspectSalesTimezoneMode([
+        ...sampledSales,
+        ...extraResponses.flatMap((response) => response?.ventas ?? []),
+      ]);
+    }
+
+    timezoneMode = detection.mode;
+
+    if (timezoneMode === 'china' || !detection.ambiguous) {
+      timezoneModeCache.set(imei, timezoneMode);
+    }
+  }
 
   const normalized = responses.flatMap((response, index) => {
     if (!response?.ventas || response.ventas.length === 0) return [];
     const fallbackDate = normalizeDate(response.fecha, sourceDates[index]);
-    return normalizeSalesBatchToSpain(response.ventas, fallbackDate);
+    return normalizeSalesBatchToSpain(response.ventas, fallbackDate, timezoneMode);
   });
 
   return dedupeSalesByUid(normalized).filter((sale) => sale.fechaSpain === spainDate);
