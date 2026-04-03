@@ -103,12 +103,68 @@ export const AdminMachineDetail = () => {
   const isToday = selectedDate === null;
   const displayDate = selectedDate ? format(new Date(selectedDate), "EEEE d 'de' MMMM", { locale: es }) : 'Hoy';
 
+  const selectedChinaDates = useMemo(() => {
+    const spainDate = selectedDate || todayStr;
+    return getChinaDatesForSpainDate(spainDate);
+  }, [selectedDate, todayStr]);
+
   const { data: ventasSelectedDate } = useQuery({
     queryKey: ['ventas-ordenes-date', imei, selectedDate],
-    queryFn: () => fetchOrdenes(imei!, selectedDate!),
+    queryFn: async () => {
+      if (!imei || !selectedDate) return null;
+      const results = await Promise.all(
+        selectedChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
+      );
+      const allVentas: any[] = [];
+      results.forEach(r => {
+        if (r?.ventas) {
+          r.ventas.forEach((v: any) => {
+            const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
+            if (converted.fecha === selectedDate) {
+              allVentas.push({ ...v, _spainHora: converted.hora });
+            }
+          });
+        }
+      });
+      return { ventas: allVentas, fecha: selectedDate };
+    },
     enabled: !!imei && !isToday && !!selectedDate,
   });
   const currentVentas = isToday ? ventasDetalle : ventasSelectedDate;
+
+  // Prefetch adjacent days for faster navigation
+  useEffect(() => {
+    if (!imei) return;
+    const currentDateStr = selectedDate || todayStr;
+    const currentD = new Date(currentDateStr);
+    
+    const prevDay = new Date(currentD);
+    prevDay.setDate(prevDay.getDate() - 1);
+    const prevStr = prevDay.toISOString().split('T')[0];
+    const prevChinaDates = getChinaDatesForSpainDate(prevStr);
+    
+    queryClient.prefetchQuery({
+      queryKey: ['ventas-ordenes-date', imei, prevStr],
+      queryFn: async () => {
+        const results = await Promise.all(
+          prevChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
+        );
+        const allVentas: any[] = [];
+        results.forEach(r => {
+          if (r?.ventas) {
+            r.ventas.forEach((v: any) => {
+              const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
+              if (converted.fecha === prevStr) {
+                allVentas.push({ ...v, _spainHora: converted.hora });
+              }
+            });
+          }
+        });
+        return { ventas: allVentas, fecha: prevStr };
+      },
+      staleTime: 5 * 60 * 1000,
+    });
+  }, [imei, selectedDate, todayStr, queryClient]);
 
   if (loadingMachine) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (!maquina) return <div className="text-center py-12"><p className="text-muted-foreground">Máquina no encontrada</p><Button variant="link" onClick={() => navigate('/admin/machines')}>Volver</Button></div>;
