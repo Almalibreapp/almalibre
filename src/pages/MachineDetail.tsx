@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TemperatureChart } from '@/components/dashboard/TemperatureChart';
 import { StockReplenishment } from '@/components/stock/StockReplenishment';
 import { SalesChart } from '@/components/dashboard/SalesChart';
@@ -39,6 +41,7 @@ import {
   ChevronRight,
   Flame,
   Calendar,
+  CalendarIcon,
   Clock,
   Download,
   Activity,
@@ -741,23 +744,42 @@ export const MachineDetail = () => {
 
             {/* Sales Tab */}
             <TabsContent value="sales" className="space-y-4 animate-fade-in">
-              {/* Date Navigation */}
-              <div className="flex items-center justify-between">
-                <Button variant="outline" size="sm" onClick={() => navigateDate('prev')}>
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Anterior
+              {/* Date Navigation with Calendar */}
+              <div className="flex items-center justify-between gap-2">
+                <Button variant="outline" size="icon" onClick={() => navigateDate('prev')}>
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="text-center">
-                  <p className="font-medium capitalize text-sm">{displayDate}</p>
-                  {selectedDate && (
-                    <Button variant="link" size="sm" className="text-xs p-0 h-auto" onClick={() => setSelectedDate(null)}>
-                      Volver a hoy
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="flex-1 max-w-xs">
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      <span className="capitalize">{displayDate}</span>
                     </Button>
-                  )}
-                </div>
-                <Button variant="outline" size="sm" onClick={() => navigateDate('next')} disabled={isToday}>
-                  Siguiente
-                  <ChevronRight className="h-4 w-4 ml-1" />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="center">
+                    <CalendarComponent
+                      mode="single"
+                      selected={selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date()}
+                      onSelect={(date) => {
+                        if (!date) return;
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const sel = new Date(date);
+                        sel.setHours(0, 0, 0, 0);
+                        if (sel >= today) {
+                          setSelectedDate(null);
+                        } else {
+                          setSelectedDate(format(sel, 'yyyy-MM-dd'));
+                        }
+                      }}
+                      disabled={(date) => date > new Date()}
+                      locale={es}
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Button variant="outline" size="icon" onClick={() => navigateDate('next')} disabled={isToday}>
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
 
