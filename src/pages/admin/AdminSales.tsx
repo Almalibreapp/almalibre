@@ -247,8 +247,8 @@ export const AdminSales = () => {
     // By hour
     const byHour: Record<string, { ventas: number; euros: number }> = {};
     ventasDia.forEach(v => {
-      const horaSpain = convertChinaToSpain(v.hora, v.fecha);
-      const h = horaSpain.split(':')[0] + ':00';
+      // API times are already in Spanish timezone - use directly
+      const h = (v.hora || '00:00').split(':')[0] + ':00';
       if (!byHour[h]) byHour[h] = { ventas: 0, euros: 0 };
       byHour[h].ventas++;
       byHour[h].euros += Number(v.precio);
