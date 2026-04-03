@@ -216,87 +216,43 @@ export const MachineDetail = () => {
   }, [ventasHoyFiltered]);
 
   // Yesterday in Spain
-  const yesterdaySpain = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  }, []);
+  const yesterdaySpain = useMemo(() => shiftSpainDate(todaySpain, -1), [todaySpain]);
 
-  // Fetch yesterday's sales from API using both China dates for accurate Spain-day grouping
-  const yesterdayChinaDates = useMemo(() => getChinaDatesForSpainDate(yesterdaySpain), [yesterdaySpain]);
-
+  // Fetch yesterday's sales using centralized normalization
   const { data: ventasAyerApi } = useQuery({
     queryKey: ['ventas-ayer-api', imei, yesterdaySpain],
-    queryFn: async () => {
+    queryFn: () => {
       if (!imei) return [];
-      const results = await Promise.all(
-        yesterdayChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
-      );
-      const allVentas: any[] = [];
-      results.forEach(r => {
-        if (r?.ventas) {
-          r.ventas.forEach((v: any) => {
-            const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
-            if (converted.fecha === yesterdaySpain) {
-              allVentas.push({ ...v, _spainHora: converted.hora });
-            }
-          });
-        }
-      });
-      return allVentas;
+      return fetchSpanishDayOrders(imei, yesterdaySpain, fetchOrdenes);
     },
     enabled: !!imei,
     staleTime: 5 * 60 * 1000,
   });
 
   const ventasAyerSpain = useMemo(() => {
-    const exitosas = (ventasAyerApi || []).filter((v: any) => {
-      const estado = (v.estado || '').toLowerCase();
-      return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
-    });
+    const exitosas = (ventasAyerApi || []).filter(isSuccessfulSale);
     return {
       euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0),
       cantidad: exitosas.length,
     };
   }, [ventasAyerApi]);
 
-  // Monthly sales: fetch ALL days from API (same approach as Admin)
-  const monthDays = useMemo(() => {
-    const now = new Date();
-    const start = startOfMonth(now);
-    const end = endOfMonth(now);
-    // Only up to today
-    const realEnd = end > now ? now : end;
-    return eachDayOfInterval({ start, end: realEnd }).map(d => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${day}`;
-    });
-  }, [todaySpain]);
+  // Monthly sales: fetch each day using centralized normalization
+  const monthDays = useMemo(() => getMonthDatesUntil(todaySpain), [todaySpain]);
 
   const { data: ventasMesApi } = useQuery({
     queryKey: ['ventas-mes-api', imei, currentMonthSpain],
     queryFn: async () => {
       if (!imei) return [];
-      // Fetch each day of the month from API (same as Admin)
       const allSales = await Promise.all(
-        monthDays.map(async (fecha) => {
-          try {
-            const detalle = await fetchOrdenes(imei, fecha);
-            if (!detalle?.ventas) return [];
-            return detalle.ventas.map((v: any) => ({
-              ...v,
-              fecha: (v.fecha || detalle.fecha || fecha).substring(0, 10),
-              precio: Number(v.precio || 0),
-            }));
-          } catch { return []; }
-        })
+        monthDays.map(fecha =>
+          fetchSpanishDayOrders(imei, fecha, fetchOrdenes).catch(() => [])
+        )
       );
-      // Deduplicate by id/numero_orden
+      // Deduplicate by saleUid
       const seen = new Set<string>();
-      return allSales.flat().filter(v => {
-        const key = v.id || v.numero_orden || `${v.fecha}-${v.hora}-${v.precio}`;
+      return allSales.flat().filter((v: any) => {
+        const key = v.saleUid || v.id || `${v.fecha}-${v.hora}-${v.precio}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
@@ -308,16 +264,11 @@ export const MachineDetail = () => {
   });
 
   const ventasMesFinal = useMemo(() => {
-    const exitosas = (ventasMesApi || []).filter((v: any) => {
-      const estado = (v.estado || '').toLowerCase();
-      return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
-    });
-    const total = {
+    const exitosas = (ventasMesApi || []).filter(isSuccessfulSale);
+    return {
       cantidad: exitosas.length,
       total_euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0),
     };
-    console.log(`[Dashboard] Mes desde API: ${total.cantidad} ventas, ${total.total_euros.toFixed(2)}€`);
-    return total;
   }, [ventasMesApi]);
 
   // Machine estado - periodic polling every 3 minutes
