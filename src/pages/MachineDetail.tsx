@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TemperatureChart } from '@/components/dashboard/TemperatureChart';
 import { StockReplenishment } from '@/components/stock/StockReplenishment';
 import { SalesChart } from '@/components/dashboard/SalesChart';
@@ -39,6 +41,7 @@ import {
   ChevronRight,
   Flame,
   Calendar,
+  CalendarIcon,
   Clock,
   Download,
   Activity,
