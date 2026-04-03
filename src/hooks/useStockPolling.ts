@@ -9,7 +9,7 @@ import { fetchProductos } from '@/services/controlApi';
  */
 export function useStockPolling(
   imei: string | undefined,
-  intervalMinutos: number = 2
+  intervalMinutos: number = 1
 ) {
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null);
   const [polling, setPolling] = useState(false);
