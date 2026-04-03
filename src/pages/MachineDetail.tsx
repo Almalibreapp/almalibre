@@ -736,7 +736,7 @@ export const MachineDetail = () => {
                     </CardHeader>
                     <CardContent>
                       <SalesChart 
-                        ventas={currentVentas?.ventas || []} 
+                        ventas={(currentVentas?.ventas || []) as any[]} 
                       />
                     </CardContent>
                   </Card>
