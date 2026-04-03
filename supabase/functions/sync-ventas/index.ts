@@ -29,7 +29,9 @@ const decodeHtmlEntities = (text: string) => {
 
 const normalizePaymentMethod = (value: unknown) => {
   const raw = decodeHtmlEntities(String(value || '')).trim().toLowerCase()
-  if (!raw) return 'efectivo'
+  // CRITICAL: Do NOT default to 'efectivo' when empty — preserve the original value
+  // The API returns correct payment methods in real-time; defaulting masks real data
+  if (!raw) return ''
 
   if (raw.includes('tarjeta') || raw.includes('card') || raw.includes('credito') || raw.includes('débito') || raw.includes('debito')) {
     return 'tarjeta'
