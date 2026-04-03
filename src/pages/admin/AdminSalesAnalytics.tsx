@@ -12,6 +12,7 @@ import { format, subDays, addDays, isToday as isTodayFn, startOfMonth, endOfMont
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { fetchOrdenes } from '@/services/api';
+import { fetchSpanishDayOrders } from '@/lib/sales';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { toast } from 'sonner';
 import {
@@ -20,46 +21,25 @@ import {
   ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
 
-/**
- * The manufacturer orders API already returns date/time in Spain local time.
- * We preserve those raw values as the source of truth here.
- */
-const fetchDaySalesRaw = async (imei: string, maquinaId: string, apiDate: string) => {
-  try {
-    const detalle = await fetchOrdenes(imei, apiDate);
-    if (!detalle?.ventas) return [];
-
-    const fallbackDate = (detalle.fecha || apiDate).substring(0, 10);
-
-    return detalle.ventas.map((v: any) => {
-      const ventaFecha = (v.fecha || fallbackDate).substring(0, 10);
-      const ventaHora = String(v.hora || '00:00').substring(0, 5);
-
-      return {
-        id: v.id || v.numero_orden || `${maquinaId}-${ventaFecha}-${ventaHora}-${v.precio}`,
-        maquina_id: maquinaId,
-        imei,
-        fecha: ventaFecha,
-        fechaSpain: ventaFecha,
-        hora: ventaHora,
-        horaSpain: ventaHora,
-        producto: v.producto || '',
-        precio: Number(v.precio || 0),
-        cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-        metodo_pago: v.metodo_pago || 'efectivo',
-        numero_orden: v.numero_orden || null,
-        estado: v.estado || 'exitoso',
-        toppings: v.toppings || [],
-      };
-    });
-  } catch {
-    return [];
-  }
-};
-
 const fetchSpanishDaySales = async (imei: string, maquinaId: string, spanishDate: string) => {
-  const sales = await fetchDaySalesRaw(imei, maquinaId, spanishDate);
-  return sales.filter(s => s.fechaSpain === spanishDate);
+  const sales = await fetchSpanishDayOrders(imei, spanishDate, fetchOrdenes);
+
+  return sales.map((v: any) => ({
+    id: `${maquinaId}-${v.saleUid}`,
+    maquina_id: maquinaId,
+    imei,
+    fecha: v.fecha,
+    fechaSpain: v.fechaSpain,
+    hora: v.hora,
+    horaSpain: v.horaSpain,
+    producto: v.producto || '',
+    precio: Number(v.precio || 0),
+    cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+    metodo_pago: v.metodo_pago ?? v.payment_method ?? v.pay_type ?? v.metodoPago ?? v.tipo_pago ?? '',
+    numero_orden: v.numero_orden || v.order_no || null,
+    estado: v.estado || 'exitoso',
+    toppings: v.toppings || v.toppings_usados || [],
+  }));
 };
 
 /** Helper: deduplicate sales by unique sale ID */
@@ -95,7 +75,7 @@ const decodeHtmlEntities = (text: string) => {
 
 const normalizePaymentMethod = (method?: string | null) => {
   const raw = decodeHtmlEntities(method || '').trim().toLowerCase();
-  if (!raw) return 'efectivo';
+  if (!raw) return 'sin dato';
   if (raw.includes('tarjeta') || raw.includes('card') || raw.includes('credito') || raw.includes('débito') || raw.includes('debito')) return 'tarjeta';
   if (raw.includes('bizum')) return 'bizum';
   if (raw.includes('apple')) return 'apple pay';
@@ -137,7 +117,7 @@ export const AdminSalesAnalytics = () => {
   // ============ DAILY VIEW DATA ============
   // Fetch both dateStr and dateStr+1 from API, filter by Spanish date
   const { data: ventasDia = [], isLoading: loadingDaily, refetch: refetchDaily } = useQuery({
-    queryKey: ['admin-ventas-dia', dateStr, selectedMachine, maquinas?.map(m => m.id).join(',')],
+    queryKey: ['admin-ventas-dia-v2', dateStr, selectedMachine, maquinas?.map(m => m.id).join(',')],
     queryFn: async () => {
       if (!maquinas || maquinas.length === 0) return [];
       const targetMachines = selectedMachine === 'all'
@@ -156,7 +136,7 @@ export const AdminSalesAnalytics = () => {
 
   // Yesterday for comparison
   const { data: ventasAyer = [] } = useQuery({
-    queryKey: ['admin-ventas-ayer', yesterdayStr, selectedMachine, maquinas?.map(m => m.id).join(',')],
+    queryKey: ['admin-ventas-ayer-v2', yesterdayStr, selectedMachine, maquinas?.map(m => m.id).join(',')],
     queryFn: async () => {
       if (!maquinas || maquinas.length === 0) return [];
       const targetMachines = selectedMachine === 'all'
@@ -177,7 +157,7 @@ export const AdminSalesAnalytics = () => {
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
   const { data: ventasHistorico, isLoading: loadingMonthly, refetch: refetchMonthly } = useQuery({
-    queryKey: ['admin-ventas-historico', selectedMachine, monthStart, monthEnd, maquinas?.map(m => m.id).join(',')],
+    queryKey: ['admin-ventas-historico-v2', selectedMachine, monthStart, monthEnd, maquinas?.map(m => m.id).join(',')],
     queryFn: async () => {
       if (!maquinas || maquinas.length === 0) return [];
       const targetMachines = selectedMachine === 'all'
@@ -191,7 +171,7 @@ export const AdminSalesAnalytics = () => {
 
       const allSales = await Promise.all(
         uniqueByImei.flatMap(m =>
-          spanishDates.map(fecha => fetchDaySalesRaw(m.mac_address, m.id, fecha))
+          spanishDates.map(fecha => fetchSpanishDaySales(m.mac_address, m.id, fecha))
         )
       );
 

@@ -32,9 +32,16 @@ export const useVentasRealtime = (imei?: string) => {
         queryClient.invalidateQueries({ queryKey: ['admin-ventas'] });
         queryClient.invalidateQueries({ queryKey: ['admin-machine-ventas-hoy'] });
         queryClient.invalidateQueries({ queryKey: ['admin-dashboard-ventas'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-dashboard-ventas-v2'] });
         queryClient.invalidateQueries({ queryKey: ['admin-machines-ventas'] });
         queryClient.invalidateQueries({ queryKey: ['admin-sales'] });
         queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-ventas-dia'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-ventas-ayer'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-ventas-historico'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-ventas-dia-v2'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-ventas-ayer-v2'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-ventas-historico-v2'] });
       })
       .subscribe();
 
