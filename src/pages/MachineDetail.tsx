@@ -118,9 +118,8 @@ export const MachineDetail = () => {
   }, [refetchAll]);
   
   // Spain timezone constants (declared early for use in queries)
-  const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const todaySpain = getCurrentSpainDate();
   const currentMonthSpain = todaySpain.substring(0, 7);
-  const todayChinaDates = useMemo(() => getChinaDatesForSpainDate(todaySpain), [todaySpain]);
 
   // State for date navigation  
   const [selectedDate, setSelectedDate] = useState<string | null>(null); // null = today
@@ -155,33 +154,12 @@ export const MachineDetail = () => {
     ? format(new Date(selectedDate), "EEEE d 'de' MMMM", { locale: es })
     : 'Hoy';
   
-  // Query for selected date's sales - fetch both China dates that could contain Spain-date sales
-  const selectedChinaDates = useMemo(() => {
-    const spainDate = selectedDate || todaySpain;
-    return getChinaDatesForSpainDate(spainDate);
-  }, [selectedDate, todaySpain]);
-
+  // Query for selected date's sales using centralized fetchSpanishDayOrders
   const { data: ventasSelectedDateRaw, isLoading: loadingSelected } = useQuery({
     queryKey: ['ventas-detalle-date', imei, selectedDate],
     queryFn: async () => {
       if (!imei || isToday) return null;
-      // Fetch both China dates using paginated endpoint
-      const results = await Promise.all(
-        selectedChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
-      );
-      // Merge ventas from both days
-      const allVentas: any[] = [];
-      results.forEach(r => {
-        if (r?.ventas) {
-          r.ventas.forEach((v: any) => {
-            const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
-            if (converted.fecha === selectedDate) {
-              allVentas.push({ ...v, _spainHora: converted.hora });
-            }
-          });
-        }
-      });
-      return allVentas;
+      return fetchSpanishDayOrders(imei, selectedDate!, fetchOrdenes);
     },
     enabled: !!imei && !isToday,
   });
@@ -190,82 +168,31 @@ export const MachineDetail = () => {
   useEffect(() => {
     if (!imei) return;
     const currentDateStr = selectedDate || todaySpain;
-    const currentD = new Date(currentDateStr);
     
     // Prefetch previous day
-    const prevDay = new Date(currentD);
-    prevDay.setDate(prevDay.getDate() - 1);
-    const prevStr = prevDay.toISOString().split('T')[0];
-    const prevChinaDates = getChinaDatesForSpainDate(prevStr);
-    
+    const prevStr = shiftSpainDate(currentDateStr, -1);
     queryClient.prefetchQuery({
       queryKey: ['ventas-detalle-date', imei, prevStr],
-      queryFn: async () => {
-        const results = await Promise.all(
-          prevChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
-        );
-        const allVentas: any[] = [];
-        results.forEach(r => {
-          if (r?.ventas) {
-            r.ventas.forEach((v: any) => {
-              const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
-              if (converted.fecha === prevStr) {
-                allVentas.push({ ...v, _spainHora: converted.hora });
-              }
-            });
-          }
-        });
-        return allVentas;
-      },
+      queryFn: () => fetchSpanishDayOrders(imei, prevStr, fetchOrdenes),
       staleTime: 5 * 60 * 1000,
     });
 
     // Prefetch next day (if not future)
-    const nextDay = new Date(currentD);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    nextDay.setHours(0,0,0,0);
-    if (nextDay <= today) {
-      const nextStr = nextDay.toISOString().split('T')[0];
-      const nextChinaDates = getChinaDatesForSpainDate(nextStr);
+    const nextStr = shiftSpainDate(currentDateStr, 1);
+    if (nextStr <= todaySpain) {
       queryClient.prefetchQuery({
         queryKey: ['ventas-detalle-date', imei, nextStr],
-        queryFn: async () => {
-          const results = await Promise.all(
-            nextChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
-          );
-          const allVentas: any[] = [];
-          results.forEach(r => {
-            if (r?.ventas) {
-              r.ventas.forEach((v: any) => {
-                const converted = convertChinaToSpainFull(v.hora, v.fecha || r.fecha);
-                if (converted.fecha === nextStr) {
-                  allVentas.push({ ...v, _spainHora: converted.hora });
-                }
-              });
-            }
-          });
-          return allVentas;
-        },
+        queryFn: () => fetchSpanishDayOrders(imei, nextStr, fetchOrdenes),
         staleTime: 5 * 60 * 1000,
       });
     }
   }, [imei, selectedDate, todaySpain, queryClient]);
 
-
-  // ventas now come from two China dates, so each venta may have a different source fecha
+  // Today's sales already come pre-normalized from useVentasDetalle
   const ventasHoyFiltered = useMemo(() => {
     if (!ventasDetalle?.ventas) return [];
-    return ventasDetalle.ventas
-      .map((v: any) => {
-        // Each venta has its own fecha from the China date it was fetched from
-        const ventaFecha = v.fecha || ventasDetalle.fecha;
-        const converted = convertChinaToSpainFull(v.hora, ventaFecha);
-        return { ...v, _spainHora: converted.hora, _spainFecha: converted.fecha };
-      })
-      .filter((v: any) => v._spainFecha === todaySpain);
-  }, [ventasDetalle, todaySpain]);
+    return ventasDetalle.ventas;
+  }, [ventasDetalle]);
 
   const currentVentas = isToday 
     ? { ventas: ventasHoyFiltered, total_ventas: ventasHoyFiltered.length }
