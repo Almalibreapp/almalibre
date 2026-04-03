@@ -1,9 +1,7 @@
-import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   fetchMiMaquina,
   fetchVentasResumen, 
-  fetchVentasDetalle, 
   fetchOrdenes,
   fetchToppings, 
   fetchTemperatura,
@@ -15,7 +13,29 @@ import {
   VentasDetalleResponse, 
   ToppingsResponse 
 } from '@/types';
-import { getChinaDatesForSpainDate } from '@/lib/timezone';
+import { fetchSpanishDayOrders } from '@/lib/sales';
+
+const mapSpanishSaleToVenta = (sale: any) => ({
+  ...sale,
+  id: String(
+    sale.id
+      ?? sale.saleUid
+      ?? sale.venta_api_id
+      ?? sale.numero_orden
+      ?? `${sale.fechaSpain || sale.fecha || ''}|${sale.horaSpain || sale.hora || '00:00'}|${Number(sale.precio || 0)}|${String(sale.producto || '')}`
+  ),
+  fecha: sale.fechaSpain || sale.fecha || '',
+  hora: sale.horaSpain || sale.hora || '00:00',
+  precio: Number(sale.precio || 0),
+  producto: String(sale.producto || ''),
+  estado: String(sale.estado || 'exitoso'),
+  toppings: Array.isArray(sale.toppings) ? sale.toppings : [],
+  cantidad_unidades: sale.cantidad_unidades || sale.cantidad || 1,
+  metodo_pago: String(sale.metodo_pago ?? sale.payment_method ?? sale.pay_type ?? 'efectivo'),
+  numero_orden: sale.numero_orden ? String(sale.numero_orden) : undefined,
+  _spainFecha: sale.fechaSpain || sale.fecha || '',
+  _spainHora: sale.horaSpain || sale.hora || '00:00',
+});
 
 export const useMiMaquina = (imei: string | undefined) => {
   return useQuery({
@@ -51,41 +71,19 @@ export const useVentasResumen = (imei: string | undefined) => {
  */
 export const useVentasDetalle = (imei: string | undefined) => {
   const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const chinaDates = useMemo(() => getChinaDatesForSpainDate(todaySpain), [todaySpain]);
 
   return useQuery<VentasDetalleResponse>({
     queryKey: ['ventas-detalle', imei, todaySpain],
     queryFn: async () => {
       if (!imei) throw new Error('No IMEI');
-      // Fetch both China dates in parallel
-      const results = await Promise.all(
-        chinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
-      );
-      // Merge all ventas from both days into a single response
-      const allVentas: any[] = [];
-      const seenIds = new Set<string>();
-      let fecha = todaySpain;
-      results.forEach(r => {
-        if (!r?.ventas) return;
-        fecha = r.fecha || fecha;
-        r.ventas.forEach((v: any) => {
-          const uid = String(
-            v.id
-            ?? v.venta_api_id
-            ?? v.numero_orden
-            ?? `${v.fecha || r.fecha || todaySpain}|${v.hora || ''}|${Number(v.precio || 0)}|${v.producto || ''}|${JSON.stringify(v.toppings || [])}`
-          );
-          if (!seenIds.has(uid)) {
-            seenIds.add(uid);
-            allVentas.push(v);
-          }
-        });
-      });
+      const allVentas = await fetchSpanishDayOrders(imei, todaySpain, fetchOrdenes);
+      const ventasNormalizadas = allVentas.map(mapSpanishSaleToVenta);
+
       return {
         mac_addr: imei,
-        fecha,
-        total_ventas: allVentas.length,
-        ventas: allVentas,
+        fecha: todaySpain,
+        total_ventas: ventasNormalizadas.length,
+        ventas: ventasNormalizadas,
       } as VentasDetalleResponse;
     },
     enabled: !!imei && imei.length > 0,
