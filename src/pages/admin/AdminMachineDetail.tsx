@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { SalesChart } from '@/components/dashboard/SalesChart';
 import { StockReplenishment } from '@/components/stock/StockReplenishment';
 import { StockCapacitySettings } from '@/components/stock/StockCapacitySettings';
@@ -24,7 +26,7 @@ import { es } from 'date-fns/locale';
 import {
   ArrowLeft, Thermometer, Euro, Package, Loader2, MapPin, AlertCircle, Gamepad2,
   ChevronLeft, ChevronRight, Clock, Activity, CheckCircle, AlertTriangle, XCircle,
-  Snowflake, Circle,
+  Snowflake, Circle, CalendarIcon,
 } from 'lucide-react';
 
 export const AdminMachineDetail = () => {
