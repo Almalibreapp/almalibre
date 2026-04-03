@@ -376,10 +376,42 @@ export const AdminMachineDetail = () => {
 
           {/* Sales */}
           <TabsContent value="sales" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Button variant="outline" size="sm" onClick={() => navigateDate('prev')}><ChevronLeft className="h-4 w-4 mr-1" />Anterior</Button>
-              <div className="text-center"><p className="font-medium capitalize text-sm">{displayDate}</p>{selectedDate && <Button variant="link" size="sm" className="text-xs p-0 h-auto" onClick={() => setSelectedDate(null)}>Volver a hoy</Button>}</div>
-              <Button variant="outline" size="sm" onClick={() => navigateDate('next')} disabled={isToday}>Siguiente<ChevronRight className="h-4 w-4 ml-1" /></Button>
+            <div className="flex items-center justify-between gap-2">
+              <Button variant="outline" size="icon" onClick={() => navigateDate('prev')}><ChevronLeft className="h-4 w-4" /></Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="flex-1 max-w-xs">
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    <span className="capitalize">{displayDate}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="center">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date()}
+                    onSelect={(date) => {
+                      if (!date) return;
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const sel = new Date(date);
+                      sel.setHours(0, 0, 0, 0);
+                      if (sel >= today) {
+                        setSelectedDate(null);
+                      } else {
+                        setSelectedDate(format(sel, 'yyyy-MM-dd'));
+                      }
+                    }}
+                    disabled={(date) => date > new Date()}
+                    locale={es}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              <Button variant="outline" size="icon" onClick={() => navigateDate('next')} disabled={isToday}><ChevronRight className="h-4 w-4" /></Button>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <Button variant={isToday ? "default" : "outline"} size="sm" onClick={() => setSelectedDate(null)}>Hoy</Button>
+              <Button variant="outline" size="sm" onClick={() => { const d = new Date(); d.setDate(d.getDate()-1); setSelectedDate(format(d, 'yyyy-MM-dd')); }}>Ayer</Button>
             </div>
             <Card><CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4 text-primary" />Ventas por Hora</CardTitle></CardHeader><CardContent>
               <SalesChart ventas={currentVentas?.ventas || []} fecha={currentVentas?.fecha} />
