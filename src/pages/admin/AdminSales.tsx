@@ -228,8 +228,7 @@ export const AdminSales = () => {
   const ventasAyer = useMemo(() => {
     if (!ventasAyerRaw) return [];
     return ventasAyerRaw.filter(v => {
-      const converted = convertChinaToSpainFull(v.hora, v.fecha);
-      return converted.fecha === yesterdayStr;
+      return (v.fecha || '').substring(0, 10) === yesterdayStr;
     });
   }, [ventasAyerRaw, yesterdayStr]);
 
