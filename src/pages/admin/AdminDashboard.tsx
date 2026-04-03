@@ -4,9 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchTemperatura, fetchOrdenes } from '@/services/api';
+import { fetchSpanishDayOrders } from '@/lib/sales';
 
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
-import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lucide-react';
 
 export const AdminDashboard = () => {
@@ -31,38 +31,26 @@ export const AdminDashboard = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch today's sales using dual China dates to capture all Spain-day sales
   const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const chinaDates = useMemo(() => getChinaDatesForSpainDate(todaySpain), [todaySpain]);
 
   const { data: ventasHoy = [], isLoading: loadingSales } = useQuery({
-    queryKey: ['admin-dashboard-ventas', todaySpain, machines.map(m => m.mac_address).join(',')],
+    queryKey: ['admin-dashboard-ventas-v2', todaySpain, machines.map(m => m.mac_address).join(',')],
     queryFn: async () => {
       if (machines.length === 0) return [];
       const uniqueByImei = Array.from(new Map(machines.map(m => [m.mac_address, m])).values());
 
-      const promises = uniqueByImei.flatMap((m) =>
-        chinaDates.map(async (chinaDate) => {
-          try {
-            const detalle = await fetchOrdenes(m.mac_address, chinaDate);
-            if (!detalle?.ventas) return [];
-            return detalle.ventas
-              .map((v: any) => {
-                const ventaFecha = v.fecha || detalle.fecha || chinaDate;
-                const converted = convertChinaToSpainFull(v.hora || '00:00', ventaFecha);
-                return {
-                  id: v.id || v.numero_orden || `${m.id}-${chinaDate}-${v.hora}-${v.precio}`,
-                  precio: Number(v.precio || 0),
-                  hora: converted.hora,
-                  fechaSpain: converted.fecha,
-                  cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-                  maquina_id: m.id,
-                  estado: v.estado || 'exitoso',
-                };
-              })
-              .filter((v: any) => v.fechaSpain === todaySpain);
-          } catch { return []; }
-        })
+      const promises = uniqueByImei.map(async (m) => {
+        const ventas = await fetchSpanishDayOrders(m.mac_address, todaySpain, fetchOrdenes);
+        return ventas.map((v: any) => ({
+          id: `api-${m.id}-${v.saleUid}`,
+          precio: Number(v.precio || 0),
+          hora: v.horaSpain,
+          fechaSpain: v.fechaSpain,
+          cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+          maquina_id: m.id,
+          estado: v.estado || 'exitoso',
+        }));
+      }
       );
       const results = await Promise.allSettled(promises);
       const allSales = results
@@ -102,7 +90,7 @@ export const AdminDashboard = () => {
   });
 
   const metrics = useMemo(() => {
-    const filtered = ventasHoy.filter(v => v.estado !== 'fallido');
+    const filtered = ventasHoy.filter(v => !['fallido', 'cancelado', 'failed', 'cancelled'].includes((v.estado || '').toLowerCase()));
 
     return {
       totalSalesToday: filtered.reduce((s, v) => s + Number(v.precio), 0),
@@ -112,7 +100,7 @@ export const AdminDashboard = () => {
       lowStockAlerts,
       tempAlerts,
     };
-  }, [ventasHoy, machines, lowStockAlerts, tempAlerts, todaySpain]);
+  }, [ventasHoy, machines, lowStockAlerts, tempAlerts]);
 
   if (loadingSales && ventasHoy.length === 0) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
