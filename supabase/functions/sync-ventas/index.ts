@@ -114,12 +114,15 @@ Deno.serve(async (req) => {
       return orders.map((v: any) => {
         // Try multiple payment method field names
         const rawPayment = v.metodo_pago ?? v.payment_method ?? v.pay_type ?? v.payType ?? v.metodoPago ?? v.tipo_pago
+        const normalizedPayment = normalizePaymentMethod(rawPayment)
         const product = decodeHtmlEntities(v.producto || '')
         const toppings = Array.isArray(v.toppings) && v.toppings.length > 0
           ? v.toppings
           : (Array.isArray(v.toppings_usados) && v.toppings_usados.length > 0
             ? v.toppings_usados
             : extractToppingsFromProduct(product))
+
+        console.log(`[sync-ventas] Order ${v.id || v.numero_orden}: raw metodo_pago="${rawPayment}" -> normalized="${normalizedPayment}"`)
 
         return {
           maquina_id: machineId,
@@ -130,7 +133,7 @@ Deno.serve(async (req) => {
           producto: product,
           precio: Number(v.precio || 0),
           cantidad_unidades: Number(v.cantidad_unidades || v.cantidad || 1),
-          metodo_pago: normalizePaymentMethod(rawPayment),
+          metodo_pago: normalizedPayment || 'efectivo',
           numero_orden: v.numero_orden || v.order_no || null,
           estado: v.estado || 'exitoso',
           toppings,
