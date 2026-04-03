@@ -22,7 +22,7 @@ import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
 import type { Venta } from '@/types';
 import { cn } from '@/lib/utils';
 import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
-import { format } from 'date-fns';
+import { addDays, format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   ArrowLeft, Thermometer, Euro, Package, Loader2, MapPin, AlertCircle, Gamepad2,
@@ -194,14 +194,28 @@ export const AdminMachineDetail = () => {
   });
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const navigateDate = (direction: 'prev' | 'next') => {
-    const current = selectedDate ? new Date(selectedDate) : new Date();
-    current.setDate(current.getDate() + (direction === 'prev' ? -1 : 1));
-    const today = new Date(); today.setHours(0, 0, 0, 0); current.setHours(0, 0, 0, 0);
-    setSelectedDate(current >= today ? null : current.toISOString().split('T')[0]);
+  const normalizeNavigableDate = (dateString: string | null) => {
+    if (!dateString) return null;
+    return dateString >= todayStr ? null : dateString;
   };
+
+  const navigateDate = (direction: 'prev' | 'next') => {
+    const baseDate = selectedDate || todayStr;
+    const nextDate = format(
+      addDays(parseISO(baseDate), direction === 'prev' ? -1 : 1),
+      'yyyy-MM-dd'
+    );
+
+    setSelectedDate(normalizeNavigableDate(nextDate));
+  };
+
   const isToday = selectedDate === null;
-  const displayDate = selectedDate ? format(new Date(selectedDate), "EEEE d 'de' MMMM", { locale: es }) : 'Hoy';
+  const displayDate = selectedDate ? format(parseISO(selectedDate), "EEEE d 'de' MMMM", { locale: es }) : 'Hoy';
+  const calendarSelectedDate = useMemo(() => parseISO(selectedDate || todayStr), [selectedDate, todayStr]);
+  const yesterdayStr = useMemo(
+    () => format(addDays(parseISO(todayStr), -1), 'yyyy-MM-dd'),
+    [todayStr]
+  );
 
   const selectedChinaDates = useMemo(() => {
     const spainDate = selectedDate || todayStr;
@@ -234,11 +248,8 @@ export const AdminMachineDetail = () => {
   useEffect(() => {
     if (!imei) return;
     const currentDateStr = selectedDate || todayStr;
-    const currentD = new Date(currentDateStr);
-    
-    const prevDay = new Date(currentD);
-    prevDay.setDate(prevDay.getDate() - 1);
-    const prevStr = prevDay.toISOString().split('T')[0];
+    const prevStr = format(addDays(parseISO(currentDateStr), -1), 'yyyy-MM-dd');
+    const nextStr = format(addDays(parseISO(currentDateStr), 1), 'yyyy-MM-dd');
     const prevChinaDates = getChinaDatesForSpainDate(prevStr);
     
     queryClient.prefetchQuery({
@@ -252,6 +263,22 @@ export const AdminMachineDetail = () => {
       },
       staleTime: 5 * 60 * 1000,
     });
+
+    if (nextStr <= todayStr) {
+      const nextChinaDates = getChinaDatesForSpainDate(nextStr);
+
+      queryClient.prefetchQuery({
+        queryKey: ['ventas-ordenes-date', imei, nextStr],
+        queryFn: async () => {
+          const results = await Promise.all(
+            nextChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
+          );
+          const ventas = mergeSalesResponsesForDate(results, nextStr, nextChinaDates);
+          return { ventas, fecha: nextStr, total_ventas: ventas.length };
+        },
+        staleTime: 5 * 60 * 1000,
+      });
+    }
   }, [imei, selectedDate, todayStr, queryClient]);
 
   if (loadingMachine) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -474,20 +501,13 @@ export const AdminMachineDetail = () => {
                 <PopoverContent className="w-auto p-0" align="center">
                   <CalendarComponent
                     mode="single"
-                    selected={selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date()}
+                    selected={calendarSelectedDate}
                     onSelect={(date) => {
                       if (!date) return;
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      const sel = new Date(date);
-                      sel.setHours(0, 0, 0, 0);
-                      if (sel >= today) {
-                        setSelectedDate(null);
-                      } else {
-                        setSelectedDate(format(sel, 'yyyy-MM-dd'));
-                      }
+                      const nextSelectedDate = format(date, 'yyyy-MM-dd');
+                      setSelectedDate(normalizeNavigableDate(nextSelectedDate));
                     }}
-                    disabled={(date) => date > new Date()}
+                    disabled={(date) => format(date, 'yyyy-MM-dd') > todayStr}
                     locale={es}
                     className="pointer-events-auto"
                   />
@@ -497,7 +517,7 @@ export const AdminMachineDetail = () => {
             </div>
             <div className="flex items-center justify-center gap-2">
               <Button variant={isToday ? "default" : "outline"} size="sm" onClick={() => setSelectedDate(null)}>Hoy</Button>
-              <Button variant="outline" size="sm" onClick={() => { const d = new Date(); d.setDate(d.getDate()-1); setSelectedDate(format(d, 'yyyy-MM-dd')); }}>Ayer</Button>
+              <Button variant="outline" size="sm" onClick={() => setSelectedDate(yesterdayStr)}>Ayer</Button>
             </div>
             <Card><CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4 text-primary" />Ventas por Hora</CardTitle></CardHeader><CardContent>
               <SalesChart ventas={currentVentas?.ventas || []} fecha={currentVentas?.fecha} />
