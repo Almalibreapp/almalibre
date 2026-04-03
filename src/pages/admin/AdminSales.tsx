@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { format, subDays, addDays, isToday as isTodayFn } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
-import { convertChinaToSpain, convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
+import { getChinaDatesForSpainDate } from '@/lib/timezone';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import {
   Euro, TrendingUp, Calendar, Loader2, ChevronLeft, ChevronRight,
@@ -199,8 +199,8 @@ export const AdminSales = () => {
   const ventasDia = useMemo(() => {
     if (!ventasDiaRaw) return [];
     return ventasDiaRaw.filter(v => {
-      const converted = convertChinaToSpainFull(v.hora, v.fecha);
-      return converted.fecha === dateStr;
+      // API times are already in Spanish timezone - filter by raw fecha
+      return (v.fecha || '').substring(0, 10) === dateStr;
     });
   }, [ventasDiaRaw, dateStr]);
 
@@ -228,8 +228,7 @@ export const AdminSales = () => {
   const ventasAyer = useMemo(() => {
     if (!ventasAyerRaw) return [];
     return ventasAyerRaw.filter(v => {
-      const converted = convertChinaToSpainFull(v.hora, v.fecha);
-      return converted.fecha === yesterdayStr;
+      return (v.fecha || '').substring(0, 10) === yesterdayStr;
     });
   }, [ventasAyerRaw, yesterdayStr]);
 
@@ -248,8 +247,8 @@ export const AdminSales = () => {
     // By hour
     const byHour: Record<string, { ventas: number; euros: number }> = {};
     ventasDia.forEach(v => {
-      const horaSpain = convertChinaToSpain(v.hora, v.fecha);
-      const h = horaSpain.split(':')[0] + ':00';
+      // API times are already in Spanish timezone - use directly
+      const h = (v.hora || '00:00').split(':')[0] + ':00';
       if (!byHour[h]) byHour[h] = { ventas: 0, euros: 0 };
       byHour[h].ventas++;
       byHour[h].euros += Number(v.precio);
@@ -515,7 +514,7 @@ export const AdminSales = () => {
                       <TableBody>
                         {ventasDia?.map(v => (
                           <TableRow key={v.id}>
-                            <TableCell className="font-mono text-xs">{convertChinaToSpain(v.hora, v.fecha)}</TableCell>
+                            <TableCell className="font-mono text-xs">{(v.hora || '00:00').substring(0, 5)}</TableCell>
                             {selectedMachine === 'all' && (
                               <TableCell className="text-xs">{getMachineName(v.maquina_id)}</TableCell>
                             )}
