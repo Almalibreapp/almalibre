@@ -31,10 +31,14 @@ const NotificationItem = ({ notificacion, onMarkAsRead, onDelete, onNavigate }: 
     label: 'Notificación'
   };
 
-  const timeAgo = formatDistanceToNow(new Date(notificacion.created_at), {
-    addSuffix: true,
-    locale: es
-  });
+  const notificationDate = notificacion.created_at ? new Date(notificacion.created_at) : null;
+  const hasValidDate = !!notificationDate && !Number.isNaN(notificationDate.getTime());
+  const timeAgo = hasValidDate
+    ? formatDistanceToNow(notificationDate, {
+        addSuffix: true,
+        locale: es,
+      })
+    : 'Fecha desconocida';
 
   return (
     <div
@@ -147,13 +151,16 @@ export const NotificationCenter = () => {
 
   // Agrupar notificaciones por fecha
   const groupedNotifications = notificaciones.reduce((groups, notif) => {
-    const date = new Date(notif.created_at);
+    const date = notif.created_at ? new Date(notif.created_at) : null;
+    const hasValidDate = !!date && !Number.isNaN(date.getTime());
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
     let group: string;
-    if (date.toDateString() === today.toDateString()) {
+    if (!hasValidDate) {
+      group = 'Sin fecha';
+    } else if (date.toDateString() === today.toDateString()) {
       group = 'Hoy';
     } else if (date.toDateString() === yesterday.toDateString()) {
       group = 'Ayer';

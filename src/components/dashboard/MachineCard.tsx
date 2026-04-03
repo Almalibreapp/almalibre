@@ -19,11 +19,13 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
   useVentasRealtime(imei);
 
   const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const ventasList = Array.isArray(ventasDetalle?.ventas) ? ventasDetalle.ventas : [];
+  const toppingsList = Array.isArray(stock?.toppings) ? stock.toppings : [];
 
   // Use API data directly for today's sales (fetches both China dates for Spain today)
   const ventasHoy = useMemo(() => {
-    if (!ventasDetalle?.ventas) return { euros: 0, cantidad: 0 };
-    const exitosas = ventasDetalle.ventas
+    if (ventasList.length === 0) return { euros: 0, cantidad: 0 };
+    const exitosas = ventasList
       .filter((v: any) => {
         const ventaFecha = v.fecha || ventasDetalle.fecha;
         const converted = convertChinaToSpainFull(v.hora, ventaFecha);
@@ -35,9 +37,9 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
       euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio), 0),
       cantidad: exitosas.length,
     };
-  }, [ventasDetalle, todaySpain]);
+  }, [ventasDetalle?.fecha, ventasList, todaySpain]);
 
-  const lowStockCount = stock?.toppings?.filter(t => t.capacidad_maxima > 0 && (t.stock_actual / t.capacidad_maxima) <= 0.25).length || 0;
+  const lowStockCount = toppingsList.filter(t => t.capacidad_maxima > 0 && (t.stock_actual / t.capacidad_maxima) <= 0.25).length;
   const isOnline = maquina.activa && !hasError;
   const isTempCritical = temperatura?.temperatura !== undefined && temperatura.temperatura >= 11;
 
