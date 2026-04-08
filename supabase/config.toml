@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.estado]
 verify_jwt = false
+
+[functions.stock]
+verify_jwt = false
