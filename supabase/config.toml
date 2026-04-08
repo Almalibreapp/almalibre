@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.notify-new-sale]
 verify_jwt = false
+
+[functions.ventas]
+verify_jwt = false
+
+[functions.estado]
+verify_jwt = false
