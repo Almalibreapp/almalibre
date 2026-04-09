@@ -1,4 +1,4 @@
-import { API_ENDPOINTS, API_HEADERS } from '@/lib/api-config';
+import { API_ENDPOINTS, API_HEADERS, LOCAL_API_HEADERS } from '@/lib/api-config';
 
 // Información general de la máquina (uses ventas endpoint with no date)
 export const fetchMiMaquina = async (imei: string) => {
@@ -125,7 +125,7 @@ export const fetchTemperatura = async (imei: string, start?: string, end?: strin
   try {
     const response = await fetch(
       `${API_ENDPOINTS.temperatura}?imei=${imei}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
-      { headers: API_HEADERS }
+      { headers: LOCAL_API_HEADERS }
     );
     if (!response.ok) {
       console.warn(`[temperatura] HTTP ${response.status} for ${imei}`);
