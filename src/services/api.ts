@@ -13,26 +13,36 @@ export const fetchMiMaquina = async (imei: string) => {
 // Resumen de ventas - fetch today's sales and compute summary
 export const fetchVentasResumen = async (imei: string) => {
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${today}`, { headers: API_CONFIG.headers });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el resumen de ventas`);
+  try {
+    const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${today}`, { headers: API_CONFIG.headers });
+    if (!response.ok) {
+      console.warn(`[fetchVentasResumen] HTTP ${response.status} for ${imei}`);
+      return { mac_addr: imei, ventas_hoy: { cantidad: 0, total_euros: 0 }, ventas_ayer: { cantidad: 0, total_euros: 0 }, ventas_mes: { cantidad: 0, total_euros: 0 } };
+    }
+    const text = await response.text();
+    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+      console.warn(`[fetchVentasResumen] Server returned HTML for ${imei}`);
+      return { mac_addr: imei, ventas_hoy: { cantidad: 0, total_euros: 0 }, ventas_ayer: { cantidad: 0, total_euros: 0 }, ventas_mes: { cantidad: 0, total_euros: 0 } };
+    }
+    const data = JSON.parse(text);
+    const ventas = data.ventas || [];
+    const exitosas = ventas.filter((v: any) => {
+      const estado = (v.estado || '').toLowerCase();
+      return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
+    });
+    return {
+      mac_addr: imei,
+      ventas_hoy: {
+        cantidad: exitosas.length,
+        total_euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio || 0), 0),
+      },
+      ventas_ayer: { cantidad: 0, total_euros: 0 },
+      ventas_mes: { cantidad: 0, total_euros: 0 },
+    };
+  } catch (err) {
+    console.warn(`[fetchVentasResumen] Error for ${imei}:`, err);
+    return { mac_addr: imei, ventas_hoy: { cantidad: 0, total_euros: 0 }, ventas_ayer: { cantidad: 0, total_euros: 0 }, ventas_mes: { cantidad: 0, total_euros: 0 } };
   }
-  const data = await response.json();
-  const ventas = data.ventas || [];
-  const exitosas = ventas.filter((v: any) => {
-    const estado = (v.estado || '').toLowerCase();
-    return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
-  });
-  return {
-    mac_addr: imei,
-    ventas_hoy: {
-      cantidad: exitosas.length,
-      total_euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio || 0), 0),
-    },
-    ventas_ayer: { cantidad: 0, total_euros: 0 },
-    ventas_mes: { cantidad: 0, total_euros: 0 },
-  };
 };
 
 // Detalle de ventas
