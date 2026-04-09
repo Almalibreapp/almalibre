@@ -202,18 +202,25 @@ export const dedupeSalesByUid = <T extends { saleUid?: string; id?: string | num
 
 /**
  * Fetch sales for a given Spain date.
- * Since backend now returns data already in Spain timezone,
- * we simply fetch the date directly — no multi-date China range needed.
+ * Backend returns data in China time (UTC+8). Spain is UTC+1/+2.
+ * A Spain day can span two China dates, so we fetch the requested date
+ * and the next day to ensure full coverage, then filter by converted Spain date.
  */
 export const fetchSpanishDayOrders = async (
   imei: string,
   spainDate: string,
   fetcher: (imei: string, fecha?: string) => Promise<{ fecha?: string; ventas?: SaleLike[] }>
 ) => {
-  const response = await fetcher(imei, spainDate).catch(() => null);
-  const sales = response?.ventas ?? [];
-  const fallbackDate = normalizeDate(response?.fecha, spainDate);
-  const normalized = normalizeSalesBatchToSpain(sales, fallbackDate);
+  // Fetch requested date and next date (China is 6-7h ahead, so early Spain hours map to previous China date)
+  const nextDate = shiftIsoDate(spainDate, 1);
+  const [response1, response2] = await Promise.all([
+    fetcher(imei, spainDate).catch(() => null),
+    fetcher(imei, nextDate).catch(() => null),
+  ]);
+  const sales1 = response1?.ventas ?? [];
+  const sales2 = response2?.ventas ?? [];
+  const allSales = [...sales1, ...sales2];
+  const normalized = normalizeSalesBatchToSpain(allSales, spainDate);
   return dedupeSalesByUid(normalized).filter((sale) => sale.fechaSpain === spainDate);
 };
 
