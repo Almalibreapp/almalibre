@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,58 +17,152 @@ interface MachineData {
   ubicacion: string | null;
   activa: boolean;
   usuario_id: string;
+  created_at?: string | null;
   ownerName?: string;
   ownerEmail?: string;
+  ownerRole?: 'admin' | 'user';
   temperatura?: number;
 }
+
+interface ProfileRow {
+  id: string;
+  nombre: string;
+  email: string;
+}
+
+interface RoleRow {
+  user_id: string;
+  role: 'admin' | 'user';
+}
+
+const hasText = (value?: string | null) => Boolean(value?.trim());
+
+const isBetterMachineCandidate = (candidate: MachineData, current: MachineData) => {
+  const candidateIsAdmin = candidate.ownerRole === 'admin';
+  const currentIsAdmin = current.ownerRole === 'admin';
+
+  if (candidateIsAdmin !== currentIsAdmin) {
+    return !candidateIsAdmin;
+  }
+
+  if (candidate.activa !== current.activa) {
+    return candidate.activa;
+  }
+
+  if (hasText(candidate.ubicacion) !== hasText(current.ubicacion)) {
+    return hasText(candidate.ubicacion);
+  }
+
+  const candidateCreatedAt = candidate.created_at ? new Date(candidate.created_at).getTime() : 0;
+  const currentCreatedAt = current.created_at ? new Date(current.created_at).getTime() : 0;
+
+  return candidateCreatedAt > currentCreatedAt;
+};
+
+const deduplicateMachinesByImei = (
+  machines: MachineData[],
+  profiles: ProfileRow[],
+  roles: RoleRow[]
+) => {
+  const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
+  const roleMap = new Map(roles.map((role) => [role.user_id, role.role]));
+  const machineMap = new Map<string, MachineData>();
+
+  for (const machine of machines) {
+    const ownerRole = roleMap.get(machine.usuario_id) === 'admin' ? 'admin' : 'user';
+    const profile = profileMap.get(machine.usuario_id);
+    const candidate: MachineData = {
+      ...machine,
+      ownerName: profile?.nombre || 'Desconocido',
+      ownerEmail: profile?.email || '',
+      ownerRole,
+    };
+
+    const existing = machineMap.get(machine.mac_address);
+    if (!existing || isBetterMachineCandidate(candidate, existing)) {
+      machineMap.set(machine.mac_address, candidate);
+    }
+  }
+
+  return Array.from(machineMap.values()).sort((a, b) =>
+    a.nombre_personalizado.localeCompare(b.nombre_personalizado, 'es', { sensitivity: 'base' })
+  );
+};
 
 export const AdminMachines = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const lastKnownTempsRef = useRef(new Map<string, number>());
 
   const { data: machines = [], isLoading } = useQuery({
-    queryKey: ['admin-machines-enriched'],
+    queryKey: ['admin-machines-enriched-v2'],
     queryFn: async () => {
-      const [maqResult, profResult] = await Promise.all([
+      const [maquinasResult, profilesResult, rolesResult] = await Promise.all([
         supabase.from('maquinas').select('*'),
         supabase.from('profiles').select('id, nombre, email'),
+        supabase.from('user_roles').select('user_id, role'),
       ]);
-      console.log('[AdminMachines] maquinas result:', maqResult.data?.length, 'error:', maqResult.error?.message);
-      const maquinas = maqResult.data;
-      const profiles = profResult.data;
-      if (!maquinas || maquinas.length === 0) return [];
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      const enriched: MachineData[] = maquinas.map(m => ({
-        ...m,
-        ownerName: profileMap.get(m.usuario_id)?.nombre || 'Desconocido',
-        ownerEmail: profileMap.get(m.usuario_id)?.email || '',
-      }));
 
-      // Fetch temps
-      const tempPromises = enriched.map(async (m) => {
-        try {
-          const temp = await fetchTemperatura(m.mac_address);
-          if (temp) m.temperatura = temp.temperatura;
-        } catch { /* skip */ }
-      });
-      await Promise.allSettled(tempPromises);
-      return enriched;
+      if (maquinasResult.error) throw maquinasResult.error;
+      if (profilesResult.error) throw profilesResult.error;
+      if (rolesResult.error) throw rolesResult.error;
+
+      const visibleMachines = deduplicateMachinesByImei(
+        (maquinasResult.data || []) as MachineData[],
+        (profilesResult.data || []) as ProfileRow[],
+        (rolesResult.data || []) as RoleRow[]
+      );
+
+      const uniqueImeis = visibleMachines.map((machine) => machine.mac_address);
+      const temperatureMap = new Map(lastKnownTempsRef.current);
+      const temperatureResults = await Promise.allSettled(
+        uniqueImeis.map(async (imei) => {
+          const temp = await fetchTemperatura(imei);
+          return {
+            imei,
+            temperatura:
+              typeof temp?.temperatura === 'number' && Number.isFinite(temp.temperatura)
+                ? temp.temperatura
+                : null,
+          };
+        })
+      );
+
+      for (const result of temperatureResults) {
+        if (result.status === 'fulfilled' && typeof result.value.temperatura === 'number') {
+          temperatureMap.set(result.value.imei, result.value.temperatura);
+        }
+      }
+
+      lastKnownTempsRef.current = temperatureMap;
+
+      return visibleMachines.map((machine) => ({
+        ...machine,
+        temperatura: temperatureMap.get(machine.mac_address),
+      }));
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
     refetchInterval: 30000,
+    placeholderData: (previousData) => previousData,
+    retry: 2,
   });
 
-  const filtered = machines.filter(m =>
-    m.nombre_personalizado.toLowerCase().includes(search.toLowerCase()) ||
-    m.mac_address.includes(search) ||
-    m.ownerName?.toLowerCase().includes(search.toLowerCase()) ||
-    m.ubicacion?.toLowerCase().includes(search.toLowerCase())
+  const filtered = useMemo(
+    () =>
+      machines.filter((machine) =>
+        machine.nombre_personalizado.toLowerCase().includes(search.toLowerCase()) ||
+        machine.mac_address.includes(search) ||
+        machine.ownerName?.toLowerCase().includes(search.toLowerCase()) ||
+        machine.ubicacion?.toLowerCase().includes(search.toLowerCase())
+      ),
+    [machines, search]
   );
 
-  const getStatusBadge = (m: MachineData) => {
-    if (m.temperatura !== undefined && m.temperatura >= 11) return <Badge variant="destructive">Crítico</Badge>;
-    if (m.activa) return <Badge className="bg-success text-success-foreground">Normal</Badge>;
-    return <Badge variant="secondary">Inactiva</Badge>;
+  const getStatusBadge = (machine: MachineData) => {
+    if (!machine.activa) return <Badge variant="secondary">Inactiva</Badge>;
+    if (typeof machine.temperatura !== 'number') return <Badge variant="secondary">Sin lectura</Badge>;
+    if (machine.temperatura >= 11) return <Badge variant="destructive">Crítico</Badge>;
+    return <Badge className="bg-success text-success-foreground">Normal</Badge>;
   };
 
   if (isLoading) {
@@ -79,7 +173,7 @@ export const AdminMachines = () => {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-display font-bold">Todas las Máquinas</h1>
-        <p className="text-muted-foreground">{machines.length} máquinas registradas</p>
+        <p className="text-muted-foreground">{machines.length} máquinas físicas registradas</p>
       </div>
 
       <div className="relative max-w-sm">
@@ -100,30 +194,32 @@ export const AdminMachines = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(m => (
+              {filtered.map((machine) => (
                 <TableRow
-                  key={m.id}
+                  key={machine.id}
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => navigate(`/admin/machine/${m.id}`)}
+                  onClick={() => navigate(`/admin/machine/${machine.id}`)}
                 >
                   <TableCell>
                     <div>
-                      <p className="font-medium">{m.nombre_personalizado}</p>
-                      {m.ubicacion && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> {m.ubicacion}</p>}
+                      <p className="font-medium">{machine.nombre_personalizado}</p>
+                      {machine.ubicacion && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> {machine.ubicacion}</p>}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell font-mono text-xs">{m.mac_address}</TableCell>
+                  <TableCell className="hidden md:table-cell font-mono text-xs">{machine.mac_address}</TableCell>
                   <TableCell className="hidden lg:table-cell">
-                    <div><p className="text-sm">{m.ownerName}</p><p className="text-xs text-muted-foreground">{m.ownerEmail}</p></div>
+                    <div><p className="text-sm">{machine.ownerName}</p><p className="text-xs text-muted-foreground">{machine.ownerEmail}</p></div>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    {m.temperatura !== undefined ? (
-                      <span className={cn("flex items-center gap-1", m.temperatura >= 11 ? 'text-critical font-bold' : 'text-success')}>
-                        <Thermometer className="h-3.5 w-3.5" /> {m.temperatura}°C
+                    {typeof machine.temperatura === 'number' ? (
+                      <span className={cn('flex items-center gap-1', machine.temperatura >= 11 ? 'text-destructive font-bold' : 'text-success')}>
+                        <Thermometer className="h-3.5 w-3.5" /> {machine.temperatura}°C
                       </span>
-                    ) : '--'}
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Sin lectura</span>
+                    )}
                   </TableCell>
-                  <TableCell>{getStatusBadge(m)}</TableCell>
+                  <TableCell>{getStatusBadge(machine)}</TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (
