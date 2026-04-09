@@ -20,7 +20,7 @@ export function useEmailNotifications() {
       setError(null);
       const response = await fetch(`${API_ENDPOINTS.control}`, {
         method: 'POST',
-        headers: API_HEADERS,
+        headers: API_POST_HEADERS,
         body: JSON.stringify({ comando: 'listar_emails' }),
       });
       const data = await response.json();
@@ -40,7 +40,7 @@ export function useEmailNotifications() {
     try {
       const response = await fetch(API_ENDPOINTS.control, {
         method: 'POST',
-        headers: API_HEADERS,
+        headers: API_POST_HEADERS,
         body: JSON.stringify({ comando: 'agregar_email', imei, email }),
       });
       const data = await response.json();
@@ -62,7 +62,7 @@ export function useEmailNotifications() {
     try {
       const response = await fetch(API_ENDPOINTS.control, {
         method: 'POST',
-        headers: API_HEADERS,
+        headers: API_POST_HEADERS,
         body: JSON.stringify({ comando: 'eliminar_email', id }),
       });
       const data = await response.json();
