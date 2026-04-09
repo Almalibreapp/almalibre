@@ -29,11 +29,14 @@ export const AdminMachines = () => {
   const { data: machines = [], isLoading } = useQuery({
     queryKey: ['admin-machines-enriched'],
     queryFn: async () => {
-      const [{ data: maquinas }, { data: profiles }] = await Promise.all([
+      const [maqResult, profResult] = await Promise.all([
         supabase.from('maquinas').select('*'),
         supabase.from('profiles').select('id, nombre, email'),
       ]);
-      if (!maquinas) return [];
+      console.log('[AdminMachines] maquinas result:', maqResult.data?.length, 'error:', maqResult.error?.message);
+      const maquinas = maqResult.data;
+      const profiles = profResult.data;
+      if (!maquinas || maquinas.length === 0) return [];
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
       const enriched: MachineData[] = maquinas.map(m => ({
         ...m,
