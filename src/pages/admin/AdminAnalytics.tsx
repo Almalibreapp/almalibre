@@ -200,8 +200,10 @@ export const AdminAnalytics = () => {
 
     return ventasHistorico
       .map((v) => {
-        const converted = convertChinaToSpainFull(v.hora, v.fecha);
-        const saleDate = new Date(`${converted.fecha}T00:00:00`);
+        // Data already comes in Spain time — no conversion needed
+        const fechaSpain = (v.fecha || '').substring(0, 10);
+        const horaSpain = (v.hora || '00:00').substring(0, 5);
+        const saleDate = new Date(`${fechaSpain}T00:00:00`);
 
         const productInfo = parseProductAndToppings(v.producto);
         const toppingNames = Array.isArray(v.toppings) && v.toppings.length > 0
@@ -210,8 +212,8 @@ export const AdminAnalytics = () => {
 
         return {
           ...v,
-          fechaSpain: converted.fecha,
-          horaSpain: converted.hora,
+          fechaSpain,
+          horaSpain,
           saleDate,
           productoNormalizado: productInfo.productName,
           toppingNames,
