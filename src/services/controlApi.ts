@@ -1,4 +1,4 @@
-import { API_HEADERS, API_ENDPOINTS } from '@/lib/api-config';
+import { API_POST_HEADERS, API_ENDPOINTS } from '@/lib/api-config';
 
 // Types
 export interface Producto {
@@ -42,7 +42,7 @@ export interface ImagenDisponible {
 // === PRODUCTOS ===
 
 export const fetchProductos = async (imei: string): Promise<ProductosResponse> => {
-  const response = await fetch(`${API_ENDPOINTS.productos}?imei=${imei}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_ENDPOINTS.productos}?imei=${imei}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudieron obtener los productos`);
@@ -54,7 +54,7 @@ export const fetchProductos = async (imei: string): Promise<ProductosResponse> =
 export const updateProductoPrecio = async (imei: string, position: number, precio: string) => {
   const response = await fetch(API_ENDPOINTS.productos, {
     method: 'POST',
-    headers: API_HEADERS,
+    headers: API_POST_HEADERS,
     body: JSON.stringify({ imei, position, precio: Number(precio) }),
   });
   if (!response.ok) {
@@ -67,7 +67,7 @@ export const updateProductoPrecio = async (imei: string, position: number, preci
 export const updateProductoNombre = async (imei: string, position: number, nombre: string) => {
   const response = await fetch(API_ENDPOINTS.productos, {
     method: 'POST',
-    headers: API_HEADERS,
+    headers: API_POST_HEADERS,
     body: JSON.stringify({ imei, position, nombre }),
   });
   if (!response.ok) {
@@ -84,7 +84,7 @@ export const updateProductoNombre = async (imei: string, position: number, nombr
 export const updateProductoImagen = async (imei: string, position: number, imageUrl: string) => {
   const response = await fetch(API_ENDPOINTS.productos, {
     method: 'POST',
-    headers: API_HEADERS,
+    headers: API_POST_HEADERS,
     body: JSON.stringify({ imei, position, imagen: imageUrl }),
   });
   if (!response.ok) {
@@ -112,7 +112,7 @@ export const subirImagen = async (_file: File): Promise<string> => {
 export const sincronizarProductos = async (imei: string) => {
   const response = await fetch(API_ENDPOINTS.control, {
     method: 'POST',
-    headers: API_HEADERS,
+    headers: API_POST_HEADERS,
     body: JSON.stringify({ imei, comando: 'sincronizar_productos' }),
   });
   if (!response.ok) {
@@ -124,7 +124,7 @@ export const sincronizarProductos = async (imei: string) => {
 export const sincronizarMedios = async (imei: string) => {
   const response = await fetch(API_ENDPOINTS.control, {
     method: 'POST',
-    headers: API_HEADERS,
+    headers: API_POST_HEADERS,
     body: JSON.stringify({ imei, comando: 'sincronizar_medios' }),
   });
   if (!response.ok) {
@@ -147,7 +147,7 @@ export const crearCupon = async (data: {
 }) => {
   const response = await fetch(API_ENDPOINTS.control, {
     method: 'POST',
-    headers: API_HEADERS,
+    headers: API_POST_HEADERS,
     body: JSON.stringify({ imei: data.imei, comando: 'crear_cupon', datos: data }),
   });
   const responseData = await response.json().catch(() => ({}));
@@ -160,7 +160,7 @@ export const crearCupon = async (data: {
 export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
   const response = await fetch(API_ENDPOINTS.control, {
     method: 'POST',
-    headers: API_HEADERS,
+    headers: API_POST_HEADERS,
     body: JSON.stringify({ imei, comando: 'listar_cupones' }),
   });
   if (!response.ok) {
@@ -185,7 +185,7 @@ export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
 export const fetchCodigosCupon = async (cuponId: string): Promise<CodigoCupon[]> => {
   const response = await fetch(API_ENDPOINTS.control, {
     method: 'POST',
-    headers: API_HEADERS,
+    headers: API_POST_HEADERS,
     body: JSON.stringify({ comando: 'listar_codigos_cupon', cupon_id: cuponId }),
   });
   if (!response.ok) {
@@ -205,7 +205,7 @@ export const fetchCodigosCupon = async (cuponId: string): Promise<CodigoCupon[]>
 export const eliminarCupon = async (cuponId: string) => {
   const response = await fetch(API_ENDPOINTS.control, {
     method: 'POST',
-    headers: API_HEADERS,
+    headers: API_POST_HEADERS,
     body: JSON.stringify({ comando: 'eliminar_cupon', cupon_id: cuponId }),
   });
   const data = await response.json().catch(() => ({}));
@@ -220,7 +220,7 @@ export const eliminarCupon = async (cuponId: string) => {
 const sendControlCommand = async (imei: string, comando: string) => {
   const response = await fetch(API_ENDPOINTS.control, {
     method: 'POST',
-    headers: API_HEADERS,
+    headers: API_POST_HEADERS,
     body: JSON.stringify({ imei, comando }),
   });
   if (!response.ok) {
@@ -246,7 +246,7 @@ export const controlLimpieza = async (imei: string) => sendControlCommand(imei, 
 export const actualizarStockTopping = async (imei: string, posiciones: string[]) => {
   const response = await fetch(API_ENDPOINTS.stock, {
     method: 'POST',
-    headers: API_HEADERS,
+    headers: API_POST_HEADERS,
     body: JSON.stringify({ imei, posiciones, llenar_completo: true }),
   });
   if (!response.ok) {
@@ -268,7 +268,7 @@ export const actualizarStockConSync = async (imei: string, position: string | nu
   try {
     const response = await fetch(API_ENDPOINTS.stock, {
       method: 'POST',
-      headers: API_HEADERS,
+      headers: API_POST_HEADERS,
       body: JSON.stringify({ imei, position: positionStr, cantidad: cantidadNum }),
     });
 

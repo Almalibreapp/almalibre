@@ -1,8 +1,8 @@
-import { API_HEADERS, API_ENDPOINTS } from '@/lib/api-config';
+import { API_ENDPOINTS } from '@/lib/api-config';
 
 // Información general de la máquina (uses ventas endpoint with no date)
 export const fetchMiMaquina = async (imei: string) => {
-  const response = await fetch(`${API_ENDPOINTS.estado}?imei=${imei}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_ENDPOINTS.estado}?imei=${imei}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener la información de la máquina`);
@@ -13,7 +13,7 @@ export const fetchMiMaquina = async (imei: string) => {
 // Resumen de ventas - fetch today's sales and compute summary
 export const fetchVentasResumen = async (imei: string) => {
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const response = await fetch(`${API_ENDPOINTS.ventas}?imei=${imei}&fecha=${today}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_ENDPOINTS.ventas}?imei=${imei}&fecha=${today}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el resumen de ventas`);
@@ -38,7 +38,7 @@ export const fetchVentasResumen = async (imei: string) => {
 // Detalle de ventas
 export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
   const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const response = await fetch(`${API_ENDPOINTS.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_ENDPOINTS.ventas}?imei=${imei}&fecha=${dateStr}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el detalle de ventas`);
@@ -67,7 +67,7 @@ export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
 // Hours already come in Spain timezone
 export const fetchOrdenes = async (imei: string, fecha?: string) => {
   const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const response = await fetch(`${API_ENDPOINTS.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_ENDPOINTS.ventas}?imei=${imei}&fecha=${dateStr}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener las órdenes`);
@@ -95,7 +95,7 @@ export const fetchOrdenes = async (imei: string, fecha?: string) => {
 
 // Stock de toppings
 export const fetchToppings = async (imei: string) => {
-  const response = await fetch(`${API_ENDPOINTS.stock}?imei=${imei}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_ENDPOINTS.stock}?imei=${imei}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el stock de toppings`);
@@ -119,7 +119,7 @@ export const fetchToppings = async (imei: string) => {
 
 // Temperatura
 export const fetchTemperatura = async (imei: string) => {
-  const response = await fetch(`${API_ENDPOINTS.temperatura}?imei=${imei}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_ENDPOINTS.temperatura}?imei=${imei}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener la temperatura`);
@@ -143,7 +143,7 @@ export const fetchEstadisticasToppings = async (imei: string) => {
 
 // Estado de la máquina
 export const fetchEstadoMaquina = async (imei: string) => {
-  const response = await fetch(`${API_ENDPOINTS.estado}?imei=${imei}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_ENDPOINTS.estado}?imei=${imei}`);
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el estado`);
