@@ -122,24 +122,42 @@ export const fetchTemperatura = async (imei: string, start?: string, end?: strin
   const now = new Date();
   const endDate = end || now.toISOString();
   const startDate = start || new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString();
-  const response = await fetch(
-    `${API_ENDPOINTS.temperatura}?imei=${imei}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
-    { headers: API_HEADERS }
-  );
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener la temperatura`);
+  try {
+    const response = await fetch(
+      `${API_ENDPOINTS.temperatura}?imei=${imei}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
+      { headers: API_HEADERS }
+    );
+    if (!response.ok) {
+      console.warn(`[temperatura] HTTP ${response.status} for ${imei}`);
+      // Return fallback empty data instead of crashing
+      return {
+        mac_addr: imei,
+        temperatura: null,
+        unidad: 'C',
+        estado: 'sin_datos',
+        timestamp: new Date().toISOString(),
+      };
+    }
+    const data = await response.json();
+    const datos = Array.isArray(data.datos) ? data.datos : [];
+    const latest = datos.length > 0 ? datos[datos.length - 1] : null;
+    return {
+      mac_addr: imei,
+      temperatura: latest?.temperatura ?? data.temperatura ?? null,
+      unidad: latest?.unidad || data.unidad || 'C',
+      estado: latest?.estado || data.estado || 'normal',
+      timestamp: latest?.timestamp || data.timestamp || new Date().toISOString(),
+    };
+  } catch (err) {
+    console.warn(`[temperatura] Error fetching for ${imei}:`, err);
+    return {
+      mac_addr: imei,
+      temperatura: null,
+      unidad: 'C',
+      estado: 'sin_datos',
+      timestamp: new Date().toISOString(),
+    };
   }
-  const data = await response.json();
-  const datos = data.datos || [];
-  const latest = datos.length > 0 ? datos[datos.length - 1] : null;
-  return {
-    mac_addr: imei,
-    temperatura: latest?.temperatura ?? data.temperatura ?? null,
-    unidad: latest?.unidad || data.unidad || 'C',
-    estado: latest?.estado || data.estado || 'normal',
-    timestamp: latest?.timestamp || data.timestamp || new Date().toISOString(),
-  };
 };
 
 // Estadísticas de toppings - uses stock endpoint
