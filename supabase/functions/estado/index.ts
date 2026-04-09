@@ -12,8 +12,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json().catch(() => ({}))
-    const { imei } = body as { imei?: string }
+    let imei: string | undefined
+
+    if (req.method === 'GET') {
+      const url = new URL(req.url)
+      imei = url.searchParams.get('imei') ?? undefined
+    } else {
+      const body = await req.json().catch(() => ({}))
+      imei = (body as any).imei
+    }
 
     if (!imei) {
       return new Response(JSON.stringify({ error: 'imei es requerido' }), {

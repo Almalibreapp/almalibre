@@ -44,8 +44,18 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json().catch(() => ({}))
-    const { imei, fecha } = body as { imei?: string; fecha?: string }
+    let imei: string | undefined
+    let fecha: string | undefined
+
+    if (req.method === 'GET') {
+      const url = new URL(req.url)
+      imei = url.searchParams.get('imei') ?? undefined
+      fecha = url.searchParams.get('fecha') ?? undefined
+    } else {
+      const body = await req.json().catch(() => ({}))
+      imei = (body as any).imei
+      fecha = (body as any).fecha
+    }
 
     if (!imei || !fecha) {
       return new Response(JSON.stringify({ error: 'imei y fecha son requeridos' }), {
