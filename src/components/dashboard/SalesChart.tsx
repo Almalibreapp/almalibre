@@ -1,6 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Venta } from '@/types';
-import { convertChinaToSpain } from '@/lib/timezone';
 
 interface SalesChartProps {
   ventas: Venta[];
@@ -8,10 +7,10 @@ interface SalesChartProps {
 }
 
 export const SalesChart = ({ ventas, fecha }: SalesChartProps) => {
-  // Group sales by hour (Spanish time)
+  // Group sales by hour — hora already comes in Spain time, use directly
   const ventasPorHora = ventas.reduce((acc, venta) => {
-    const horaSpain = (venta as any)._spainHora || convertChinaToSpain(venta.hora, fecha);
-    const horaKey = horaSpain.split(':')[0] + ':00';
+    const hora = (venta as any)._spainHora || venta.hora || '00:00';
+    const horaKey = hora.split(':')[0] + ':00';
     if (!acc[horaKey]) {
       acc[horaKey] = { cantidad: 0, ingresos: 0 };
     }
@@ -41,7 +40,6 @@ export const SalesChart = ({ ventas, fecha }: SalesChartProps) => {
 
   return (
     <div className="space-y-3">
-      {/* Summary stats */}
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className="p-2 bg-muted/50 rounded-lg">
           <p className="text-lg font-bold text-primary">{totalVentas}</p>
@@ -59,7 +57,6 @@ export const SalesChart = ({ ventas, fecha }: SalesChartProps) => {
         </div>
       </div>
 
-      {/* Chart */}
       <div className="h-48 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -97,7 +94,6 @@ export const SalesChart = ({ ventas, fecha }: SalesChartProps) => {
         </ResponsiveContainer>
       </div>
 
-      {/* Detailed hour breakdown */}
       <div className="space-y-1.5 max-h-48 overflow-y-auto">
         {data.map((d) => (
           <div key={d.hora} className="flex items-center justify-between text-sm py-1.5 px-2 rounded-md bg-muted/30">

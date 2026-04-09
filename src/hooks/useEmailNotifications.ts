@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { API_POST_HEADERS, API_ENDPOINTS } from '@/lib/api-config';
+import { API_CONFIG } from '@/config/api';
 
 export interface EmailConfig {
   id: number;
@@ -18,9 +18,9 @@ export function useEmailNotifications() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`${API_ENDPOINTS.control}`, {
+      const response = await fetch(API_CONFIG.endpoints.control, {
         method: 'POST',
-        headers: API_POST_HEADERS,
+        headers: API_CONFIG.postHeaders,
         body: JSON.stringify({ comando: 'listar_emails' }),
       });
       const data = await response.json();
@@ -38,9 +38,9 @@ export function useEmailNotifications() {
 
   const addConfig = async (imei: string, email: string) => {
     try {
-      const response = await fetch(API_ENDPOINTS.control, {
+      const response = await fetch(API_CONFIG.endpoints.control, {
         method: 'POST',
-        headers: API_POST_HEADERS,
+        headers: API_CONFIG.postHeaders,
         body: JSON.stringify({ comando: 'agregar_email', imei, email }),
       });
       const data = await response.json();
@@ -60,9 +60,9 @@ export function useEmailNotifications() {
 
   const deleteConfig = async (id: number) => {
     try {
-      const response = await fetch(API_ENDPOINTS.control, {
+      const response = await fetch(API_CONFIG.endpoints.control, {
         method: 'POST',
-        headers: API_POST_HEADERS,
+        headers: API_CONFIG.postHeaders,
         body: JSON.stringify({ comando: 'eliminar_email', id }),
       });
       const data = await response.json();

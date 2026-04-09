@@ -1,8 +1,8 @@
-import { API_ENDPOINTS, API_HEADERS, LOCAL_API_ENDPOINTS, LOCAL_API_HEADERS } from '@/lib/api-config';
+import { API_CONFIG } from '@/config/api';
 
-// Información general de la máquina (uses ventas endpoint with no date)
+// Información general de la máquina
 export const fetchMiMaquina = async (imei: string) => {
-  const response = await fetch(`${API_ENDPOINTS.estado}?imei=${imei}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_CONFIG.endpoints.estado}?imei=${imei}`, { headers: API_CONFIG.headers });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener la información de la máquina`);
@@ -13,7 +13,7 @@ export const fetchMiMaquina = async (imei: string) => {
 // Resumen de ventas - fetch today's sales and compute summary
 export const fetchVentasResumen = async (imei: string) => {
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const response = await fetch(`${API_ENDPOINTS.ventas}?imei=${imei}&fecha=${today}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${today}`, { headers: API_CONFIG.headers });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el resumen de ventas`);
@@ -38,7 +38,7 @@ export const fetchVentasResumen = async (imei: string) => {
 // Detalle de ventas
 export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
   const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const response = await fetch(`${API_ENDPOINTS.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_CONFIG.headers });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el detalle de ventas`);
@@ -50,9 +50,8 @@ export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
     total_ventas: data.total || (data.ventas || []).length,
     ventas: (data.ventas || []).map((v: any) => ({
       ...v,
-      // hora already comes in Spain timezone from the backend
-      hora: v.hora_spain || v.hora || '00:00',
-      fecha: v.fecha_spain || v.fecha || dateStr,
+      hora: v.hora || '00:00',
+      fecha: v.fecha || dateStr,
       producto: v.producto || '',
       precio: Number(v.precio || 0),
       cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
@@ -63,11 +62,10 @@ export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
   };
 };
 
-// Ordenes del fabricante - now uses Supabase Edge Function
-// Hours already come in Spain timezone
+// Ordenes del fabricante
 export const fetchOrdenes = async (imei: string, fecha?: string) => {
   const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const response = await fetch(`${API_ENDPOINTS.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_CONFIG.headers });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener las órdenes`);
@@ -75,9 +73,9 @@ export const fetchOrdenes = async (imei: string, fecha?: string) => {
   const data = await response.json();
   const ventas = (data.ventas || []).map((v: any) => ({
     ...v,
-    id: v.id || v.numero_orden || `${v.hora_spain || v.hora}-${v.precio}`,
-    hora: v.hora_spain || v.hora || '00:00',
-    fecha: v.fecha_spain || v.fecha || dateStr,
+    id: v.id || v.numero_orden || `${v.hora}-${v.precio}`,
+    hora: v.hora || '00:00',
+    fecha: v.fecha || dateStr,
     producto: v.producto || '',
     precio: Number(v.precio || 0),
     cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
@@ -95,7 +93,7 @@ export const fetchOrdenes = async (imei: string, fecha?: string) => {
 
 // Stock de toppings
 export const fetchToppings = async (imei: string) => {
-  const response = await fetch(`${LOCAL_API_ENDPOINTS.stock}?imei=${imei}`, { headers: LOCAL_API_HEADERS });
+  const response = await fetch(`${API_CONFIG.endpoints.stock}?imei=${imei}`, { headers: API_CONFIG.headers });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el stock de toppings`);
@@ -105,8 +103,8 @@ export const fetchToppings = async (imei: string) => {
   const toppings = stock.map((s: any) => ({
     posicion: s.position || s.posicion,
     nombre: s.nombre || s.name || '',
-    stock_actual: s.actual ?? s.stock_actual ?? 0,
-    capacidad_maxima: s.maximo ?? s.capacidad_maxima ?? 100,
+    stock_actual: s.unidades_actuales ?? s.actual ?? s.stock_actual ?? 0,
+    capacidad_maxima: s.capacidad_maxima ?? s.maximo ?? 100,
     porcentaje: s.porcentaje ?? 0,
     estado: s.estado || 'ok',
   }));
@@ -124,12 +122,11 @@ export const fetchTemperatura = async (imei: string, start?: string, end?: strin
   const startDate = start || new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString();
   try {
     const response = await fetch(
-      `${API_ENDPOINTS.temperatura}?imei=${imei}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
-      { headers: LOCAL_API_HEADERS }
+      `${API_CONFIG.endpoints.temperatura}?imei=${imei}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
+      { headers: API_CONFIG.headers }
     );
     if (!response.ok) {
       console.warn(`[temperatura] HTTP ${response.status} for ${imei}`);
-      // Return fallback empty data instead of crashing
       return {
         mac_addr: imei,
         temperatura: null,
@@ -167,7 +164,7 @@ export const fetchEstadisticasToppings = async (imei: string) => {
 
 // Estado de la máquina
 export const fetchEstadoMaquina = async (imei: string) => {
-  const response = await fetch(`${API_ENDPOINTS.estado}?imei=${imei}`, { headers: API_HEADERS });
+  const response = await fetch(`${API_CONFIG.endpoints.estado}?imei=${imei}`, { headers: API_CONFIG.headers });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el estado`);
