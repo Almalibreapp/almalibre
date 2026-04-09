@@ -73,14 +73,19 @@ const shiftIsoDate = (date: string, days: number) => {
 };
 
 export const detectSalesTimezoneMode = (_sales: Array<{ hora?: string }>): SalesTimezoneMode => {
-  // Backend now always returns Spain time — no detection needed
-  return 'spain';
+  // Backend returns China time (UTC+8), we convert to Spain in normalization
+  return 'china';
 };
 
 export const mapSpainSaleToVenta = (sale: SaleLike): NormalizedVenta => {
-  // Backend returns hora_spain/fecha_spain directly — use them
-  const fecha = normalizeDate(sale.fecha_spain ?? sale.fechaSpain ?? sale._spainFecha ?? sale.fecha, '');
-  const hora = normalizeTime(sale.hora_spain ?? sale.horaSpain ?? sale._spainHora ?? sale.hora);
+  // Convert from China time to Spain time
+  const rawFecha = normalizeDate(sale.fecha_spain ?? sale.fechaSpain ?? sale._spainFecha ?? sale.fecha, '');
+  const rawHora = normalizeTime(sale.hora_spain ?? sale.horaSpain ?? sale._spainHora ?? sale.hora);
+  
+  // Apply China → Spain conversion
+  const spain = convertSaleToSpain(rawFecha, rawHora);
+  const fecha = spain.fecha;
+  const hora = spain.hora;
   const saleUid = resolveSaleUid(sale, fecha, hora);
 
   return {
