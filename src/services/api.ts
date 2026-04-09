@@ -1,172 +1,150 @@
-const API_BASE_URL = 'https://nonstopmachine.com/wp-json/helados/v1';
-const API_TOKEN = 'b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE';
+import { API_HEADERS, API_ENDPOINTS } from '@/lib/api-config';
 
-const headers = {
-  'Authorization': `Bearer ${API_TOKEN}`,
-  'Content-Type': 'application/json',
-};
-
-// Información general de la máquina
+// Información general de la máquina (uses ventas endpoint with no date)
 export const fetchMiMaquina = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/mi-maquina/${imei}`, { headers });
-  
+  const response = await fetch(`${API_ENDPOINTS.estado}?imei=${imei}`, { headers: API_HEADERS });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener la información de la máquina`);
+    throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener la información de la máquina`);
   }
-
   return response.json();
 };
 
-// Resumen de ventas
+// Resumen de ventas - fetch today's sales and compute summary
 export const fetchVentasResumen = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/ventas-resumen/${imei}`, { headers });
-  
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const response = await fetch(`${API_ENDPOINTS.ventas}?imei=${imei}&fecha=${today}`, { headers: API_HEADERS });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener el resumen de ventas`);
+    throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el resumen de ventas`);
   }
-
-  return response.json();
-};
-
-// Helper to decode HTML entities from API responses
-const decodeHtml = (text: string): string => {
-  if (!text || typeof window === 'undefined') return text || '';
-  const textarea = document.createElement('textarea');
-  textarea.innerHTML = text;
-  return textarea.value;
-};
-
-// Detalle de ventas (legacy endpoint)
-export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
-  let url = `${API_BASE_URL}/ventas-detalle/${imei}`;
-  if (fecha) {
-    url += `?fecha=${fecha}`;
-  }
-  
-  const response = await fetch(url, { headers });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener el detalle de ventas`);
-  }
-
   const data = await response.json();
-  
-  // Decode HTML entities in product names and topping names
-  if (data?.ventas && Array.isArray(data.ventas)) {
-    data.ventas = data.ventas.map((v: any) => ({
-      ...v,
-      producto: decodeHtml(v.producto || ''),
-      toppings: Array.isArray(v.toppings) 
-        ? v.toppings.map((t: any) => ({ ...t, nombre: decodeHtml(t.nombre || '') }))
-        : v.toppings,
-    }));
-  }
-  
-  return data;
+  const ventas = data.ventas || [];
+  const exitosas = ventas.filter((v: any) => {
+    const estado = (v.estado || '').toLowerCase();
+    return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
+  });
+  return {
+    ventas_hoy: {
+      cantidad: exitosas.length,
+      total_euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio || 0), 0),
+    },
+    ventas_ayer: { cantidad: 0, total_euros: 0 },
+    ventas_mes: { cantidad: 0, total_euros: 0 },
+  };
 };
 
-// Ordenes del fabricante (endpoint principal con método de pago real y toppings correctos)
-// Supports pagination: fetches ALL pages automatically
-export const fetchOrdenes = async (imei: string, fecha?: string) => {
-  const baseUrl = `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${imei}`;
-  let allOrdenes: any[] = [];
-  let page = 1;
-  let totalPages = 1;
-  let lastData: any = null;
-
-  while (page <= totalPages) {
-    const params = new URLSearchParams();
-    if (fecha) params.set('fecha', fecha);
-    params.set('page', String(page));
-    const url = `${baseUrl}?${params.toString()}`;
-
-    const response = await fetch(url, { headers });
-    if (!response.ok) {
-      if (page === 1) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener las órdenes`);
-      }
-      break;
-    }
-
-    const data = await response.json();
-    lastData = data;
-    const ordenes = data?.ordenes || data?.ventas || [];
-    allOrdenes = [...allOrdenes, ...ordenes];
-
-    totalPages = data.total_pages || 1;
-    page++;
+// Detalle de ventas
+export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
+  const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const response = await fetch(`${API_ENDPOINTS.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_HEADERS });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el detalle de ventas`);
   }
-
-  const normalized = {
-    mac_addr: lastData?.imei || imei,
-    fecha: (lastData?.fecha || '').substring(0, 10),
-    total_ventas: lastData?.total_count || allOrdenes.length,
-    ventas: allOrdenes.map((v: any) => ({
+  const data = await response.json();
+  return {
+    mac_addr: data.imei || imei,
+    fecha: data.fecha || dateStr,
+    total_ventas: data.total || (data.ventas || []).length,
+    ventas: (data.ventas || []).map((v: any) => ({
       ...v,
-      producto: decodeHtml(v.producto || ''),
-      fecha: (v.fecha || lastData?.fecha || '').substring(0, 10),
-      cantidad_unidades: v.cantidad || v.cantidad_unidades || 1,
-      toppings: Array.isArray(v.toppings) 
-        ? v.toppings.map((t: any) => ({ ...t, nombre: decodeHtml(t.nombre || '') }))
-        : v.toppings || [],
+      // hora already comes in Spain timezone from the backend
+      hora: v.hora_spain || v.hora || '00:00',
+      fecha: v.fecha_spain || v.fecha || dateStr,
+      producto: v.producto || '',
+      precio: Number(v.precio || 0),
+      cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+      metodo_pago: v.metodo_pago || 'efectivo',
+      estado: v.estado || 'exitoso',
+      toppings: v.toppings || [],
     })),
   };
-  
-  return normalized;
+};
+
+// Ordenes del fabricante - now uses Supabase Edge Function
+// Hours already come in Spain timezone
+export const fetchOrdenes = async (imei: string, fecha?: string) => {
+  const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const response = await fetch(`${API_ENDPOINTS.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_HEADERS });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener las órdenes`);
+  }
+  const data = await response.json();
+  const ventas = (data.ventas || []).map((v: any) => ({
+    ...v,
+    id: v.id || v.numero_orden || `${v.hora_spain || v.hora}-${v.precio}`,
+    hora: v.hora_spain || v.hora || '00:00',
+    fecha: v.fecha_spain || v.fecha || dateStr,
+    producto: v.producto || '',
+    precio: Number(v.precio || 0),
+    cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+    metodo_pago: v.metodo_pago || 'efectivo',
+    estado: v.estado || 'exitoso',
+    toppings: v.toppings || [],
+  }));
+  return {
+    mac_addr: data.imei || imei,
+    fecha: data.fecha || dateStr,
+    total_ventas: data.total || ventas.length,
+    ventas,
+  };
 };
 
 // Stock de toppings
 export const fetchToppings = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/toppings/${imei}`, { headers });
-  
+  const response = await fetch(`${API_ENDPOINTS.stock}?imei=${imei}`, { headers: API_HEADERS });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener el stock de toppings`);
+    throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el stock de toppings`);
   }
-
-  return response.json();
+  const data = await response.json();
+  // Map edge function response to existing frontend format
+  const stock = data.stock || [];
+  return {
+    toppings: stock.map((s: any) => ({
+      posicion: s.position || s.posicion,
+      nombre: s.nombre || s.name || '',
+      stock_actual: s.actual ?? s.stock_actual ?? 0,
+      capacidad_maxima: s.maximo ?? s.capacidad_maxima ?? 100,
+      porcentaje: s.porcentaje ?? 0,
+      estado: s.estado || 'ok',
+    })),
+  };
 };
 
 // Temperatura
 export const fetchTemperatura = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/temperatura/${imei}`, { headers });
-  
+  const response = await fetch(`${API_ENDPOINTS.temperatura}?imei=${imei}`, { headers: API_HEADERS });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener la temperatura`);
+    throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener la temperatura`);
   }
-
-  return response.json();
+  const data = await response.json();
+  // Map to existing frontend format
+  const datos = data.datos || [];
+  const latest = datos.length > 0 ? datos[datos.length - 1] : null;
+  return {
+    temperatura: latest?.temperatura ?? data.temperatura ?? null,
+    unidad: latest?.unidad || data.unidad || 'C',
+    estado: latest?.estado || data.estado || 'normal',
+    timestamp: latest?.timestamp || data.timestamp || new Date().toISOString(),
+  };
 };
 
-// Estadísticas de toppings
+// Estadísticas de toppings - uses stock endpoint
 export const fetchEstadisticasToppings = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/estadisticas-toppings/${imei}`, { headers });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Error ${response.status}: No se pudieron obtener las estadísticas`);
-  }
-
-  return response.json();
+  return fetchToppings(imei);
 };
 
 // Estado de la máquina
 export const fetchEstadoMaquina = async (imei: string) => {
-  const response = await fetch(
-    `https://nonstopmachine.com/wp-json/fabricante-ext/v1/estado/${imei}`,
-    { headers }
-  );
-  
+  const response = await fetch(`${API_ENDPOINTS.estado}?imei=${imei}`, { headers: API_HEADERS });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Error ${response.status}: No se pudo obtener el estado`);
+    throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el estado`);
   }
-
   return response.json();
 };
 

@@ -1,11 +1,4 @@
-const API_BASE_URL = 'https://nonstopmachine.com/wp-json';
-const API_BASE_URL_EXT = 'https://nonstopmachine.com/wp-json';
-const API_TOKEN = 'b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE';
-
-const headers = {
-  'Authorization': `Bearer ${API_TOKEN}`,
-  'Content-Type': 'application/json',
-};
+import { API_HEADERS, API_ENDPOINTS } from '@/lib/api-config';
 
 // Types
 export interface Producto {
@@ -49,150 +42,94 @@ export interface ImagenDisponible {
 // === PRODUCTOS ===
 
 export const fetchProductos = async (imei: string): Promise<ProductosResponse> => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/productos/${imei}`, { headers });
-  
+  const response = await fetch(`${API_ENDPOINTS.productos}?imei=${imei}`, { headers: API_HEADERS });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Error ${response.status}: No se pudieron obtener los productos`);
+    throw new Error(errorData.error || `Error ${response.status}: No se pudieron obtener los productos`);
   }
-
-  return response.json();
+  const data = await response.json();
+  return { success: data.success, productos: data.productos || [] };
 };
 
 export const updateProductoPrecio = async (imei: string, position: number, precio: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/producto/precio`, {
+  const response = await fetch(API_ENDPOINTS.productos, {
     method: 'POST',
-    headers,
-    body: JSON.stringify({
-      imei,
-      position: position.toString(),
-      precio,
-    }),
+    headers: API_HEADERS,
+    body: JSON.stringify({ imei, position, precio: Number(precio) }),
   });
-
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al actualizar el precio');
+    throw new Error(errorData.error || 'Error al actualizar el precio');
   }
-
   return response.json();
 };
 
 export const updateProductoNombre = async (imei: string, position: number, nombre: string) => {
-  console.log('=== DEBUG CAMBIO NOMBRE ===');
-  console.log('IMEI:', imei);
-  console.log('Position:', position);
-  console.log('Nuevo nombre:', nombre);
-
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/producto/nombre`, {
+  const response = await fetch(API_ENDPOINTS.productos, {
     method: 'POST',
-    headers,
-    body: JSON.stringify({
-      imei,
-      position: position.toString(),
-      nombre,
-    }),
+    headers: API_HEADERS,
+    body: JSON.stringify({ imei, position, nombre }),
   });
-
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al actualizar el nombre');
+    throw new Error(errorData.error || 'Error al actualizar el nombre');
   }
-
   const data = await response.json();
-  console.log('Respuesta:', JSON.stringify(data, null, 2));
-
   // Wait 3 seconds then sync products
   await new Promise(resolve => setTimeout(resolve, 3000));
   await sincronizarProductos(imei);
-
   return data;
 };
 
 export const updateProductoImagen = async (imei: string, position: number, imageUrl: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/producto/imagen`, {
+  const response = await fetch(API_ENDPOINTS.productos, {
     method: 'POST',
-    headers,
-    body: JSON.stringify({
-      imei,
-      position: position.toString(),
-      image_url: imageUrl,
-    }),
+    headers: API_HEADERS,
+    body: JSON.stringify({ imei, position, imagen: imageUrl }),
   });
-
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al actualizar la imagen');
+    throw new Error(errorData.error || 'Error al actualizar la imagen');
   }
-
   const data = await response.json();
-
-  // Immediately sync media
   await sincronizarMedios(imei);
-
   return data;
 };
 
 export const fetchImagenesDisponibles = async (): Promise<ImagenDisponible[]> => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/imagenes-disponibles`, { headers });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al obtener imágenes');
-  }
-
-  const data = await response.json();
-  return data.imagenes || data || [];
+  // This endpoint may not be available yet via edge functions
+  // Return empty for now
+  return [];
 };
 
-export const subirImagen = async (file: File): Promise<string> => {
-  const formData = new FormData();
-  formData.append('imagen', file);
-
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/subir-imagen`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${API_TOKEN}`,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al subir la imagen');
-  }
-
-  const data = await response.json();
-  return data.url || data.image_url;
+export const subirImagen = async (_file: File): Promise<string> => {
+  // Image upload will need to be handled via storage
+  throw new Error('Subida de imagen no disponible temporalmente');
 };
 
 // === SINCRONIZACIÓN ===
 
 export const sincronizarProductos = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/sincronizar-productos`, {
+  const response = await fetch(API_ENDPOINTS.control, {
     method: 'POST',
-    headers,
-    body: JSON.stringify({ imei }),
+    headers: API_HEADERS,
+    body: JSON.stringify({ imei, comando: 'sincronizar_productos' }),
   });
-
   if (!response.ok) {
     console.error('Error sincronizando productos');
   }
-
   return response.json();
 };
 
 export const sincronizarMedios = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/sincronizar-medios`, {
+  const response = await fetch(API_ENDPOINTS.control, {
     method: 'POST',
-    headers,
-    body: JSON.stringify({ imei }),
+    headers: API_HEADERS,
+    body: JSON.stringify({ imei, comando: 'sincronizar_medios' }),
   });
-
   if (!response.ok) {
     console.error('Error sincronizando medios');
   }
-
   return response.json();
 };
 
@@ -208,113 +145,55 @@ export const crearCupon = async (data: {
   ubicacion: string;
   cantidad_codigos: number;
 }) => {
-  const body = {
-    imei: data.imei,
-    nombre: data.nombre,
-    fecha_inicio: data.fecha_inicio,
-    fecha_fin: data.fecha_fin,
-    dias_validez: data.dias_validez,
-    ubicacion: data.ubicacion,
-    cantidad_codigos: data.cantidad_codigos,
-    descuento: data.descuento,
-  };
-
-  console.log('=== CREAR CUPÓN - DEBUG ===');
-  console.log('IMEI:', data.imei);
-  console.log('Body completo:', JSON.stringify(body, null, 2));
-  console.log('Fecha inicio formato:', body.fecha_inicio);
-  console.log('Fecha fin formato:', body.fecha_fin);
-  console.log('Tipo dias_validez:', typeof body.dias_validez);
-  console.log('Tipo cantidad_codigos:', typeof body.cantidad_codigos);
-  console.log('Tipo descuento:', typeof body.descuento);
-  console.log('========================');
-
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupon/crear`, {
+  const response = await fetch(API_ENDPOINTS.control, {
     method: 'POST',
-    headers,
-    body: JSON.stringify(body),
+    headers: API_HEADERS,
+    body: JSON.stringify({ imei: data.imei, comando: 'crear_cupon', datos: data }),
   });
-
   const responseData = await response.json().catch(() => ({}));
-
-  console.log('=== RESPUESTA DEL SERVIDOR ===');
-  console.log('Status:', response.status);
-  console.log('Data completa:', JSON.stringify(responseData, null, 2));
-  console.log('============================');
-
-  const isConfirmedSuccess =
-    response.status === 200 &&
-    responseData?.success === true;
-
-  if (!isConfirmedSuccess) {
+  if (!response.ok || responseData?.success === false) {
     throw new Error(`Error al crear cupón. Respuesta: ${JSON.stringify(responseData)}`);
   }
-
   return responseData;
 };
 
 export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupones/${imei}`, { headers });
-  
+  const response = await fetch(API_ENDPOINTS.control, {
+    method: 'POST',
+    headers: API_HEADERS,
+    body: JSON.stringify({ imei, comando: 'listar_cupones' }),
+  });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al obtener cupones');
+    throw new Error(errorData.error || 'Error al obtener cupones');
   }
-
   const data = await response.json();
-  console.log('[fetchCupones] Raw API response:', JSON.stringify(data));
-  
-  // API returns { cupones: { list: [...] } } with fields like couponId, couponName, etc.
-  let rawList: any[] = [];
-  if (data.cupones && Array.isArray(data.cupones.list)) {
-    rawList = data.cupones.list;
-  } else if (Array.isArray(data.cupones)) {
-    rawList = data.cupones;
-  }
-
-  if (rawList.length > 0) {
-    console.log('[fetchCupones] First raw coupon keys:', Object.keys(rawList[0]));
-    console.log('[fetchCupones] First raw coupon:', JSON.stringify(rawList[0]));
-  }
-
-  // Map API fields to our interface
-  return rawList.map((c: any) => {
-    const content = typeof c.content === 'string' ? JSON.parse(c.content) : (c.content || {});
-    const cantidadCodigosRaw = c.codeNum ?? c.cantidad_codigos ?? c.codigos_generados;
-    const cantidadCodigos = Number(cantidadCodigosRaw);
-
-    return {
-      id: String(c.couponId ?? c.id ?? ''),
-      nombre: c.couponName ?? c.nombre ?? '',
-      descuento: String(content.money ?? c.descuento ?? '0'),
-      fecha_inicio: c.startTime ?? c.fecha_inicio ?? '',
-      fecha_fin: c.endTime ?? c.fecha_fin ?? '',
-      dias_validez: Number(c.validDay ?? c.dias_validez ?? 0),
-      ubicacion: c.localName ?? c.ubicacion ?? '',
-      cantidad_codigos: Number.isFinite(cantidadCodigos) && cantidadCodigos > 0 ? cantidadCodigos : 0,
-      codigos_generados: Number.isFinite(cantidadCodigos) && cantidadCodigos > 0 ? cantidadCodigos : 0,
-    };
-  });
+  const rawList: any[] = Array.isArray(data.cupones) ? data.cupones : [];
+  return rawList.map((c: any) => ({
+    id: String(c.couponId ?? c.id ?? ''),
+    nombre: c.couponName ?? c.nombre ?? '',
+    descuento: String(c.descuento ?? '0'),
+    fecha_inicio: c.startTime ?? c.fecha_inicio ?? '',
+    fecha_fin: c.endTime ?? c.fecha_fin ?? '',
+    dias_validez: Number(c.validDay ?? c.dias_validez ?? 0),
+    ubicacion: c.localName ?? c.ubicacion ?? '',
+    cantidad_codigos: Number(c.codeNum ?? c.cantidad_codigos ?? 0),
+    codigos_generados: Number(c.codeNum ?? c.codigos_generados ?? 0),
+  }));
 };
 
 export const fetchCodigosCupon = async (cuponId: string): Promise<CodigoCupon[]> => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/cupon/codigos/${cuponId}`, { headers });
-  
+  const response = await fetch(API_ENDPOINTS.control, {
+    method: 'POST',
+    headers: API_HEADERS,
+    body: JSON.stringify({ comando: 'listar_codigos_cupon', cupon_id: cuponId }),
+  });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al obtener códigos');
+    throw new Error(errorData.error || 'Error al obtener códigos');
   }
-
   const data = await response.json();
-
-  // Normaliza respuesta para evitar crashes (a veces viene anidado)
-  const rawCodigos =
-    Array.isArray(data?.codigos) ? data.codigos :
-    data?.codigos && Array.isArray(data.codigos.list) ? data.codigos.list :
-    Array.isArray(data?.list) ? data.list :
-    Array.isArray(data) ? data :
-    [];
-
+  const rawCodigos = Array.isArray(data?.codigos) ? data.codigos : [];
   return rawCodigos.map((item: any) => ({
     id: String(item.couponRecordId ?? item.id ?? item.code ?? crypto.randomUUID()),
     codigo: String(item.code ?? item.codigo ?? ''),
@@ -323,261 +202,89 @@ export const fetchCodigosCupon = async (cuponId: string): Promise<CodigoCupon[]>
   }));
 };
 
-// === CUPONES ===
-
 export const eliminarCupon = async (cuponId: string) => {
-  const numericCouponId = Number(cuponId);
-  const payloads = [
-    { couponId: Number.isFinite(numericCouponId) ? numericCouponId : cuponId },
-    { coupon_id: Number.isFinite(numericCouponId) ? numericCouponId : cuponId },
-    { id: cuponId },
-  ];
-
-  const attempts: Array<{ url: string; method: 'POST' | 'DELETE'; body?: Record<string, unknown> }> = [
-    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar`, method: 'POST', body: payloads[0] },
-    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar`, method: 'POST', body: payloads[1] },
-    { url: `${API_BASE_URL}/fabricante/v1/cupon/${cuponId}`, method: 'DELETE' },
-    { url: `${API_BASE_URL}/fabricante/v1/cupon/eliminar/${cuponId}`, method: 'DELETE' },
-    { url: `${API_BASE_URL}/fabricante/v1/cupon/delete`, method: 'POST', body: payloads[0] },
-  ];
-
-  const errors: string[] = [];
-
-  for (const attempt of attempts) {
-    try {
-      const response = await fetch(attempt.url, {
-        method: attempt.method,
-        headers,
-        body: attempt.body ? JSON.stringify(attempt.body) : undefined,
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (response.ok && data?.success !== false) {
-        return data;
-      }
-
-      errors.push(`${attempt.method} ${attempt.url} -> ${response.status} ${JSON.stringify(data)}`);
-    } catch (error) {
-      errors.push(`${attempt.method} ${attempt.url} -> ${(error as Error).message}`);
-    }
+  const response = await fetch(API_ENDPOINTS.control, {
+    method: 'POST',
+    headers: API_HEADERS,
+    body: JSON.stringify({ comando: 'eliminar_cupon', cupon_id: cuponId }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data?.success === false) {
+    throw new Error(`No se pudo eliminar el cupón: ${JSON.stringify(data)}`);
   }
-
-  throw new Error(`No se pudo eliminar el cupón. Intentos: ${errors.join(' | ')}`);
+  return data;
 };
 
 // === CONTROL REMOTO ===
 
-export const controlOrigen = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/origen`, {
+const sendControlCommand = async (imei: string, comando: string) => {
+  const response = await fetch(API_ENDPOINTS.control, {
     method: 'POST',
-    headers,
-    body: JSON.stringify({ imei }),
+    headers: API_HEADERS,
+    body: JSON.stringify({ imei, comando }),
   });
-
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al reiniciar máquina');
+    throw new Error(errorData.error || `Error al ejecutar comando: ${comando}`);
   }
-
   return response.json();
 };
 
-export const controlDeshielo = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/deshielo`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ imei }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al activar deshielo');
-  }
-
-  return response.json();
-};
-
-export const controlDescongelacionOn = async (imei: string) => {
-  console.log('DESCONGELACION CONTROL:', { endpoint: '/fabricante-ext/v1/descongelacion/control', body: { imei, action: 'open' } });
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/descongelacion/control`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ imei, action: 'open' }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al activar descongelación');
-  }
-
-  const data = await response.json();
-  console.log('DESCONGELACION CONTROL response:', data);
-  return data;
-};
-
-export const controlDescongelacionOff = async (imei: string) => {
-  console.log('DESCONGELACION CONTROL:', { endpoint: '/fabricante-ext/v1/descongelacion/control', body: { imei, action: 'close' } });
-  const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/descongelacion/control`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ imei, action: 'close' }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al desactivar descongelación');
-  }
-
-  const data = await response.json();
-  console.log('DESCONGELACION CONTROL response:', data);
-  return data;
-};
-
-export const controlPausarVentas = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/pausar-ventas`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ imei }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al pausar ventas');
-  }
-
-  return response.json();
-};
-
-export const controlReanudarVentas = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/reanudar-ventas`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ imei }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al reanudar ventas');
-  }
-
-  return response.json();
-};
-
-export const controlHacerHelado = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/hacer-helado`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ imei }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al fabricar helado de prueba');
-  }
-
-  return response.json();
-};
-
-export const controlRefrigeracionOn = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/refrigeracion/on`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ imei }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al activar refrigeración');
-  }
-
-  return response.json();
-};
-
-export const controlRefrigeracionOff = async (imei: string) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/control/refrigeracion/off`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ imei }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al desactivar refrigeración');
-  }
-
-  return response.json();
-};
+export const controlOrigen = async (imei: string) => sendControlCommand(imei, 'origen');
+export const controlDeshielo = async (imei: string) => sendControlCommand(imei, 'deshielo_abrir');
+export const controlDescongelacionOn = async (imei: string) => sendControlCommand(imei, 'deshielo_abrir');
+export const controlDescongelacionOff = async (imei: string) => sendControlCommand(imei, 'deshielo_cerrar');
+export const controlPausarVentas = async (imei: string) => sendControlCommand(imei, 'pausar_ventas');
+export const controlReanudarVentas = async (imei: string) => sendControlCommand(imei, 'reanudar_ventas');
+export const controlHacerHelado = async (imei: string) => sendControlCommand(imei, 'hacer_helado');
+export const controlRefrigeracionOn = async (imei: string) => sendControlCommand(imei, 'refrigeracion_abrir');
+export const controlRefrigeracionOff = async (imei: string) => sendControlCommand(imei, 'refrigeracion_cerrar');
+export const controlLimpieza = async (imei: string) => sendControlCommand(imei, 'limpieza');
 
 // === REPOSICIÓN DE STOCK ===
 
 export const actualizarStockTopping = async (imei: string, posiciones: string[]) => {
-  const response = await fetch(`${API_BASE_URL}/fabricante/v1/stock/reponer`, {
+  const response = await fetch(API_ENDPOINTS.stock, {
     method: 'POST',
-    headers,
-    body: JSON.stringify({ 
-      imei,
-      posiciones,
-      llenar_completo: true 
-    }),
+    headers: API_HEADERS,
+    body: JSON.stringify({ imei, posiciones, llenar_completo: true }),
   });
-
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al actualizar stock');
+    throw new Error(errorData.error || 'Error al actualizar stock');
   }
-
   return response.json();
 };
 
 // Actualizar stock con sincronización a máquina física
 export const actualizarStockConSync = async (imei: string, position: string | number, cantidad: number): Promise<{ success: boolean; sync_status?: string; warning?: string; message?: string }> => {
-  // Position should already be a pure numeric string (e.g. "1", "2", "5")
   const positionStr = String(position);
   const cantidadNum = Number(cantidad);
 
   if (!Number.isFinite(cantidadNum)) {
-    console.error('STOCK SYNC ERROR: cantidad inválida', { cantidad });
     return { success: false, sync_status: 'failed', message: 'Cantidad inválida' };
   }
 
-  const body = { imei, position: positionStr, cantidad: cantidadNum };
-  
-  console.log('=== SINCRONIZACIÓN STOCK ===');
-  console.log('IMEI:', imei);
-  console.log('Position:', positionStr);
-  console.log('Cantidad:', cantidadNum);
-  console.log('Body:', JSON.stringify(body));
-
   try {
-    const response = await fetch(`${API_BASE_URL_EXT}/fabricante-ext/v1/stock/actualizar`, {
+    const response = await fetch(API_ENDPOINTS.stock, {
       method: 'POST',
-      headers,
-      body: JSON.stringify(body),
+      headers: API_HEADERS,
+      body: JSON.stringify({ imei, position: positionStr, cantidad: cantidadNum }),
     });
-
-    console.log('Response status:', response.status);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('STOCK SYNC ERROR:', response.status, errorData);
-      return { success: false, sync_status: 'failed', message: errorData.message || `HTTP ${response.status}` };
+      return { success: false, sync_status: 'failed', message: errorData.error || `HTTP ${response.status}` };
     }
 
     const data = await response.json();
-    console.log('=== SYNC RESPONSE ===');
-    console.log('data.success:', data.success, typeof data.success);
-    console.log('data.sync_status:', data.sync_status, typeof data.sync_status);
-    console.log('Full response:', JSON.stringify(data));
-    
     return {
       success: data.success === true,
-      sync_status: data.sync_status || 'unknown',
+      sync_status: data.sync_status || 'success',
       warning: data.warning,
       message: data.message,
     };
   } catch (error) {
-    console.error('STOCK SYNC FETCH ERROR:', error);
     return { success: false, sync_status: 'failed', message: (error as Error).message };
   }
 };
