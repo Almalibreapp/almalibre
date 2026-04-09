@@ -1,4 +1,5 @@
 import { Venta } from '@/types';
+import { convertSaleToSpain } from '@/lib/timezone-utils';
 
 type SaleLike = {
   id?: string | number;
