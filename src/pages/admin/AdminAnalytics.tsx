@@ -16,7 +16,8 @@ import {
   ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
+import { fetchOrdenes } from '@/services/api';
+import { fetchSpanishDayOrders } from '@/lib/sales';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))', '#8884d8', '#82ca9d', '#ffc658'];
 
@@ -125,45 +126,35 @@ export const AdminAnalytics = () => {
           new Map(targetMachines.map(m => [m.mac_address, m])).values()
         );
 
-        const chinaDatesForToday = getChinaDatesForSpainDate(todayStr);
-        const apiPromises = uniqueByImei.flatMap((m) =>
-          chinaDatesForToday.map(async (chinaDate) => {
-            try {
-              const apiRes = await fetch(
-                `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${m.mac_address}?fecha=${chinaDate}`,
-                { headers: { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' } }
-              );
-              if (!apiRes.ok) return [];
-              const detalle = await apiRes.json();
-              const orders = detalle?.ordenes || detalle?.ventas || [];
-              return orders.map((v: any) => ({
-                id: `api-${m.id}-${v.id || v.numero_orden || `${v.hora}-${v.precio}`}`,
-                maquina_id: m.id,
-                imei: m.mac_address,
-                fecha: (v.fecha || detalle?.fecha || chinaDate).substring(0, 10),
-                hora: v.hora || '00:00',
-                producto: v.producto || '',
-                precio: Number(v.precio || 0),
-                cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-                metodo_pago: v.metodo_pago || v.payment_method || v.pay_type || 'efectivo',
-                numero_orden: v.numero_orden || v.order_no || null,
-                estado: v.estado || 'exitoso',
-                toppings: v.toppings || v.toppings_usados || [],
-                venta_api_id: v.id || v.numero_orden || '',
-                created_at: new Date().toISOString(),
-              }));
-            } catch { return []; }
-          })
-        );
+        const apiPromises = uniqueByImei.map(async (m) => {
+          try {
+            const sales = await fetchSpanishDayOrders(m.mac_address, todayStr, fetchOrdenes);
+            return sales.map((v: any) => ({
+              id: `api-${m.id}-${v.saleUid || v.id}`,
+              maquina_id: m.id,
+              imei: m.mac_address,
+              fecha: v.fechaSpain || v.fecha || todayStr,
+              hora: v.horaSpain || v.hora || '00:00',
+              producto: v.producto || '',
+              precio: Number(v.precio || 0),
+              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+              metodo_pago: v.metodo_pago || 'efectivo',
+              numero_orden: v.numero_orden || null,
+              estado: v.estado || 'exitoso',
+              toppings: v.toppings || [],
+              venta_api_id: v.venta_api_id || v.id || '',
+              created_at: new Date().toISOString(),
+            }));
+          } catch { return []; }
+        });
 
         const results = await Promise.allSettled(apiPromises);
         const apiSales = results
           .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
           .flatMap(r => r.value);
 
-        // Remove DB sales for today's China dates (may be incomplete) and replace with API
-        const chinaDatesSet = new Set(chinaDatesForToday);
-        allSales = allSales.filter(s => !chinaDatesSet.has(s.fecha));
+        // Remove DB sales for today (may be incomplete) and replace with API
+        allSales = allSales.filter(s => s.fecha !== todayStr);
         
         // Deduplicate API sales
         const seen = new Set<string>();
@@ -175,7 +166,6 @@ export const AdminAnalytics = () => {
         });
         
         allSales = [...allSales, ...dedupedApi];
-        console.log(`[AdminAnalytics] DB: ${data?.length || 0}, API today: ${dedupedApi.length}, merged: ${allSales.length}`);
       }
 
       return allSales;
@@ -210,8 +200,10 @@ export const AdminAnalytics = () => {
 
     return ventasHistorico
       .map((v) => {
-        const converted = convertChinaToSpainFull(v.hora, v.fecha);
-        const saleDate = new Date(`${converted.fecha}T00:00:00`);
+        // Data already comes in Spain time — no conversion needed
+        const fechaSpain = (v.fecha || '').substring(0, 10);
+        const horaSpain = (v.hora || '00:00').substring(0, 5);
+        const saleDate = new Date(`${fechaSpain}T00:00:00`);
 
         const productInfo = parseProductAndToppings(v.producto);
         const toppingNames = Array.isArray(v.toppings) && v.toppings.length > 0
@@ -220,8 +212,8 @@ export const AdminAnalytics = () => {
 
         return {
           ...v,
-          fechaSpain: converted.fecha,
-          horaSpain: converted.hora,
+          fechaSpain,
+          horaSpain,
           saleDate,
           productoNormalizado: productInfo.productName,
           toppingNames,

@@ -7,7 +7,7 @@ import { TemperaturaResponse } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { convertChinaToSpainFull } from '@/lib/timezone';
+// Temperature data already comes in Spain timezone — no conversion needed
 import {
   LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine, Area, CartesianGrid,
 } from 'recharts';
@@ -56,14 +56,13 @@ export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: Temper
   const chartData = useMemo(() => {
     if (!readings?.length) return [];
     return readings.map((r) => {
-      // Convert China time to Spain time
+      // Temperature data timestamps are already in local time
       const dt = new Date(r.created_at);
-      const chinaHora = format(dt, 'HH:mm:ss');
-      const chinaFecha = format(dt, 'yyyy-MM-dd');
-      const spain = convertChinaToSpainFull(chinaHora, chinaFecha);
+      const hora = format(dt, 'HH:mm');
+      const fecha = format(dt, 'yyyy-MM-dd');
       return {
-        time: spain.hora,
-        fullTime: `${spain.fecha} ${spain.hora}`,
+        time: hora,
+        fullTime: `${fecha} ${hora}`,
         temperatura: Number(r.temperatura),
         critical: Number(r.temperatura) >= THRESHOLD,
       };
@@ -84,20 +83,19 @@ export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: Temper
   const handleDownloadCSV = () => {
     if (!readings?.length) return;
 
-    const headers = ['Fecha/Hora (España)', 'Temperatura (°C)', 'Estado'];
+    const csvHeaders = ['Fecha/Hora (España)', 'Temperatura (°C)', 'Estado'];
     const rows = readings.map((r) => {
       const dt = new Date(r.created_at);
-      const chinaHora = format(dt, 'HH:mm:ss');
-      const chinaFecha = format(dt, 'yyyy-MM-dd');
-      const spain = convertChinaToSpainFull(chinaHora, chinaFecha);
+      const hora = format(dt, 'HH:mm');
+      const fecha = format(dt, 'yyyy-MM-dd');
       return [
-        `${spain.fecha} ${spain.hora}`,
+        `${fecha} ${hora}`,
         r.temperatura.toString(),
         Number(r.temperatura) >= THRESHOLD ? 'CRÍTICO' : 'Normal',
       ];
     });
 
-    const csv = [headers, ...rows].map((row) => row.join(';')).join('\n');
+    const csv = [csvHeaders, ...rows].map((row) => row.join(';')).join('\n');
     const BOM = '\uFEFF';
     const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

@@ -11,7 +11,8 @@ import { cn } from '@/lib/utils';
 import { format, subDays, addDays, isToday as isTodayFn } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
-import { getChinaDatesForSpainDate } from '@/lib/timezone';
+import { fetchOrdenes } from '@/services/api';
+import { fetchSpanishDayOrders } from '@/lib/sales';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import {
   Euro, TrendingUp, Calendar, Loader2, ChevronLeft, ChevronRight,
@@ -88,88 +89,46 @@ export const AdminSales = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch sales: for TODAY always use API as primary source; for past days use DB only
-  const chinaDates = getChinaDatesForSpainDate(dateStr);
+  // Fetch sales: for TODAY use API; for past days use DB
   const { data: ventasDiaRaw, isLoading } = useQuery({
     queryKey: ['admin-ventas-dia', dateStr, selectedMachine, maquinas?.map(m => m.id).join(',')],
     queryFn: async () => {
       if (isTodayFn(selectedDate) && maquinas && maquinas.length > 0) {
-        // For TODAY: always fetch from API directly (real-time, no sync delay)
         const targetMachines = selectedMachine === 'all'
           ? maquinas
           : maquinas.filter((m) => m.id === selectedMachine);
 
-        const todayChinaDates = getChinaDatesForSpainDate(dateStr);
-        
-        // Fetch BOTH China dates for complete Spain-today coverage
-        const apiHeaders = { 'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE', 'Content-Type': 'application/json' };
-
-        const fetchAllPages = async (imei: string, fecha: string) => {
-          let all: any[] = [];
-          let page = 1;
-          let totalPages = 1;
-          while (page <= totalPages) {
-            const res = await fetch(
-              `https://nonstopmachine.com/wp-json/fabricante-ext/v1/ordenes/${imei}?fecha=${fecha}&page=${page}`,
-              { headers: apiHeaders }
-            );
-            if (!res.ok) break;
-            const data = await res.json();
-            const orders = data?.ordenes || data?.ventas || [];
-            all = [...all, ...orders];
-            totalPages = data.total_pages || 1;
-            page++;
+        const apiPromises = targetMachines.map(async (m) => {
+          try {
+            const sales = await fetchSpanishDayOrders(m.mac_address, dateStr, fetchOrdenes);
+            return sales.map((v: any) => ({
+              id: `api-${m.id}-${v.saleUid || v.id}`,
+              sale_uid: v.saleUid || v.id,
+              maquina_id: m.id,
+              imei: m.mac_address,
+              fecha: v.fechaSpain || v.fecha || dateStr,
+              hora: v.horaSpain || v.hora || '00:00',
+              producto: v.producto || '',
+              precio: Number(v.precio || 0),
+              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+              metodo_pago: v.metodo_pago || 'efectivo',
+              numero_orden: v.numero_orden || null,
+              estado: v.estado || 'exitoso',
+              toppings: v.toppings || [],
+            }));
+          } catch {
+            return [];
           }
-          return all;
-        };
-
-        const apiPromises = targetMachines.flatMap((m) =>
-          todayChinaDates.map(async (chinaDate) => {
-            try {
-              const orders = await fetchAllPages(m.mac_address, chinaDate);
-              return orders.map((v: any) => {
-                const sourceFecha = (v.fecha || chinaDate).substring(0, 10);
-                const sourceHora = v.hora || '00:00';
-                const sourceToppings = v.toppings || v.toppings_usados || [];
-                const saleUid = String(
-                  v.id
-                  ?? v.venta_api_id
-                  ?? v.numero_orden
-                  ?? `${m.mac_address}|${sourceFecha}|${sourceHora}|${Number(v.precio || 0)}|${v.producto || ''}|${JSON.stringify(sourceToppings)}`
-                );
-
-                return {
-                  id: `api-${m.id}-${saleUid}`,
-                  sale_uid: saleUid,
-                  maquina_id: m.id,
-                  imei: m.mac_address,
-                  // FIX: Extract date-only from datetime strings like "2026-02-24 23:30:58"
-                  fecha: sourceFecha,
-                  hora: sourceHora,
-                  producto: v.producto || '',
-                  precio: Number(v.precio || 0),
-                  cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-                  metodo_pago: v.metodo_pago || v.payment_method || v.pay_type || 'efectivo',
-                  numero_orden: v.numero_orden || v.order_no || null,
-                  estado: v.estado || 'exitoso',
-                  toppings: sourceToppings,
-                };
-              });
-            } catch {
-              return [];
-            }
-          })
-        );
+        });
 
         const results = await Promise.allSettled(apiPromises);
         const allSales = results
           .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
           .flatMap((r) => r.value);
         
-        // Deduplicate only by real sale identity (never by hora/precio to avoid dropping valid sales)
         const seen = new Set<string>();
         return allSales.filter(v => {
-          const key = String(v.sale_uid || v.id || `${v.maquina_id}-${v.fecha}-${v.hora}-${v.precio}`);
+          const key = String(v.sale_uid || v.id);
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
@@ -180,7 +139,7 @@ export const AdminSales = () => {
       let query = supabase
         .from('ventas_historico')
         .select('*')
-        .in('fecha', chinaDates)
+        .eq('fecha', dateStr)
         .order('hora', { ascending: false });
 
       if (selectedMachine !== 'all') {
@@ -204,15 +163,14 @@ export const AdminSales = () => {
     });
   }, [ventasDiaRaw, dateStr]);
 
-  // Fetch yesterday sales for comparison (also query two China dates)
-  const chinaYesterday = getChinaDatesForSpainDate(yesterdayStr);
+  // Fetch yesterday sales for comparison
   const { data: ventasAyerRaw } = useQuery({
     queryKey: ['admin-ventas-ayer', yesterdayStr, selectedMachine],
     queryFn: async () => {
       let query = supabase
         .from('ventas_historico')
         .select('precio, hora, fecha')
-        .in('fecha', chinaYesterday);
+        .eq('fecha', yesterdayStr);
 
       if (selectedMachine !== 'all') {
         query = query.eq('maquina_id', selectedMachine);
@@ -227,10 +185,8 @@ export const AdminSales = () => {
 
   const ventasAyer = useMemo(() => {
     if (!ventasAyerRaw) return [];
-    return ventasAyerRaw.filter(v => {
-      return (v.fecha || '').substring(0, 10) === yesterdayStr;
-    });
-  }, [ventasAyerRaw, yesterdayStr]);
+    return ventasAyerRaw;
+  }, [ventasAyerRaw]);
 
   // Computed metrics
   const metrics = useMemo(() => {

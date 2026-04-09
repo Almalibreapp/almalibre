@@ -21,7 +21,6 @@ import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
 import type { Venta } from '@/types';
 import { cn } from '@/lib/utils';
-import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
 import { addDays, format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -177,8 +176,8 @@ export const AdminMachineDetail = () => {
     if (ventasHoyAPI) {
       ventasHoyAPI.forEach(v => {
         if (v.estado === 'fallido') return;
-        const converted = convertChinaToSpainFull(v.hora, v.fecha);
-        if (converted.fecha === todayStr) { euros += Number(v.precio); cantidad += (v.cantidad_unidades || 1); }
+        // Data already in Spain time — no conversion needed
+        if ((v.fecha || '').substring(0, 10) === todayStr) { euros += Number(v.precio); cantidad += (v.cantidad_unidades || 1); }
       });
     }
     return { euros, cantidad };
@@ -217,19 +216,12 @@ export const AdminMachineDetail = () => {
     [todayStr]
   );
 
-  const selectedChinaDates = useMemo(() => {
-    const spainDate = selectedDate || todayStr;
-    return getChinaDatesForSpainDate(spainDate);
-  }, [selectedDate, todayStr]);
-
   const { data: ventasSelectedDate } = useQuery({
     queryKey: ['ventas-ordenes-date', imei, selectedDate],
     queryFn: async () => {
       if (!imei || !selectedDate) return null;
-      const results = await Promise.all(
-        selectedChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
-      );
-      const ventas = mergeSalesResponsesForDate(results, selectedDate, selectedChinaDates);
+      const result = await fetchOrdenes(imei, selectedDate).catch(() => null);
+      const ventas = prepareSalesForChartDate(result?.ventas || [], selectedDate, selectedDate);
       return { ventas, fecha: selectedDate, total_ventas: ventas.length };
     },
     enabled: !!imei && !isToday && !!selectedDate,
@@ -250,30 +242,23 @@ export const AdminMachineDetail = () => {
     const currentDateStr = selectedDate || todayStr;
     const prevStr = format(addDays(parseISO(currentDateStr), -1), 'yyyy-MM-dd');
     const nextStr = format(addDays(parseISO(currentDateStr), 1), 'yyyy-MM-dd');
-    const prevChinaDates = getChinaDatesForSpainDate(prevStr);
-    
+
     queryClient.prefetchQuery({
       queryKey: ['ventas-ordenes-date', imei, prevStr],
       queryFn: async () => {
-        const results = await Promise.all(
-          prevChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
-        );
-        const ventas = mergeSalesResponsesForDate(results, prevStr, prevChinaDates);
+        const result = await fetchOrdenes(imei, prevStr).catch(() => null);
+        const ventas = prepareSalesForChartDate(result?.ventas || [], prevStr, prevStr);
         return { ventas, fecha: prevStr, total_ventas: ventas.length };
       },
       staleTime: 5 * 60 * 1000,
     });
 
     if (nextStr <= todayStr) {
-      const nextChinaDates = getChinaDatesForSpainDate(nextStr);
-
       queryClient.prefetchQuery({
         queryKey: ['ventas-ordenes-date', imei, nextStr],
         queryFn: async () => {
-          const results = await Promise.all(
-            nextChinaDates.map(d => fetchOrdenes(imei, d).catch(() => null))
-          );
-          const ventas = mergeSalesResponsesForDate(results, nextStr, nextChinaDates);
+          const result = await fetchOrdenes(imei, nextStr).catch(() => null);
+          const ventas = prepareSalesForChartDate(result?.ventas || [], nextStr, nextStr);
           return { ventas, fecha: nextStr, total_ventas: ventas.length };
         },
         staleTime: 5 * 60 * 1000,

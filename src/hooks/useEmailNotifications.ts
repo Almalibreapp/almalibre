@@ -1,12 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-
-const API_BASE_URL = 'https://nonstopmachine.com/wp-json/fabricante-ext/v1';
-const API_TOKEN = 'b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE';
-
-const headers = {
-  'Authorization': `Bearer ${API_TOKEN}`,
-  'Content-Type': 'application/json',
-};
+import { API_HEADERS, API_ENDPOINTS } from '@/lib/api-config';
 
 export interface EmailConfig {
   id: number;
@@ -25,9 +18,12 @@ export function useEmailNotifications() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`${API_BASE_URL}/config/emails`, { headers });
+      const response = await fetch(`${API_ENDPOINTS.control}`, {
+        method: 'POST',
+        headers: API_HEADERS,
+        body: JSON.stringify({ comando: 'listar_emails' }),
+      });
       const data = await response.json();
-
       if (data.success) {
         setConfiguraciones(data.configuraciones || []);
       } else {
@@ -42,14 +38,12 @@ export function useEmailNotifications() {
 
   const addConfig = async (imei: string, email: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/config/emails`, {
+      const response = await fetch(API_ENDPOINTS.control, {
         method: 'POST',
-        headers,
-        body: JSON.stringify({ imei, email }),
+        headers: API_HEADERS,
+        body: JSON.stringify({ comando: 'agregar_email', imei, email }),
       });
-
       const data = await response.json();
-
       if (!response.ok) {
         const msg = data.message || 'Error al agregar';
         if (msg.toLowerCase().includes('ya existe') || msg.toLowerCase().includes('already')) {
@@ -57,7 +51,6 @@ export function useEmailNotifications() {
         }
         throw new Error(msg);
       }
-
       await fetchConfiguraciones();
       return { success: true };
     } catch (err: any) {
@@ -67,17 +60,15 @@ export function useEmailNotifications() {
 
   const deleteConfig = async (id: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/config/emails/${id}`, {
-        method: 'DELETE',
-        headers,
+      const response = await fetch(API_ENDPOINTS.control, {
+        method: 'POST',
+        headers: API_HEADERS,
+        body: JSON.stringify({ comando: 'eliminar_email', id }),
       });
-
       const data = await response.json();
-
       if (!response.ok) {
         throw new Error(data.message || 'Error al eliminar');
       }
-
       await fetchConfiguraciones();
       return { success: true };
     } catch (err: any) {
