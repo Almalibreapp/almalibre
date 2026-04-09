@@ -118,8 +118,14 @@ export const fetchToppings = async (imei: string) => {
 };
 
 // Temperatura
-export const fetchTemperatura = async (imei: string) => {
-  const response = await fetch(`${API_ENDPOINTS.temperatura}?imei=${imei}`, { headers: API_HEADERS });
+export const fetchTemperatura = async (imei: string, start?: string, end?: string) => {
+  const now = new Date();
+  const endDate = end || now.toISOString();
+  const startDate = start || new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString();
+  const response = await fetch(
+    `${API_ENDPOINTS.temperatura}?imei=${imei}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
+    { headers: API_HEADERS }
+  );
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener la temperatura`);
