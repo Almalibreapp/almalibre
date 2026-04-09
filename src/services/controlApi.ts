@@ -1,4 +1,4 @@
-import { API_HEADERS, API_POST_HEADERS, API_ENDPOINTS } from '@/lib/api-config';
+import { API_HEADERS, API_POST_HEADERS, API_ENDPOINTS, LOCAL_API_HEADERS, LOCAL_API_ENDPOINTS } from '@/lib/api-config';
 
 // Types
 export interface Producto {
@@ -42,7 +42,7 @@ export interface ImagenDisponible {
 // === PRODUCTOS ===
 
 export const fetchProductos = async (imei: string): Promise<ProductosResponse> => {
-  const response = await fetch(`${API_ENDPOINTS.productos}?imei=${imei}`, { headers: API_HEADERS });
+  const response = await fetch(`${LOCAL_API_ENDPOINTS.productos}?imei=${imei}`, { headers: LOCAL_API_HEADERS });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudieron obtener los productos`);

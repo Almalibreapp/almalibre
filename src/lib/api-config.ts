@@ -14,13 +14,24 @@ export const API_POST_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
 };
 
-// Local project base URL for functions that work better locally
-const LOCAL_BASE_URL = `https://lwruwpwdrkmtgcapnbzc.supabase.co/functions/v1`;
+const LOCAL_BASE_URL = 'https://lwruwpwdrkmtgcapnbzc.supabase.co/functions/v1';
 
 export const LOCAL_API_HEADERS: Record<string, string> = {
   apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cnV3cHdkcmttdGdjYXBuYnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3ODE3MTEsImV4cCI6MjA4MTM1NzcxMX0.h-EOEzvaKc0I_xWhxXB3ydy1v7OPSfRxKpehjWbbx5s',
-  Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cnV3cHdkcmttdGdjYXBuYnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3ODE3MTEsImV4cCI6MjA4MTM1NzcxMX0.h-EOEzvaKc0I_xWhxXB3ydy1v7OPSfRxKpehjWbbx5s',
+  Authorization:
+    'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cnV3cHdkcmttdGdjYXBuYnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3ODE3MTEsImV4cCI6MjA4MTM1NzcxMX0.h-EOEzvaKc0I_xWhxXB3ydy1v7OPSfRxKpehjWbbx5s',
 };
+
+export const LOCAL_API_POST_HEADERS: Record<string, string> = {
+  ...LOCAL_API_HEADERS,
+  'Content-Type': 'application/json',
+};
+
+export const LOCAL_API_ENDPOINTS = {
+  stock: `${LOCAL_BASE_URL}/stock`,
+  temperatura: `${LOCAL_BASE_URL}/temperatura`,
+  productos: `${LOCAL_BASE_URL}/productos`,
+} as const;
 
 export const API_ENDPOINTS = {
   ventas: `${SUPABASE_CONFIG.baseUrl}/ventas`,

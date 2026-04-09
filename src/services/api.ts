@@ -1,4 +1,4 @@
-import { API_ENDPOINTS, API_HEADERS, LOCAL_API_HEADERS } from '@/lib/api-config';
+import { API_ENDPOINTS, API_HEADERS, LOCAL_API_ENDPOINTS, LOCAL_API_HEADERS } from '@/lib/api-config';
 
 // Información general de la máquina (uses ventas endpoint with no date)
 export const fetchMiMaquina = async (imei: string) => {
@@ -95,7 +95,7 @@ export const fetchOrdenes = async (imei: string, fecha?: string) => {
 
 // Stock de toppings
 export const fetchToppings = async (imei: string) => {
-  const response = await fetch(`${API_ENDPOINTS.stock}?imei=${imei}`, { headers: API_HEADERS });
+  const response = await fetch(`${LOCAL_API_ENDPOINTS.stock}?imei=${imei}`, { headers: LOCAL_API_HEADERS });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el stock de toppings`);
