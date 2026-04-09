@@ -25,6 +25,7 @@ export const fetchVentasResumen = async (imei: string) => {
     return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
   });
   return {
+    mac_addr: imei,
     ventas_hoy: {
       cantidad: exitosas.length,
       total_euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio || 0), 0),
@@ -100,17 +101,19 @@ export const fetchToppings = async (imei: string) => {
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el stock de toppings`);
   }
   const data = await response.json();
-  // Map edge function response to existing frontend format
   const stock = data.stock || [];
+  const toppings = stock.map((s: any) => ({
+    posicion: s.position || s.posicion,
+    nombre: s.nombre || s.name || '',
+    stock_actual: s.actual ?? s.stock_actual ?? 0,
+    capacidad_maxima: s.maximo ?? s.capacidad_maxima ?? 100,
+    porcentaje: s.porcentaje ?? 0,
+    estado: s.estado || 'ok',
+  }));
   return {
-    toppings: stock.map((s: any) => ({
-      posicion: s.position || s.posicion,
-      nombre: s.nombre || s.name || '',
-      stock_actual: s.actual ?? s.stock_actual ?? 0,
-      capacidad_maxima: s.maximo ?? s.capacidad_maxima ?? 100,
-      porcentaje: s.porcentaje ?? 0,
-      estado: s.estado || 'ok',
-    })),
+    mac_addr: imei,
+    toppings,
+    total_toppings: toppings.length,
   };
 };
 
@@ -122,10 +125,10 @@ export const fetchTemperatura = async (imei: string) => {
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener la temperatura`);
   }
   const data = await response.json();
-  // Map to existing frontend format
   const datos = data.datos || [];
   const latest = datos.length > 0 ? datos[datos.length - 1] : null;
   return {
+    mac_addr: imei,
     temperatura: latest?.temperatura ?? data.temperatura ?? null,
     unidad: latest?.unidad || data.unidad || 'C',
     estado: latest?.estado || data.estado || 'normal',
