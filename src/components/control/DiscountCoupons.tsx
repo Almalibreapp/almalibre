@@ -1,46 +1,59 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { 
-  fetchCupones, 
-  fetchCodigosCupon, 
+import {
+  fetchCupones,
+  fetchCodigosCupon,
   crearCupon,
+  eliminarCupon,
+  eliminarCodigoCupon,
+  generarCodigosCupon,
   CuponDescuento,
-  CodigoCupon 
+  CodigoCupon
 } from '@/services/controlApi';
-import { Plus, Loader2, CalendarIcon, Ticket, Copy, Check, Eye } from 'lucide-react';
+import { Plus, Loader2, CalendarIcon, Ticket, Copy, Check, Eye, Trash2 } from 'lucide-react';
 
 interface DiscountCouponsProps {
   imei: string;
   ubicacion?: string;
+  allImeis?: string[];
 }
 
-export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) => {
+export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: DiscountCouponsProps) => {
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedCupon, setSelectedCupon] = useState<CuponDescuento | null>(null);
   const [isCodesOpen, setIsCodesOpen] = useState(false);
 
-  const { data: cupones, isLoading, error } = useQuery({
-    queryKey: ['cupones', imei],
-    queryFn: () => fetchCupones(imei),
-    enabled: !!imei,
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['cupones'],
+    queryFn: () => fetchCupones(1),
   });
 
-  // Protección extra ante respuestas inesperadas para evitar pantalla en blanco
-  const cuponesList: CuponDescuento[] = Array.isArray(cupones) ? cupones : [];
+  const cuponesList: CuponDescuento[] = data?.cupones ?? [];
+
+  const deleteMutation = useMutation({
+    mutationFn: (cuponId: string) => eliminarCupon([cuponId]),
+    onSuccess: () => {
+      toast({ title: '✅ Cupón eliminado' });
+      queryClient.invalidateQueries({ queryKey: ['cupones'] });
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    },
+  });
 
   if (isLoading) {
     return (
@@ -55,7 +68,6 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
     );
   }
 
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -67,7 +79,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
       </div>
 
       {error ? (
-        <Card className="border-warning/50 bg-warning-light">
+        <Card className="border-warning/50">
           <CardContent className="py-6 text-center">
             <p className="text-warning">Error al cargar cupones: {(error as Error).message}</p>
           </CardContent>
@@ -90,7 +102,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
                     <h4 className="font-semibold">{cupon.nombre}</h4>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Badge variant="secondary" className="text-primary font-bold">
-                        -{cupon.descuento}€
+                        {cupon.tipo === 'una_copa' ? '🍦 Copa gratis' : `-${cupon.descuento}€`}
                       </Badge>
                       <span>•</span>
                       <span>{cupon.cantidad_codigos > 0 ? `${cupon.cantidad_codigos} códigos` : 'Códigos disponibles'}</span>
@@ -98,10 +110,13 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
                     <p className="text-xs text-muted-foreground">
                       Válido: {cupon.fecha_inicio?.split(' ')[0] ?? '—'} - {cupon.fecha_fin?.split(' ')[0] ?? '—'}
                     </p>
+                    {cupon.ubicacion && (
+                      <p className="text-xs text-muted-foreground">📍 {cupon.ubicacion}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         setSelectedCupon(cupon);
@@ -111,6 +126,18 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
                       <Eye className="h-4 w-4 mr-2" />
                       Ver Códigos
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => {
+                        if (confirm('¿Eliminar este cupón?')) {
+                          deleteMutation.mutate(cupon.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -119,26 +146,25 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
         </div>
       )}
 
-      {/* Create Coupon Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Crear Nuevo Cupón</DialogTitle>
           </DialogHeader>
-          <CreateCouponForm 
+          <CreateCouponForm
             imei={imei}
             ubicacion={ubicacion}
+            allImeis={allImeis.length > 0 ? allImeis : [imei]}
             onSuccess={() => {
               setIsCreateOpen(false);
-              queryClient.invalidateQueries({ queryKey: ['cupones', imei] });
+              queryClient.invalidateQueries({ queryKey: ['cupones'] });
             }}
           />
         </DialogContent>
       </Dialog>
 
-      {/* View Codes Dialog */}
       <Dialog open={isCodesOpen} onOpenChange={setIsCodesOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Códigos: {selectedCupon?.nombre}</DialogTitle>
           </DialogHeader>
@@ -154,11 +180,13 @@ export const DiscountCoupons = ({ imei, ubicacion = '' }: DiscountCouponsProps) 
 interface CreateCouponFormProps {
   imei: string;
   ubicacion: string;
+  allImeis: string[];
   onSuccess: () => void;
 }
 
-const CreateCouponForm = ({ imei, ubicacion, onSuccess }: CreateCouponFormProps) => {
+const CreateCouponForm = ({ imei, ubicacion, allImeis, onSuccess }: CreateCouponFormProps) => {
   const [nombre, setNombre] = useState('');
+  const [tipo, setTipo] = useState('0'); // 0=descuento, 1=una copa, 2=tarjeta múltiple
   const [descuento, setDescuento] = useState('1.00');
   const [fechaInicio, setFechaInicio] = useState<Date>();
   const [fechaFin, setFechaFin] = useState<Date>();
@@ -172,7 +200,6 @@ const CreateCouponForm = ({ imei, ubicacion, onSuccess }: CreateCouponFormProps)
         throw new Error('Selecciona las fechas de validez');
       }
 
-      // Format dates as "YYYY-MM-DD HH:MM:SS"
       const formatDateTime = (date: Date, isEnd: boolean) => {
         const yyyy = date.getFullYear();
         const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -181,15 +208,22 @@ const CreateCouponForm = ({ imei, ubicacion, onSuccess }: CreateCouponFormProps)
         return `${yyyy}-${mm}-${dd} ${time}`;
       };
 
+      const content = tipo === '0'
+        ? JSON.stringify({ money: descuento })
+        : tipo === '1'
+          ? JSON.stringify({ amount: 1, productPosition: '1', productName: 'Açai' })
+          : JSON.stringify({ times: 5 });
+
       return crearCupon({
-        imei,
-        nombre,
-        descuento,
-        fecha_inicio: formatDateTime(fechaInicio, false),
-        fecha_fin: formatDateTime(fechaFin, true),
-        dias_validez: diasValidez,
-        ubicacion: ubicacionInput,
-        cantidad_codigos: parseInt(cantidadCodigos, 10),
+        couponType: tipo,
+        totalCount: cantidadCodigos,
+        couponName: nombre,
+        startTime: formatDateTime(fechaInicio, false),
+        endTime: formatDateTime(fechaFin, true),
+        validDay: diasValidez,
+        deviceImeis: allImeis.join(','),
+        localName: ubicacionInput,
+        content,
       });
     },
     onSuccess: () => {
@@ -204,25 +238,41 @@ const CreateCouponForm = ({ imei, ubicacion, onSuccess }: CreateCouponFormProps)
   return (
     <div className="space-y-4">
       <div className="space-y-2">
+        <Label>Tipo de cupón</Label>
+        <Select value={tipo} onValueChange={setTipo}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="0">Descuento en €</SelectItem>
+            <SelectItem value="1">Una copa gratis</SelectItem>
+            <SelectItem value="2">Tarjeta múltiple</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
         <Label>Nombre del cupón</Label>
         <Input
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          placeholder="Ej: Descuento Enero"
+          placeholder="Ej: Descuento Verano"
         />
       </div>
 
-      <div className="space-y-2">
-        <Label>Descuento (€)</Label>
-        <Input
-          type="number"
-          step="0.01"
-          min="0"
-          value={descuento}
-          onChange={(e) => setDescuento(e.target.value)}
-          placeholder="1.00"
-        />
-      </div>
+      {tipo === '0' && (
+        <div className="space-y-2">
+          <Label>Descuento (€)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={descuento}
+            onChange={(e) => setDescuento(e.target.value)}
+            placeholder="1.00"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -296,6 +346,7 @@ const CreateCouponForm = ({ imei, ubicacion, onSuccess }: CreateCouponFormProps)
           <Input
             type="number"
             min="1"
+            max="100"
             value={cantidadCodigos}
             onChange={(e) => setCantidadCodigos(e.target.value)}
           />
@@ -311,7 +362,7 @@ const CreateCouponForm = ({ imei, ubicacion, onSuccess }: CreateCouponFormProps)
         />
       </div>
 
-      <Button 
+      <Button
         className="w-full"
         onClick={() => mutation.mutate()}
         disabled={mutation.isPending || !nombre || !fechaInicio || !fechaFin}
@@ -332,15 +383,44 @@ interface CouponCodesProps {
 }
 
 const CouponCodes = ({ cuponId }: CouponCodesProps) => {
+  const queryClient = useQueryClient();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [filterEstado, setFilterEstado] = useState<string>('todos');
+  const [generarCantidad, setGenerarCantidad] = useState('5');
 
-  const { data: codigos, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['codigos-cupon', cuponId],
     queryFn: () => fetchCodigosCupon(cuponId),
     enabled: !!cuponId,
   });
 
-  const codigosList: CodigoCupon[] = Array.isArray(codigos) ? codigos : [];
+  const codigosList: CodigoCupon[] = data?.codigos ?? [];
+
+  const filteredCodigos = filterEstado === 'todos'
+    ? codigosList
+    : codigosList.filter(c => c.estado === filterEstado);
+
+  const generateMutation = useMutation({
+    mutationFn: () => generarCodigosCupon(cuponId, parseInt(generarCantidad)),
+    onSuccess: () => {
+      toast({ title: '✅ Códigos generados' });
+      queryClient.invalidateQueries({ queryKey: ['codigos-cupon', cuponId] });
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const deleteCodeMutation = useMutation({
+    mutationFn: (recordId: string) => eliminarCodigoCupon([recordId]),
+    onSuccess: () => {
+      toast({ title: '✅ Código eliminado' });
+      queryClient.invalidateQueries({ queryKey: ['codigos-cupon', cuponId] });
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    },
+  });
 
   const copyToClipboard = async (codigo: string, id: string) => {
     try {
@@ -371,49 +451,96 @@ const CouponCodes = ({ cuponId }: CouponCodesProps) => {
     );
   }
 
-  if (codigosList.length === 0) {
-    return (
-      <p className="text-center text-muted-foreground py-4">
-        No hay códigos disponibles
-      </p>
-    );
-  }
-
   return (
-    <div className="space-y-2 max-h-96 overflow-y-auto">
-      {codigosList.map((codigo) => (
-        <div 
-          key={codigo.id}
-          className={cn(
-            "flex items-center justify-between p-3 rounded-lg border",
-            codigo.usado ? "bg-muted opacity-60" : "bg-background"
-          )}
+    <div className="space-y-4">
+      {/* Generate more codes */}
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          min="1"
+          max="100"
+          value={generarCantidad}
+          onChange={(e) => setGenerarCantidad(e.target.value)}
+          className="w-20"
+        />
+        <Button
+          size="sm"
+          onClick={() => generateMutation.mutate()}
+          disabled={generateMutation.isPending}
         >
-          <div className="space-y-1">
-            <p className="font-mono text-lg font-bold">{codigo.codigo}</p>
-            <div className="flex items-center gap-2">
-              <Badge variant={codigo.usado ? "secondary" : "default"}>
-                {codigo.usado ? "Usado" : "Disponible"}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                Exp: {codigo.fecha_expiracion}
-              </span>
-            </div>
-          </div>
+          {generateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+          Generar códigos
+        </Button>
+      </div>
+
+      {/* Filter */}
+      <div className="flex gap-2">
+        {['todos', 'disponible', 'usado', 'expirado'].map(estado => (
           <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => copyToClipboard(codigo.codigo, codigo.id)}
-            disabled={codigo.usado}
+            key={estado}
+            variant={filterEstado === estado ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilterEstado(estado)}
           >
-            {copiedId === codigo.id ? (
-              <Check className="h-4 w-4 text-success" />
-            ) : (
-              <Copy className="h-4 w-4" />
-            )}
+            {estado.charAt(0).toUpperCase() + estado.slice(1)}
           </Button>
+        ))}
+      </div>
+
+      {filteredCodigos.length === 0 ? (
+        <p className="text-center text-muted-foreground py-4">
+          No hay códigos {filterEstado !== 'todos' ? `con estado "${filterEstado}"` : 'disponibles'}
+        </p>
+      ) : (
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {filteredCodigos.map((codigo) => (
+            <div
+              key={codigo.id}
+              className={cn(
+                "flex items-center justify-between p-3 rounded-lg border",
+                codigo.usado ? "bg-muted opacity-60" : "bg-background"
+              )}
+            >
+              <div className="space-y-1">
+                <p className="font-mono text-lg font-bold">{codigo.codigo}</p>
+                <div className="flex items-center gap-2">
+                  <Badge variant={codigo.estado === 'disponible' ? 'default' : 'secondary'}>
+                    {codigo.estado}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    Exp: {codigo.fecha_expiracion?.split(' ')[0] || '—'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => copyToClipboard(codigo.codigo, codigo.id)}
+                >
+                  {copiedId === codigo.id ? (
+                    <Check className="h-4 w-4 text-success" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => {
+                    if (confirm('¿Eliminar este código?')) {
+                      deleteCodeMutation.mutate(codigo.id);
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 };
