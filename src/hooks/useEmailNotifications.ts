@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { API_HEADERS, API_ENDPOINTS } from '@/lib/api-config';
+import { API_POST_HEADERS, API_ENDPOINTS } from '@/lib/api-config';
 
 export interface EmailConfig {
   id: number;
