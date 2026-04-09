@@ -163,15 +163,14 @@ export const AdminSales = () => {
     });
   }, [ventasDiaRaw, dateStr]);
 
-  // Fetch yesterday sales for comparison (also query two China dates)
-  const chinaYesterday = getChinaDatesForSpainDate(yesterdayStr);
+  // Fetch yesterday sales for comparison
   const { data: ventasAyerRaw } = useQuery({
     queryKey: ['admin-ventas-ayer', yesterdayStr, selectedMachine],
     queryFn: async () => {
       let query = supabase
         .from('ventas_historico')
         .select('precio, hora, fecha')
-        .in('fecha', chinaYesterday);
+        .eq('fecha', yesterdayStr);
 
       if (selectedMachine !== 'all') {
         query = query.eq('maquina_id', selectedMachine);
@@ -186,8 +185,7 @@ export const AdminSales = () => {
 
   const ventasAyer = useMemo(() => {
     if (!ventasAyerRaw) return [];
-    return ventasAyerRaw.filter(v => {
-      return (v.fecha || '').substring(0, 10) === yesterdayStr;
+    return ventasAyerRaw;
     });
   }, [ventasAyerRaw, yesterdayStr]);
 
