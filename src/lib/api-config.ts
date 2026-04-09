@@ -1,9 +1,10 @@
 const SUPABASE_FUNCTIONS_URL = 'https://nrfhtviwgrkbyiujxlrd.supabase.co/functions/v1';
-const SUPABASE_ANON_KEY = 'sb_publishable_G3yAov7kv5AFj-wMp3kE7g_85HzFPAL';
 
-export const API_HEADERS: Record<string, string> = {
-  'apikey': SUPABASE_ANON_KEY,
-  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+// No auth headers needed - Edge Functions are public
+export const API_HEADERS: Record<string, string> = {};
+
+// Headers for POST requests only
+export const API_POST_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json',
 };
 
