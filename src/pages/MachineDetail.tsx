@@ -26,7 +26,6 @@ import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { fetchSpanishDayOrders, isSuccessfulSale, summarizeSales, getCurrentSpainDate, shiftSpainDate, getMonthDatesUntil } from '@/lib/sales';
-import { fetchSpanishDayOrders, isSuccessfulSale, summarizeSales, getCurrentSpainDate, shiftSpainDate, getMonthDatesUntil } from '@/lib/sales';
 import {
   ArrowLeft,
   Settings,
@@ -883,11 +882,9 @@ export const MachineDetail = () => {
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={tempLog.map(r => {
                           const dt = new Date(r.created_at);
-                          const chinaHora = format(dt, 'HH:mm:ss');
-                          const chinaFecha = format(dt, 'yyyy-MM-dd');
-                          const spain = convertChinaToSpainFull(chinaHora, chinaFecha);
+                          // Temperature readings already stored in local time
                           return {
-                            hora: spain.hora,
+                            hora: format(dt, 'HH:mm'),
                             temperatura: Number(r.temperatura),
                             estado: r.estado,
                           };

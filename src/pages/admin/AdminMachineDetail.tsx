@@ -22,7 +22,6 @@ import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
 import type { Venta } from '@/types';
 import { cn } from '@/lib/utils';
 import { addDays, format, parseISO } from 'date-fns';
-import { addDays, format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   ArrowLeft, Thermometer, Euro, Package, Loader2, MapPin, AlertCircle, Gamepad2,
