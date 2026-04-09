@@ -186,8 +186,7 @@ export const AdminSales = () => {
   const ventasAyer = useMemo(() => {
     if (!ventasAyerRaw) return [];
     return ventasAyerRaw;
-    });
-  }, [ventasAyerRaw, yesterdayStr]);
+  }, [ventasAyerRaw]);
 
   // Computed metrics
   const metrics = useMemo(() => {
