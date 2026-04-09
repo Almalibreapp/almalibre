@@ -68,12 +68,26 @@ class FabricanteAPI {
       body: JSON.stringify(body),
     })
 
+    const responseText = await res.text()
+
     if (!res.ok) {
-      const text = await res.text()
-      throw new Error(`API ${path} failed [${res.status}]: ${text}`)
+      // If server returns HTML (nginx error page), give a clean message
+      if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
+        throw new Error(`API ${path} temporarily unavailable (server returned HTML error page, status ${res.status})`)
+      }
+      throw new Error(`API ${path} failed [${res.status}]: ${responseText.substring(0, 200)}`)
     }
 
-    return await res.json() as T
+    // Guard against HTML responses even on 200 status
+    if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
+      throw new Error(`API ${path} returned HTML instead of JSON (status ${res.status})`)
+    }
+
+    try {
+      return JSON.parse(responseText) as T
+    } catch {
+      throw new Error(`API ${path} returned invalid JSON (status ${res.status}): ${responseText.substring(0, 100)}`)
+    }
   }
 
   /** Get orders for a machine on a specific date, with automatic pagination */

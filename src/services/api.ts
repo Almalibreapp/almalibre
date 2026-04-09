@@ -13,43 +13,99 @@ export const fetchMiMaquina = async (imei: string) => {
 // Resumen de ventas - fetch today's sales and compute summary
 export const fetchVentasResumen = async (imei: string) => {
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${today}`, { headers: API_CONFIG.headers });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el resumen de ventas`);
+  try {
+    const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${today}`, { headers: API_CONFIG.headers });
+    if (!response.ok) {
+      console.warn(`[fetchVentasResumen] HTTP ${response.status} for ${imei}`);
+      return { mac_addr: imei, ventas_hoy: { cantidad: 0, total_euros: 0 }, ventas_ayer: { cantidad: 0, total_euros: 0 }, ventas_mes: { cantidad: 0, total_euros: 0 } };
+    }
+    const text = await response.text();
+    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+      console.warn(`[fetchVentasResumen] Server returned HTML for ${imei}`);
+      return { mac_addr: imei, ventas_hoy: { cantidad: 0, total_euros: 0 }, ventas_ayer: { cantidad: 0, total_euros: 0 }, ventas_mes: { cantidad: 0, total_euros: 0 } };
+    }
+    const data = JSON.parse(text);
+    const ventas = data.ventas || [];
+    const exitosas = ventas.filter((v: any) => {
+      const estado = (v.estado || '').toLowerCase();
+      return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
+    });
+    return {
+      mac_addr: imei,
+      ventas_hoy: {
+        cantidad: exitosas.length,
+        total_euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio || 0), 0),
+      },
+      ventas_ayer: { cantidad: 0, total_euros: 0 },
+      ventas_mes: { cantidad: 0, total_euros: 0 },
+    };
+  } catch (err) {
+    console.warn(`[fetchVentasResumen] Error for ${imei}:`, err);
+    return { mac_addr: imei, ventas_hoy: { cantidad: 0, total_euros: 0 }, ventas_ayer: { cantidad: 0, total_euros: 0 }, ventas_mes: { cantidad: 0, total_euros: 0 } };
   }
-  const data = await response.json();
-  const ventas = data.ventas || [];
-  const exitosas = ventas.filter((v: any) => {
-    const estado = (v.estado || '').toLowerCase();
-    return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
-  });
-  return {
-    mac_addr: imei,
-    ventas_hoy: {
-      cantidad: exitosas.length,
-      total_euros: exitosas.reduce((s: number, v: any) => s + Number(v.precio || 0), 0),
-    },
-    ventas_ayer: { cantidad: 0, total_euros: 0 },
-    ventas_mes: { cantidad: 0, total_euros: 0 },
-  };
 };
 
 // Detalle de ventas
 export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
   const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_CONFIG.headers });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el detalle de ventas`);
+  try {
+    const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_CONFIG.headers });
+    if (!response.ok) {
+      console.warn(`[fetchVentasDetalle] HTTP ${response.status} for ${imei} ${dateStr}`);
+      return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
+    }
+    const text = await response.text();
+    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+      console.warn(`[fetchVentasDetalle] Server returned HTML for ${imei} ${dateStr}`);
+      return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
+    }
+    const data = JSON.parse(text);
+    return {
+      mac_addr: data.imei || imei,
+      fecha: data.fecha || dateStr,
+      total_ventas: data.total || (data.ventas || []).length,
+      ventas: (data.ventas || []).map((v: any) => ({
+        ...v,
+        hora: v.hora || '00:00',
+        fecha: v.fecha || dateStr,
+        producto: v.producto || '',
+        precio: Number(v.precio || 0),
+        cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+        metodo_pago: v.metodo_pago || 'efectivo',
+        estado: v.estado || 'exitoso',
+        toppings: v.toppings || [],
+      })),
+    };
+  } catch (err) {
+    console.warn(`[fetchVentasDetalle] Error for ${imei} ${dateStr}:`, err);
+    return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
   }
-  const data = await response.json();
-  return {
-    mac_addr: data.imei || imei,
-    fecha: data.fecha || dateStr,
-    total_ventas: data.total || (data.ventas || []).length,
-    ventas: (data.ventas || []).map((v: any) => ({
+};
+
+// Ordenes del fabricante
+export const fetchOrdenes = async (imei: string, fecha?: string) => {
+  const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  try {
+    const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_CONFIG.headers });
+    if (!response.ok) {
+      console.warn(`[fetchOrdenes] HTTP ${response.status} for ${imei} ${dateStr}`);
+      return {
+        mac_addr: imei,
+        fecha: dateStr,
+        total_ventas: 0,
+        ventas: [],
+      };
+    }
+    const text = await response.text();
+    // Guard against HTML error pages
+    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+      console.warn(`[fetchOrdenes] Server returned HTML for ${imei} ${dateStr}`);
+      return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
+    }
+    const data = JSON.parse(text);
+    const ventas = (data.ventas || []).map((v: any) => ({
       ...v,
+      id: v.id || v.numero_orden || `${v.hora}-${v.precio}`,
       hora: v.hora || '00:00',
       fecha: v.fecha || dateStr,
       producto: v.producto || '',
@@ -58,37 +114,17 @@ export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
       metodo_pago: v.metodo_pago || 'efectivo',
       estado: v.estado || 'exitoso',
       toppings: v.toppings || [],
-    })),
-  };
-};
-
-// Ordenes del fabricante
-export const fetchOrdenes = async (imei: string, fecha?: string) => {
-  const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_CONFIG.headers });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener las órdenes`);
+    }));
+    return {
+      mac_addr: data.imei || imei,
+      fecha: data.fecha || dateStr,
+      total_ventas: data.total || ventas.length,
+      ventas,
+    };
+  } catch (err) {
+    console.warn(`[fetchOrdenes] Error for ${imei} ${dateStr}:`, err);
+    return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
   }
-  const data = await response.json();
-  const ventas = (data.ventas || []).map((v: any) => ({
-    ...v,
-    id: v.id || v.numero_orden || `${v.hora}-${v.precio}`,
-    hora: v.hora || '00:00',
-    fecha: v.fecha || dateStr,
-    producto: v.producto || '',
-    precio: Number(v.precio || 0),
-    cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-    metodo_pago: v.metodo_pago || 'efectivo',
-    estado: v.estado || 'exitoso',
-    toppings: v.toppings || [],
-  }));
-  return {
-    mac_addr: data.imei || imei,
-    fecha: data.fecha || dateStr,
-    total_ventas: data.total || ventas.length,
-    ventas,
-  };
 };
 
 // Stock de toppings
