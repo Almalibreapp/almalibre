@@ -21,7 +21,7 @@ import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
 import type { Venta } from '@/types';
 import { cn } from '@/lib/utils';
-import { convertChinaToSpainFull, getChinaDatesForSpainDate } from '@/lib/timezone';
+import { addDays, format, parseISO } from 'date-fns';
 import { addDays, format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {

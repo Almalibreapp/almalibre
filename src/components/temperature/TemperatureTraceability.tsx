@@ -7,7 +7,7 @@ import { TemperaturaResponse } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { convertChinaToSpainFull } from '@/lib/timezone';
+// Temperature data already comes in Spain timezone — no conversion needed
 import {
   LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine, Area, CartesianGrid,
 } from 'recharts';

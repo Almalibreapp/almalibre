@@ -1,12 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-
-const API_BASE_URL = 'https://nonstopmachine.com/wp-json/fabricante-ext/v1';
-const API_TOKEN = 'b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE';
-
-const headers = {
-  'Authorization': `Bearer ${API_TOKEN}`,
-  'Content-Type': 'application/json',
-};
+import { API_HEADERS, API_ENDPOINTS } from '@/lib/api-config';
 
 export interface EmailConfig {
   id: number;
