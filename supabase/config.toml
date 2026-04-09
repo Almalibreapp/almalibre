@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.stock]
 verify_jwt = false
+
+[functions.temperatura]
+verify_jwt = false
