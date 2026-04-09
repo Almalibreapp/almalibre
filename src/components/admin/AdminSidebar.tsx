@@ -31,6 +31,10 @@ export const AdminSidebar = () => {
 
   const isActive = (path: string) => {
     if (path === '/admin') return location.pathname === '/admin';
+    // Also match /admin/machine/:id under "Máquinas"
+    if (path === '/admin/machines') {
+      return location.pathname.startsWith('/admin/machines') || location.pathname.startsWith('/admin/machine');
+    }
     return location.pathname.startsWith(path);
   };
 
