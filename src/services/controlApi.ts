@@ -1,4 +1,4 @@
-import { API_HEADERS, API_POST_HEADERS, API_ENDPOINTS, LOCAL_API_HEADERS, LOCAL_API_ENDPOINTS } from '@/lib/api-config';
+import { API_CONFIG } from '@/config/api';
 
 // Types
 export interface Producto {
@@ -18,20 +18,25 @@ export interface ProductosResponse {
 export interface CuponDescuento {
   id: string;
   nombre: string;
+  tipo: string;
   descuento: string;
   fecha_inicio: string;
   fecha_fin: string;
   dias_validez: number;
   ubicacion: string;
+  maquinas: string;
   cantidad_codigos: number;
   codigos_generados?: number;
+  contenido?: any;
 }
 
 export interface CodigoCupon {
   id: string;
   codigo: string;
+  estado: string;
   usado: boolean;
   fecha_expiracion: string;
+  fecha_creacion: string;
 }
 
 export interface ImagenDisponible {
@@ -42,19 +47,27 @@ export interface ImagenDisponible {
 // === PRODUCTOS ===
 
 export const fetchProductos = async (imei: string): Promise<ProductosResponse> => {
-  const response = await fetch(`${LOCAL_API_ENDPOINTS.productos}?imei=${imei}`, { headers: LOCAL_API_HEADERS });
+  const response = await fetch(`${API_CONFIG.endpoints.productos}?imei=${imei}`, { headers: API_CONFIG.headers });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudieron obtener los productos`);
   }
   const data = await response.json();
-  return { success: data.success, productos: data.productos || [] };
+  const productos = (data.productos || []).map((p: any) => ({
+    position: p.position,
+    goodsName: p.nombre || p.goodsName || `Posición ${p.position}`,
+    price: String(p.precio || p.price || '0'),
+    imagePath: p.imagen || p.imagePath || '',
+    stock: p.stock ?? 0,
+    enable: p.activo !== undefined ? (p.activo ? 1 : 0) : (p.enable ?? 1),
+  }));
+  return { success: data.success !== false, productos };
 };
 
 export const updateProductoPrecio = async (imei: string, position: number, precio: string) => {
-  const response = await fetch(API_ENDPOINTS.productos, {
+  const response = await fetch(API_CONFIG.endpoints.productos, {
     method: 'POST',
-    headers: API_POST_HEADERS,
+    headers: API_CONFIG.postHeaders,
     body: JSON.stringify({ imei, position, precio: Number(precio) }),
   });
   if (!response.ok) {
@@ -65,9 +78,9 @@ export const updateProductoPrecio = async (imei: string, position: number, preci
 };
 
 export const updateProductoNombre = async (imei: string, position: number, nombre: string) => {
-  const response = await fetch(API_ENDPOINTS.productos, {
+  const response = await fetch(API_CONFIG.endpoints.productos, {
     method: 'POST',
-    headers: API_POST_HEADERS,
+    headers: API_CONFIG.postHeaders,
     body: JSON.stringify({ imei, position, nombre }),
   });
   if (!response.ok) {
@@ -75,16 +88,15 @@ export const updateProductoNombre = async (imei: string, position: number, nombr
     throw new Error(errorData.error || 'Error al actualizar el nombre');
   }
   const data = await response.json();
-  // Wait 3 seconds then sync products
   await new Promise(resolve => setTimeout(resolve, 3000));
   await sincronizarProductos(imei);
   return data;
 };
 
 export const updateProductoImagen = async (imei: string, position: number, imageUrl: string) => {
-  const response = await fetch(API_ENDPOINTS.productos, {
+  const response = await fetch(API_CONFIG.endpoints.productos, {
     method: 'POST',
-    headers: API_POST_HEADERS,
+    headers: API_CONFIG.postHeaders,
     body: JSON.stringify({ imei, position, imagen: imageUrl }),
   });
   if (!response.ok) {
@@ -97,22 +109,19 @@ export const updateProductoImagen = async (imei: string, position: number, image
 };
 
 export const fetchImagenesDisponibles = async (): Promise<ImagenDisponible[]> => {
-  // This endpoint may not be available yet via edge functions
-  // Return empty for now
   return [];
 };
 
 export const subirImagen = async (_file: File): Promise<string> => {
-  // Image upload will need to be handled via storage
   throw new Error('Subida de imagen no disponible temporalmente');
 };
 
 // === SINCRONIZACIÓN ===
 
 export const sincronizarProductos = async (imei: string) => {
-  const response = await fetch(API_ENDPOINTS.control, {
+  const response = await fetch(API_CONFIG.endpoints.control, {
     method: 'POST',
-    headers: API_POST_HEADERS,
+    headers: API_CONFIG.postHeaders,
     body: JSON.stringify({ imei, comando: 'sincronizar_productos' }),
   });
   if (!response.ok) {
@@ -122,9 +131,9 @@ export const sincronizarProductos = async (imei: string) => {
 };
 
 export const sincronizarMedios = async (imei: string) => {
-  const response = await fetch(API_ENDPOINTS.control, {
+  const response = await fetch(API_CONFIG.endpoints.control, {
     method: 'POST',
-    headers: API_POST_HEADERS,
+    headers: API_CONFIG.postHeaders,
     body: JSON.stringify({ imei, comando: 'sincronizar_medios' }),
   });
   if (!response.ok) {
@@ -135,82 +144,130 @@ export const sincronizarMedios = async (imei: string) => {
 
 // === CUPONES ===
 
-export const crearCupon = async (data: {
-  imei: string;
-  nombre: string;
-  descuento: string;
-  fecha_inicio: string;
-  fecha_fin: string;
-  dias_validez: string;
-  ubicacion: string;
-  cantidad_codigos: number;
-}) => {
-  const response = await fetch(API_ENDPOINTS.control, {
-    method: 'POST',
-    headers: API_POST_HEADERS,
-    body: JSON.stringify({ imei: data.imei, comando: 'crear_cupon', datos: data }),
-  });
-  const responseData = await response.json().catch(() => ({}));
-  if (!response.ok || responseData?.success === false) {
-    throw new Error(`Error al crear cupón. Respuesta: ${JSON.stringify(responseData)}`);
-  }
-  return responseData;
-};
-
-export const fetchCupones = async (imei: string): Promise<CuponDescuento[]> => {
-  const response = await fetch(API_ENDPOINTS.control, {
-    method: 'POST',
-    headers: API_POST_HEADERS,
-    body: JSON.stringify({ imei, comando: 'listar_cupones' }),
-  });
+export const fetchCupones = async (page: number = 1): Promise<{ cupones: CuponDescuento[]; total: number; pagina_actual: number; total_paginas: number }> => {
+  const response = await fetch(
+    `${API_CONFIG.endpoints.cupones}?action=list&page=${page}`,
+    { headers: API_CONFIG.headers }
+  );
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || 'Error al obtener cupones');
   }
   const data = await response.json();
   const rawList: any[] = Array.isArray(data.cupones) ? data.cupones : [];
-  return rawList.map((c: any) => ({
-    id: String(c.couponId ?? c.id ?? ''),
-    nombre: c.couponName ?? c.nombre ?? '',
-    descuento: String(c.descuento ?? '0'),
-    fecha_inicio: c.startTime ?? c.fecha_inicio ?? '',
-    fecha_fin: c.endTime ?? c.fecha_fin ?? '',
-    dias_validez: Number(c.validDay ?? c.dias_validez ?? 0),
-    ubicacion: c.localName ?? c.ubicacion ?? '',
-    cantidad_codigos: Number(c.codeNum ?? c.cantidad_codigos ?? 0),
-    codigos_generados: Number(c.codeNum ?? c.codigos_generados ?? 0),
+  const cupones = rawList.map((c: any) => ({
+    id: String(c.id ?? c.couponId ?? ''),
+    nombre: c.nombre ?? c.couponName ?? '',
+    tipo: c.tipo ?? 'descuento',
+    descuento: String(c.contenido?.money ?? c.descuento ?? '0'),
+    fecha_inicio: c.fecha_inicio ?? c.startTime ?? '',
+    fecha_fin: c.fecha_fin ?? c.endTime ?? '',
+    dias_validez: Number(c.dias_validez ?? c.validDay ?? 0),
+    ubicacion: c.ubicacion ?? c.localName ?? '',
+    maquinas: c.maquinas ?? '',
+    cantidad_codigos: Number(c.cantidad_codigos ?? c.codeNum ?? 0),
+    codigos_generados: Number(c.codigos_generados ?? c.codeNum ?? 0),
+    contenido: c.contenido ?? {},
   }));
+  return {
+    cupones,
+    total: data.total || cupones.length,
+    pagina_actual: data.pagina_actual || page,
+    total_paginas: data.total_paginas || 1,
+  };
 };
 
-export const fetchCodigosCupon = async (cuponId: string): Promise<CodigoCupon[]> => {
-  const response = await fetch(API_ENDPOINTS.control, {
+export const crearCupon = async (data: {
+  couponType: string;
+  totalCount: string;
+  couponName: string;
+  startTime: string;
+  endTime: string;
+  validDay: string;
+  deviceImeis: string;
+  localName: string;
+  content: string;
+}) => {
+  const response = await fetch(`${API_CONFIG.endpoints.cupones}?action=edit`, {
     method: 'POST',
-    headers: API_POST_HEADERS,
-    body: JSON.stringify({ comando: 'listar_codigos_cupon', cupon_id: cuponId }),
+    headers: API_CONFIG.postHeaders,
+    body: JSON.stringify({
+      couponId: '0',
+      ...data,
+    }),
   });
+  const responseData = await response.json().catch(() => ({}));
+  if (!response.ok || responseData?.success === false) {
+    throw new Error(responseData?.error || `Error al crear cupón`);
+  }
+  return responseData;
+};
+
+export const fetchCodigosCupon = async (cuponId: string, page: number = 1): Promise<{ codigos: CodigoCupon[]; total: number; cupon?: any }> => {
+  const response = await fetch(
+    `${API_CONFIG.endpoints.cupones}?action=records&couponId=${cuponId}&page=${page}`,
+    { headers: API_CONFIG.headers }
+  );
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || 'Error al obtener códigos');
   }
   const data = await response.json();
-  const rawCodigos = Array.isArray(data?.codigos) ? data.codigos : [];
-  return rawCodigos.map((item: any) => ({
-    id: String(item.couponRecordId ?? item.id ?? item.code ?? crypto.randomUUID()),
-    codigo: String(item.code ?? item.codigo ?? ''),
-    usado: Number(item.status ?? item.usado ?? 0) !== 0,
-    fecha_expiracion: String(item.expireTime ?? item.fecha_expiracion ?? ''),
+  const rawCodigos = Array.isArray(data.codigos) ? data.codigos : [];
+  const codigos = rawCodigos.map((item: any) => ({
+    id: String(item.id ?? item.couponRecordId ?? item.code ?? crypto.randomUUID()),
+    codigo: String(item.codigo ?? item.code ?? ''),
+    estado: item.estado ?? (Number(item.status ?? 0) === 0 ? 'disponible' : 'usado'),
+    usado: item.estado === 'usado' || Number(item.status ?? 0) !== 0,
+    fecha_expiracion: String(item.fecha_expiracion ?? item.expireTime ?? ''),
+    fecha_creacion: String(item.fecha_creacion ?? item.createTime ?? ''),
   }));
+  return {
+    codigos,
+    total: data.total || codigos.length,
+    cupon: data.cupon,
+  };
 };
 
-export const eliminarCupon = async (cuponId: string) => {
-  const response = await fetch(API_ENDPOINTS.control, {
+export const generarCodigosCupon = async (cuponId: string, cantidad: number) => {
+  const response = await fetch(`${API_CONFIG.endpoints.cupones}?action=generate`, {
     method: 'POST',
-    headers: API_POST_HEADERS,
-    body: JSON.stringify({ comando: 'eliminar_cupon', cupon_id: cuponId }),
+    headers: API_CONFIG.postHeaders,
+    body: JSON.stringify({ couponId: cuponId, num: String(cantidad) }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data?.success === false) {
-    throw new Error(`No se pudo eliminar el cupón: ${JSON.stringify(data)}`);
+    throw new Error(data?.error || 'Error al generar códigos');
+  }
+  return data;
+};
+
+export const eliminarCupon = async (cuponIds: string[]) => {
+  const response = await fetch(
+    `${API_CONFIG.endpoints.cupones}?action=delete&couponIds=${cuponIds.join(',')}`,
+    {
+      method: 'DELETE',
+      headers: API_CONFIG.headers,
+    }
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data?.success === false) {
+    throw new Error(data?.error || 'No se pudo eliminar el cupón');
+  }
+  return data;
+};
+
+export const eliminarCodigoCupon = async (recordIds: string[]) => {
+  const response = await fetch(
+    `${API_CONFIG.endpoints.cupones}?action=delete_code&couponRecordIds=${recordIds.join('#')}`,
+    {
+      method: 'DELETE',
+      headers: API_CONFIG.headers,
+    }
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data?.success === false) {
+    throw new Error(data?.error || 'No se pudo eliminar el código');
   }
   return data;
 };
@@ -218,9 +275,9 @@ export const eliminarCupon = async (cuponId: string) => {
 // === CONTROL REMOTO ===
 
 const sendControlCommand = async (imei: string, comando: string) => {
-  const response = await fetch(API_ENDPOINTS.control, {
+  const response = await fetch(API_CONFIG.endpoints.control, {
     method: 'POST',
-    headers: API_POST_HEADERS,
+    headers: API_CONFIG.postHeaders,
     body: JSON.stringify({ imei, comando }),
   });
   if (!response.ok) {
@@ -244,9 +301,9 @@ export const controlLimpieza = async (imei: string) => sendControlCommand(imei, 
 // === REPOSICIÓN DE STOCK ===
 
 export const actualizarStockTopping = async (imei: string, posiciones: string[]) => {
-  const response = await fetch(API_ENDPOINTS.stock, {
+  const response = await fetch(API_CONFIG.endpoints.stock, {
     method: 'POST',
-    headers: API_POST_HEADERS,
+    headers: API_CONFIG.postHeaders,
     body: JSON.stringify({ imei, posiciones, llenar_completo: true }),
   });
   if (!response.ok) {
@@ -256,7 +313,6 @@ export const actualizarStockTopping = async (imei: string, posiciones: string[])
   return response.json();
 };
 
-// Actualizar stock con sincronización a máquina física
 export const actualizarStockConSync = async (imei: string, position: string | number, cantidad: number): Promise<{ success: boolean; sync_status?: string; warning?: string; message?: string }> => {
   const positionStr = String(position);
   const cantidadNum = Number(cantidad);
@@ -266,9 +322,9 @@ export const actualizarStockConSync = async (imei: string, position: string | nu
   }
 
   try {
-    const response = await fetch(API_ENDPOINTS.stock, {
+    const response = await fetch(API_CONFIG.endpoints.stock, {
       method: 'POST',
-      headers: API_POST_HEADERS,
+      headers: API_CONFIG.postHeaders,
       body: JSON.stringify({ imei, position: positionStr, cantidad: cantidadNum }),
     });
 

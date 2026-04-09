@@ -6,11 +6,11 @@ import {
   IceCream,
   Users,
   Euro,
-  BarChart3,
   LogOut,
   ArrowLeft,
   AlertTriangle,
   Mail,
+  Ticket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
@@ -49,21 +49,27 @@ export const AdminSidebar = () => {
 
       {/* Nav */}
       <nav className="flex-1 p-3 space-y-1">
-        {navItems.map((item) => (
-          <button
-            key={item.path}
-            onClick={() => navigate(item.path)}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
-              isActive(item.path)
-                ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
-                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-            )}
-          >
-            <item.icon className="h-4 w-4" />
-            {item.label}
-          </button>
-        ))}
+        {navItems.map((item) => {
+          const active = isActive(item.path);
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all',
+                active
+                  ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+              )}
+            >
+              <item.icon className={cn("h-4 w-4", active && "text-primary-foreground")} />
+              {item.label}
+              {active && (
+                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-foreground" />
+              )}
+            </button>
+          );
+        })}
       </nav>
 
       {/* Footer */}
