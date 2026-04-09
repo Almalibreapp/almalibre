@@ -1,4 +1,5 @@
 import { Venta } from '@/types';
+import { convertSaleToSpain } from '@/lib/timezone-utils';
 
 type SaleLike = {
   id?: string | number;
@@ -72,14 +73,19 @@ const shiftIsoDate = (date: string, days: number) => {
 };
 
 export const detectSalesTimezoneMode = (_sales: Array<{ hora?: string }>): SalesTimezoneMode => {
-  // Backend now always returns Spain time — no detection needed
-  return 'spain';
+  // Backend returns China time (UTC+8), we convert to Spain in normalization
+  return 'china';
 };
 
 export const mapSpainSaleToVenta = (sale: SaleLike): NormalizedVenta => {
-  // Backend returns hora_spain/fecha_spain directly — use them
-  const fecha = normalizeDate(sale.fecha_spain ?? sale.fechaSpain ?? sale._spainFecha ?? sale.fecha, '');
-  const hora = normalizeTime(sale.hora_spain ?? sale.horaSpain ?? sale._spainHora ?? sale.hora);
+  // Convert from China time to Spain time
+  const rawFecha = normalizeDate(sale.fecha_spain ?? sale.fechaSpain ?? sale._spainFecha ?? sale.fecha, '');
+  const rawHora = normalizeTime(sale.hora_spain ?? sale.horaSpain ?? sale._spainHora ?? sale.hora);
+  
+  // Apply China → Spain conversion
+  const spain = convertSaleToSpain(rawFecha, rawHora);
+  const fecha = spain.fecha;
+  const hora = spain.hora;
   const saleUid = resolveSaleUid(sale, fecha, hora);
 
   return {
@@ -156,10 +162,16 @@ export const normalizeSalesBatchToSpain = <T extends SaleLike>(
   fallbackDate: string,
   _forcedTimezoneMode?: SalesTimezoneMode
 ) => {
-  // Backend already returns Spain time — no conversion needed
+  // Convert China time to Spain time
   return sales.map((sale) => {
-    const fecha = normalizeDate(sale.fecha_spain ?? sale.fecha, fallbackDate);
-    const hora = normalizeTime(sale.hora_spain ?? sale.hora);
+    const rawFecha = normalizeDate(sale.fecha_spain ?? sale.fecha, fallbackDate);
+    const rawHora = normalizeTime(sale.hora_spain ?? sale.hora);
+    
+    // Apply China → Spain conversion
+    const spain = convertSaleToSpain(rawFecha, rawHora);
+    const fecha = spain.fecha;
+    const hora = spain.hora;
+    
     const saleUid = String(
       sale.id ?? sale.venta_api_id ?? sale.numero_orden
         ?? `${fecha}|${hora}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
@@ -190,18 +202,25 @@ export const dedupeSalesByUid = <T extends { saleUid?: string; id?: string | num
 
 /**
  * Fetch sales for a given Spain date.
- * Since backend now returns data already in Spain timezone,
- * we simply fetch the date directly — no multi-date China range needed.
+ * Backend returns data in China time (UTC+8). Spain is UTC+1/+2.
+ * A Spain day can span two China dates, so we fetch the requested date
+ * and the next day to ensure full coverage, then filter by converted Spain date.
  */
 export const fetchSpanishDayOrders = async (
   imei: string,
   spainDate: string,
   fetcher: (imei: string, fecha?: string) => Promise<{ fecha?: string; ventas?: SaleLike[] }>
 ) => {
-  const response = await fetcher(imei, spainDate).catch(() => null);
-  const sales = response?.ventas ?? [];
-  const fallbackDate = normalizeDate(response?.fecha, spainDate);
-  const normalized = normalizeSalesBatchToSpain(sales, fallbackDate);
+  // Fetch requested date and next date (China is 6-7h ahead, so early Spain hours map to previous China date)
+  const nextDate = shiftIsoDate(spainDate, 1);
+  const [response1, response2] = await Promise.all([
+    fetcher(imei, spainDate).catch(() => null),
+    fetcher(imei, nextDate).catch(() => null),
+  ]);
+  const sales1 = response1?.ventas ?? [];
+  const sales2 = response2?.ventas ?? [];
+  const allSales = [...sales1, ...sales2];
+  const normalized = normalizeSalesBatchToSpain(allSales, spainDate);
   return dedupeSalesByUid(normalized).filter((sale) => sale.fechaSpain === spainDate);
 };
 
