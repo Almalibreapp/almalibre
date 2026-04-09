@@ -95,7 +95,7 @@ export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: Temper
       ];
     });
 
-    const csv = [headers, ...rows].map((row) => row.join(';')).join('\n');
+    const csv = [csvHeaders, ...rows].map((row) => row.join(';')).join('\n');
     const BOM = '\uFEFF';
     const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
