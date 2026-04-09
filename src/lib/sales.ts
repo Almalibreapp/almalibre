@@ -162,10 +162,16 @@ export const normalizeSalesBatchToSpain = <T extends SaleLike>(
   fallbackDate: string,
   _forcedTimezoneMode?: SalesTimezoneMode
 ) => {
-  // Backend already returns Spain time — no conversion needed
+  // Convert China time to Spain time
   return sales.map((sale) => {
-    const fecha = normalizeDate(sale.fecha_spain ?? sale.fecha, fallbackDate);
-    const hora = normalizeTime(sale.hora_spain ?? sale.hora);
+    const rawFecha = normalizeDate(sale.fecha_spain ?? sale.fecha, fallbackDate);
+    const rawHora = normalizeTime(sale.hora_spain ?? sale.hora);
+    
+    // Apply China → Spain conversion
+    const spain = convertSaleToSpain(rawFecha, rawHora);
+    const fecha = spain.fecha;
+    const hora = spain.hora;
+    
     const saleUid = String(
       sale.id ?? sale.venta_api_id ?? sale.numero_orden
         ?? `${fecha}|${hora}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
