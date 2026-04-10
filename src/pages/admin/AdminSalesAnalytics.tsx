@@ -27,20 +27,20 @@ const fetchSpanishDaySales = async (imei: string, maquinaId: string, spanishDate
   const sales = await fetchSpanishDayOrders(imei, spanishDate, fetchOrdenes);
 
   return sales.map((v: any) => ({
-    id: `${maquinaId}-${v.saleUid}`,
+    id: `${maquinaId}-${v.saleUid || v.id}`,
     maquina_id: maquinaId,
     imei,
-    fecha: v.fecha,
-    fechaSpain: v.fechaSpain,
-    hora: v.hora,
-    horaSpain: v.horaSpain,
+    fecha: v.fecha || spanishDate,
+    fechaSpain: v.fechaSpain || v.fecha || spanishDate,
+    hora: v.hora || '00:00',
+    horaSpain: v.horaSpain || v.hora || '00:00',
     producto: v.producto || '',
     precio: Number(v.precio || 0),
     cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-    metodo_pago: v.metodo_pago ?? v.payment_method ?? v.pay_type ?? v.metodoPago ?? v.tipo_pago ?? '',
+    metodo_pago: v.metodo_pago ?? v.payment_method ?? v.pay_type ?? '',
     numero_orden: v.numero_orden || v.order_no || null,
     estado: v.estado || 'exitoso',
-    toppings: v.toppings || v.toppings_usados || [],
+    toppings: v.toppings || [],
   }));
 };
 
