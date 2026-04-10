@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { 
   fetchMiMaquina,
   fetchVentasResumen, 
-  fetchOrdenes,
+  fetchVentasDetalle,
   fetchToppings, 
   fetchTemperatura,
   fetchEstadisticasToppings 
@@ -13,29 +13,6 @@ import {
   VentasDetalleResponse, 
   ToppingsResponse 
 } from '@/types';
-import { fetchSpanishDayOrders } from '@/lib/sales';
-
-const mapSpanishSaleToVenta = (sale: any) => ({
-  ...sale,
-  id: String(
-    sale.id
-      ?? sale.saleUid
-      ?? sale.venta_api_id
-      ?? sale.numero_orden
-      ?? `${sale.fechaSpain || sale.fecha || ''}|${sale.horaSpain || sale.hora || '00:00'}|${Number(sale.precio || 0)}|${String(sale.producto || '')}`
-  ),
-  fecha: sale.fechaSpain || sale.fecha || '',
-  hora: sale.horaSpain || sale.hora || '00:00',
-  precio: Number(sale.precio || 0),
-  producto: String(sale.producto || ''),
-  estado: String(sale.estado || 'exitoso'),
-  toppings: Array.isArray(sale.toppings) ? sale.toppings : [],
-  cantidad_unidades: sale.cantidad_unidades || sale.cantidad || 1,
-  metodo_pago: String(sale.metodo_pago ?? sale.payment_method ?? sale.pay_type ?? 'efectivo'),
-  numero_orden: sale.numero_orden ? String(sale.numero_orden) : undefined,
-  _spainFecha: sale.fechaSpain || sale.fecha || '',
-  _spainHora: sale.horaSpain || sale.hora || '00:00',
-});
 
 export const useMiMaquina = (imei: string | undefined) => {
   return useQuery({
@@ -63,11 +40,8 @@ export const useVentasResumen = (imei: string | undefined) => {
 };
 
 /**
- * Fetches today's sales using BOTH China dates that map to the current Spain day.
- * This prevents the "sales stop summing" bug around midnight China time (~18h Spain).
- * 
- * Spain is 6-7h behind China, so when China crosses midnight, some of Spain's
- * "today" sales are on the previous China date. We fetch both and merge.
+ * Fetches today's sales directly from the API.
+ * Backend handles timezone — returns data in Spain time.
  */
 export const useVentasDetalle = (imei: string | undefined) => {
   const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
@@ -76,15 +50,7 @@ export const useVentasDetalle = (imei: string | undefined) => {
     queryKey: ['ventas-detalle', imei, todaySpain],
     queryFn: async () => {
       if (!imei) throw new Error('No IMEI');
-      const allVentas = await fetchSpanishDayOrders(imei, todaySpain, fetchOrdenes);
-      const ventasNormalizadas = allVentas.map(mapSpanishSaleToVenta);
-
-      return {
-        mac_addr: imei,
-        fecha: todaySpain,
-        total_ventas: ventasNormalizadas.length,
-        ventas: ventasNormalizadas,
-      } as VentasDetalleResponse;
+      return fetchVentasDetalle(imei, todaySpain) as Promise<VentasDetalleResponse>;
     },
     enabled: !!imei && imei.length > 0,
     refetchInterval: 30 * 1000,
