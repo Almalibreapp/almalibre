@@ -2,16 +2,16 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { StatCard } from '@/components/ui/stat-card';
+import { DashboardSkeleton } from '@/components/ui/sales-skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchTemperatura, fetchOrdenes } from '@/services/api';
 import { fetchSpanishDayOrders } from '@/lib/sales';
-
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
-import { IceCream, Euro, Thermometer, Package, AlertTriangle, Loader2 } from 'lucide-react';
+import { Euro, Thermometer, Package, AlertTriangle, IceCream } from 'lucide-react';
 
 export const AdminDashboard = () => {
   useVentasRealtime();
-  
 
   const { data: machines = [] } = useQuery({
     queryKey: ['admin-all-machines'],
@@ -38,7 +38,6 @@ export const AdminDashboard = () => {
     queryFn: async () => {
       if (machines.length === 0) return [];
       const uniqueByImei = Array.from(new Map(machines.map(m => [m.mac_address, m])).values());
-
       const promises = uniqueByImei.map(async (m) => {
         const ventas = await fetchSpanishDayOrders(m.mac_address, todaySpain, fetchOrdenes);
         return ventas.map((v: any) => ({
@@ -50,13 +49,11 @@ export const AdminDashboard = () => {
           maquina_id: m.id,
           estado: v.estado || 'exitoso',
         }));
-      }
-      );
+      });
       const results = await Promise.allSettled(promises);
       const allSales = results
         .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
         .flatMap(r => r.value);
-
       const seen = new Set<string>();
       return allSales.filter(v => {
         if (seen.has(v.id)) return false;
@@ -91,7 +88,6 @@ export const AdminDashboard = () => {
 
   const metrics = useMemo(() => {
     const filtered = ventasHoy.filter(v => !['fallido', 'cancelado', 'failed', 'cancelled'].includes((v.estado || '').toLowerCase()));
-
     return {
       totalSalesToday: filtered.reduce((s, v) => s + Number(v.precio), 0),
       totalIceCreamsToday: filtered.reduce((s, v) => s + (v.cantidad_unidades || 1), 0),
@@ -102,33 +98,78 @@ export const AdminDashboard = () => {
     };
   }, [ventasHoy, machines, lowStockAlerts, tempAlerts]);
 
-  if (loadingSales && ventasHoy.length === 0) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
-
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-display font-bold">Dashboard General</h1>
-        <p className="text-muted-foreground">Vista general de todas las máquinas Almalibre</p>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header con gradiente */}
+      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-8 text-primary-foreground">
+        <h1 className="text-3xl font-display font-bold">Dashboard General</h1>
+        <p className="text-primary-foreground/70 mt-1">Vista general de todas las máquinas Almalibre</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Ventas Hoy</p><p className="text-3xl font-bold text-primary">{metrics.totalSalesToday.toFixed(2)}€</p></div><div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center"><Euro className="h-6 w-6 text-primary" /></div></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Açaí Vendidos</p><p className="text-3xl font-bold">{metrics.totalIceCreamsToday}</p></div><div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center"><IceCream className="h-6 w-6 text-success" /></div></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Máquinas</p><p className="text-3xl font-bold">{metrics.activeMachines}/{metrics.totalMachines}</p><p className="text-xs text-muted-foreground">activas</p></div><div className="h-12 w-12 rounded-full bg-accent flex items-center justify-center"><IceCream className="h-6 w-6 text-accent-foreground" /></div></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Alertas</p><div className="flex items-center gap-2">
-          {metrics.lowStockAlerts > 0 && <Badge variant="destructive" className="text-xs"><Package className="h-3 w-3 mr-1" /> {metrics.lowStockAlerts} stock</Badge>}
-          {metrics.tempAlerts > 0 && <Badge variant="destructive" className="text-xs"><Thermometer className="h-3 w-3 mr-1" /> {metrics.tempAlerts} temp</Badge>}
-          {metrics.lowStockAlerts === 0 && metrics.tempAlerts === 0 && <p className="text-lg font-bold text-success">Todo OK</p>}
-        </div></div><div className="h-12 w-12 rounded-full bg-warning/10 flex items-center justify-center"><AlertTriangle className="h-6 w-6 text-warning" /></div></div></CardContent></Card>
-      </div>
+      {/* KPI Grid */}
+      {loadingSales && ventasHoy.length === 0 ? (
+        <DashboardSkeleton />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="Ventas Hoy"
+            value={`${metrics.totalSalesToday.toFixed(2)}€`}
+            icon={<Euro className="h-6 w-6" />}
+            trend="up"
+          />
+          <StatCard
+            title="Açaí Vendidos"
+            value={metrics.totalIceCreamsToday}
+            icon={<IceCream className="h-6 w-6" />}
+          />
+          <StatCard
+            title="Máquinas Activas"
+            value={`${metrics.activeMachines}/${metrics.totalMachines}`}
+            icon={<IceCream className="h-6 w-6" />}
+          />
+          <StatCard
+            title="Alertas"
+            value={metrics.lowStockAlerts + metrics.tempAlerts > 0
+              ? `${metrics.lowStockAlerts + metrics.tempAlerts} activas`
+              : 'Todo OK'}
+            icon={<AlertTriangle className="h-6 w-6" />}
+            trend={metrics.lowStockAlerts + metrics.tempAlerts > 0 ? 'down' : 'up'}
+          />
+        </div>
+      )}
 
+      {/* Alerts section */}
       {(metrics.lowStockAlerts > 0 || metrics.tempAlerts > 0) && (
-        <Card className="border-warning/50"><CardHeader><CardTitle className="text-base flex items-center gap-2 text-warning"><AlertTriangle className="h-4 w-4" />Alertas Urgentes</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">
-          {metrics.lowStockAlerts > 0 && <p>• {metrics.lowStockAlerts} topping(s) con stock crítico</p>}
-          {metrics.tempAlerts > 0 && <p>• {metrics.tempAlerts} máquina(s) con temperatura fuera de rango</p>}
-        </CardContent></Card>
+        <Card className="border-warning/50 bg-warning/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2 text-warning">
+              <AlertTriangle className="h-5 w-5" />
+              Alertas Urgentes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {metrics.lowStockAlerts > 0 && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-background border">
+                <Package className="h-5 w-5 text-warning" />
+                <div>
+                  <p className="text-sm font-medium">{metrics.lowStockAlerts} topping(s) con stock crítico</p>
+                  <p className="text-xs text-muted-foreground">Revisar reposición</p>
+                </div>
+                <Badge variant="warning" className="ml-auto">Stock</Badge>
+              </div>
+            )}
+            {metrics.tempAlerts > 0 && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-background border">
+                <Thermometer className="h-5 w-5 text-destructive" />
+                <div>
+                  <p className="text-sm font-medium">{metrics.tempAlerts} máquina(s) con temperatura fuera de rango</p>
+                  <p className="text-xs text-muted-foreground">Requiere atención inmediata</p>
+                </div>
+                <Badge variant="destructive" className="ml-auto">Temp</Badge>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

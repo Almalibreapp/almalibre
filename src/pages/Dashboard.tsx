@@ -5,12 +5,28 @@ import { Card, CardContent } from '@/components/ui/card';
 import { MachineCard } from '@/components/dashboard/MachineCard';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { initPushNotifications } from '@/services/pushNotifications';
 import { initLocalNotifications } from '@/services/localNotifications';
-import { Plus, Settings, IceCream, RefreshCw, Loader2, Network } from 'lucide-react';
+import { Plus, Settings, IceCream, RefreshCw, Network } from 'lucide-react';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
+
+function DashboardLoadingSkeleton() {
+  return (
+    <div className="space-y-4 px-4 py-6">
+      <Skeleton className="h-20 w-full rounded-xl" />
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-4 w-20" />
+      </div>
+      {[1, 2, 3].map(i => (
+        <Skeleton key={i} className="h-32 w-full rounded-xl" />
+      ))}
+    </div>
+  );
+}
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -18,7 +34,6 @@ export const Dashboard = () => {
   const { maquinas, loading, refetch } = useMaquinas(user?.id);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Inicializar notificaciones push y locales al cargar el dashboard
   useEffect(() => {
     if (user) {
       initPushNotifications();
@@ -52,20 +67,11 @@ export const Dashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRefresh}
-              disabled={refreshing}
-            >
+            <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={refreshing}>
               <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
             <NotificationCenter />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/settings')}
-            >
+            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
               <Settings className="h-5 w-5" />
             </Button>
           </div>
@@ -75,18 +81,14 @@ export const Dashboard = () => {
       {/* Main Content */}
       <main className="container px-4 py-6 pb-24">
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
+          <DashboardLoadingSkeleton />
         ) : maquinas.length === 0 ? (
-          <Card className="animate-fade-in">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="w-20 h-20 bg-primary-light rounded-full flex items-center justify-center mb-4">
+          <Card className="animate-fade-in border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                 <IceCream className="h-10 w-10 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold mb-2 text-center">
-                Aún no tienes máquinas
-              </h2>
+              <h2 className="text-xl font-semibold mb-2 text-center">Aún no tienes máquinas</h2>
               <p className="text-muted-foreground text-center mb-6 max-w-sm">
                 Añade tu primera máquina de helados para comenzar a monitorear tus ventas y stock.
               </p>
@@ -98,10 +100,9 @@ export const Dashboard = () => {
           </Card>
         ) : (
           <div className="space-y-4">
-            {/* Network Dashboard Button */}
             {maquinas.length > 0 && (
-              <Card 
-                className="cursor-pointer hover:shadow-soft hover:border-primary/30 transition-all duration-200 active:scale-[0.98] border-primary/20 bg-primary/5"
+              <Card
+                className="cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-200 active:scale-[0.98] border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10"
                 onClick={() => navigate('/network')}
               >
                 <CardContent className="p-4 flex items-center gap-4">
@@ -120,18 +121,15 @@ export const Dashboard = () => {
               <h2 className="text-lg font-semibold">Mis Máquinas</h2>
               <span className="text-sm text-muted-foreground">{maquinas.length} máquina(s)</span>
             </div>
-            
+
             <div className="grid gap-4">
               {maquinas.map((maquina, index) => (
-                <div 
-                  key={maquina.id} 
+                <div
+                  key={maquina.id}
                   className="animate-slide-up"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <MachineCard
-                    maquina={maquina}
-                    onClick={() => navigate(`/machine/${maquina.id}`)}
-                  />
+                  <MachineCard maquina={maquina} onClick={() => navigate(`/machine/${maquina.id}`)} />
                 </div>
               ))}
             </div>
@@ -142,11 +140,7 @@ export const Dashboard = () => {
       {/* FAB */}
       {maquinas.length > 0 && (
         <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom)+8px)] right-6 z-40">
-          <Button
-            size="lg"
-            className="rounded-full shadow-lg h-14 w-14"
-            onClick={() => navigate('/add-machine')}
-          >
+          <Button size="lg" className="rounded-full shadow-lg h-14 w-14" onClick={() => navigate('/add-machine')}>
             <Plus className="h-6 w-6" />
           </Button>
         </div>
