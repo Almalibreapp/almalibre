@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { 
   fetchMiMaquina,
   fetchVentasResumen, 
-  fetchVentasDetalle,
+  fetchOrdenes,
   fetchToppings, 
   fetchTemperatura,
   fetchEstadisticasToppings 
@@ -13,6 +13,7 @@ import {
   VentasDetalleResponse, 
   ToppingsResponse 
 } from '@/types';
+import { fetchSpanishDayOrders } from '@/lib/sales';
 
 export const useMiMaquina = (imei: string | undefined) => {
   return useQuery({
@@ -40,8 +41,9 @@ export const useVentasResumen = (imei: string | undefined) => {
 };
 
 /**
- * Fetches today's sales directly from the API.
- * Backend handles timezone — returns data in Spain time.
+ * Fetches today's sales using dual-date approach.
+ * Backend returns data by UTC date, but hora in Spain time.
+ * We fetch both dates to cover the full Spain day.
  */
 export const useVentasDetalle = (imei: string | undefined) => {
   const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
@@ -50,7 +52,22 @@ export const useVentasDetalle = (imei: string | undefined) => {
     queryKey: ['ventas-detalle', imei, todaySpain],
     queryFn: async () => {
       if (!imei) throw new Error('No IMEI');
-      return fetchVentasDetalle(imei, todaySpain) as Promise<VentasDetalleResponse>;
+      const allVentas = await fetchSpanishDayOrders(imei, todaySpain, fetchOrdenes);
+      return {
+        mac_addr: imei,
+        fecha: todaySpain,
+        total_ventas: allVentas.length,
+        ventas: allVentas.map(v => ({
+          id: String(v.id || v.saleUid),
+          hora: v.horaSpain || v.hora || '00:00',
+          producto: String(v.producto || ''),
+          precio: Number(v.precio || 0),
+          cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+          metodo_pago: String(v.metodo_pago || ''),
+          estado: String(v.estado || 'exitoso'),
+          toppings: Array.isArray(v.toppings) ? v.toppings : [],
+        })),
+      } as VentasDetalleResponse;
     },
     enabled: !!imei && imei.length > 0,
     refetchInterval: 30 * 1000,
