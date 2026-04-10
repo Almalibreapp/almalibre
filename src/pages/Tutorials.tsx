@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { supabase } from '@/integrations/supabase/client';
-import { Play, Clock, Loader2, GraduationCap, X } from 'lucide-react';
+import { Play, Clock, GraduationCap, X } from 'lucide-react';
+import { CardListSkeleton } from '@/components/ui/sales-skeleton';
 
 interface Tutorial {
   id: string;
@@ -157,9 +158,7 @@ export const Tutorials = () => {
 
       <main className="container px-4 py-6">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
+          <CardListSkeleton count={4} />
         ) : filteredTutorials.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">

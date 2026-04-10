@@ -7,7 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertTriangle, Loader2, Clock, User, MapPin, Camera, MessageCircle } from 'lucide-react';
+import { AlertTriangle, Clock, User, MapPin, Camera, MessageCircle } from 'lucide-react';
+import { CardListSkeleton } from '@/components/ui/sales-skeleton';
 import { Textarea } from '@/components/ui/textarea';
 
 interface Incident {
@@ -130,14 +131,26 @@ export const AdminIncidents = () => {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="space-y-8 animate-fade-in">
+        <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-8 text-primary-foreground">
+          <h1 className="text-3xl font-display font-bold flex items-center gap-3">
+            <AlertTriangle className="h-8 w-8" /> Incidencias
+          </h1>
+          <p className="text-primary-foreground/70 mt-1">Cargando...</p>
+        </div>
+        <CardListSkeleton count={4} />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-display font-bold">Incidencias</h1>
-        <p className="text-muted-foreground">Gestión de incidencias de franquiciados · {incidents.length} total</p>
+    <div className="space-y-8 animate-fade-in">
+      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-8 text-primary-foreground">
+        <h1 className="text-3xl font-display font-bold flex items-center gap-3">
+          <AlertTriangle className="h-8 w-8" /> Incidencias
+        </h1>
+        <p className="text-primary-foreground/70 mt-1">Gestión de incidencias de franquiciados · {incidents.length} total</p>
       </div>
 
       {incidents.length === 0 ? (

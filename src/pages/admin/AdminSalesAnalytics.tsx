@@ -15,8 +15,10 @@ import { fetchOrdenes } from '@/services/api';
 import { fetchSpanishDayOrders } from '@/lib/sales';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { toast } from 'sonner';
+import { DashboardSkeleton, ChartSkeleton } from '@/components/ui/sales-skeleton';
+import { StatCard } from '@/components/ui/stat-card';
 import {
-  Euro, TrendingUp, Calendar, Loader2, ChevronLeft, ChevronRight,
+  Euro, TrendingUp, Calendar, ChevronLeft, ChevronRight,
   Clock, CreditCard, List, BarChart3, IceCream, Package, RefreshCw,
   ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
@@ -308,31 +310,33 @@ export const AdminSalesAnalytics = () => {
   const isLoading = viewMode === 'daily' ? loadingDaily : loadingMonthly;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-display font-bold flex items-center gap-2">
-            <BarChart3 className="h-6 w-6 text-primary" /> Ventas y Análisis
-          </h1>
-          <p className="text-muted-foreground text-sm">Desglose detallado de ventas</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Select value={selectedMachine} onValueChange={setSelectedMachine}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Todas las máquinas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las máquinas</SelectItem>
-              {maquinas?.map(m => (
-                <SelectItem key={m.id} value={m.id}>{m.nombre_personalizado}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button onClick={handleRefresh} disabled={syncing} variant="outline" size="sm">
-            <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />
-            {syncing ? 'Actualizando...' : 'Actualizar'}
-          </Button>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header con gradiente */}
+      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-8 text-primary-foreground">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-display font-bold flex items-center gap-3">
+              <BarChart3 className="h-8 w-8" /> Ventas y Análisis
+            </h1>
+            <p className="text-primary-foreground/70 mt-1">Desglose detallado de ventas</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Select value={selectedMachine} onValueChange={setSelectedMachine}>
+              <SelectTrigger className="w-[200px] bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground">
+                <SelectValue placeholder="Todas las máquinas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las máquinas</SelectItem>
+                {maquinas?.map(m => (
+                  <SelectItem key={m.id} value={m.id}>{m.nombre_personalizado}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={handleRefresh} disabled={syncing} variant="secondary" size="sm">
+              <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />
+              {syncing ? 'Actualizando...' : 'Actualizar'}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -365,7 +369,7 @@ export const AdminSalesAnalytics = () => {
       )}
 
       {isLoading ? (
-        <div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+        <div className="space-y-4"><DashboardSkeleton /><ChartSkeleton /></div>
       ) : viewMode === 'daily' ? (
         /* =================== DAILY VIEW =================== */
         !dailyMetrics || dailyMetrics.totalVentas === 0 ? (

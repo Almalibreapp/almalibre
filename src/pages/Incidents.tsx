@@ -7,7 +7,8 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
-import { Plus, AlertTriangle, Loader2, ChevronRight, Clock } from 'lucide-react';
+import { Plus, AlertTriangle, ChevronRight, Clock } from 'lucide-react';
+import { CardListSkeleton } from '@/components/ui/sales-skeleton';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -90,9 +91,7 @@ export const Incidents = () => {
 
       <main className="container px-4 py-6">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
+          <CardListSkeleton count={4} />
         ) : incidents.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
