@@ -1,5 +1,13 @@
 import { API_CONFIG } from '@/config/api';
 
+// Cupones endpoint uses THIS project's edge function (with local caching)
+const CUPONES_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cupones`;
+const CUPONES_HEADERS: Record<string, string> = {
+  'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+  'Content-Type': 'application/json',
+};
+
 // Types
 export interface Producto {
   position: number;
@@ -146,8 +154,8 @@ export const sincronizarMedios = async (imei: string) => {
 
 export const fetchCupones = async (page: number = 1): Promise<{ cupones: CuponDescuento[]; total: number; pagina_actual: number; total_paginas: number }> => {
   const response = await fetch(
-    `${API_CONFIG.endpoints.cupones}?action=list&page=${page}`,
-    { headers: API_CONFIG.headers }
+    `${CUPONES_URL}?action=list&page=${page}`,
+    { headers: CUPONES_HEADERS }
   );
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -159,7 +167,7 @@ export const fetchCupones = async (page: number = 1): Promise<{ cupones: CuponDe
     id: String(c.id ?? c.couponId ?? ''),
     nombre: c.nombre ?? c.couponName ?? '',
     tipo: c.tipo ?? 'descuento',
-    descuento: String(c.contenido?.money ?? c.descuento ?? '0'),
+    descuento: String(c.descuento ?? c.contenido?.money ?? '0'),
     fecha_inicio: c.fecha_inicio ?? c.startTime ?? '',
     fecha_fin: c.fecha_fin ?? c.endTime ?? '',
     dias_validez: Number(c.dias_validez ?? c.validDay ?? 0),
@@ -188,9 +196,9 @@ export const crearCupon = async (data: {
   localName: string;
   content: string;
 }) => {
-  const response = await fetch(`${API_CONFIG.endpoints.cupones}?action=edit`, {
+  const response = await fetch(`${CUPONES_URL}?action=edit`, {
     method: 'POST',
-    headers: API_CONFIG.postHeaders,
+    headers: CUPONES_HEADERS,
     body: JSON.stringify({
       couponId: '0',
       ...data,
@@ -205,8 +213,8 @@ export const crearCupon = async (data: {
 
 export const fetchCodigosCupon = async (cuponId: string, page: number = 1): Promise<{ codigos: CodigoCupon[]; total: number; cupon?: any }> => {
   const response = await fetch(
-    `${API_CONFIG.endpoints.cupones}?action=records&couponId=${cuponId}&page=${page}`,
-    { headers: API_CONFIG.headers }
+    `${CUPONES_URL}?action=records&couponId=${cuponId}&page=${page}`,
+    { headers: CUPONES_HEADERS }
   );
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -230,9 +238,9 @@ export const fetchCodigosCupon = async (cuponId: string, page: number = 1): Prom
 };
 
 export const generarCodigosCupon = async (cuponId: string, cantidad: number) => {
-  const response = await fetch(`${API_CONFIG.endpoints.cupones}?action=generate`, {
+  const response = await fetch(`${CUPONES_URL}?action=generate`, {
     method: 'POST',
-    headers: API_CONFIG.postHeaders,
+    headers: CUPONES_HEADERS,
     body: JSON.stringify({ couponId: cuponId, num: String(cantidad) }),
   });
   const data = await response.json().catch(() => ({}));
@@ -243,13 +251,11 @@ export const generarCodigosCupon = async (cuponId: string, cantidad: number) => 
 };
 
 export const eliminarCupon = async (cuponIds: string[]) => {
-  const response = await fetch(
-    `${API_CONFIG.endpoints.cupones}?action=delete&couponIds=${cuponIds.join(',')}`,
-    {
-      method: 'DELETE',
-      headers: API_CONFIG.headers,
-    }
-  );
+  const response = await fetch(`${CUPONES_URL}?action=delete`, {
+    method: 'POST',
+    headers: CUPONES_HEADERS,
+    body: JSON.stringify({ couponIds: cuponIds }),
+  });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data?.success === false) {
     throw new Error(data?.error || 'No se pudo eliminar el cupón');
@@ -258,13 +264,11 @@ export const eliminarCupon = async (cuponIds: string[]) => {
 };
 
 export const eliminarCodigoCupon = async (recordIds: string[]) => {
-  const response = await fetch(
-    `${API_CONFIG.endpoints.cupones}?action=delete_code&couponRecordIds=${recordIds.join('#')}`,
-    {
-      method: 'DELETE',
-      headers: API_CONFIG.headers,
-    }
-  );
+  const response = await fetch(`${CUPONES_URL}?action=deleteCode`, {
+    method: 'POST',
+    headers: CUPONES_HEADERS,
+    body: JSON.stringify({ couponRecordIds: recordIds.join('#') }),
+  });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data?.success === false) {
     throw new Error(data?.error || 'No se pudo eliminar el código');

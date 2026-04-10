@@ -104,6 +104,57 @@ export type Database = {
         }
         Relationships: []
       }
+      cupones_cache: {
+        Row: {
+          cantidad_codigos: number | null
+          contenido: Json | null
+          created_at: string | null
+          dias_validez: number | null
+          external_id: string
+          fecha_fin: string | null
+          fecha_inicio: string | null
+          id: string
+          maquinas: string | null
+          nombre: string
+          raw_data: Json | null
+          tipo: string
+          ubicacion: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cantidad_codigos?: number | null
+          contenido?: Json | null
+          created_at?: string | null
+          dias_validez?: number | null
+          external_id: string
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
+          id?: string
+          maquinas?: string | null
+          nombre?: string
+          raw_data?: Json | null
+          tipo?: string
+          ubicacion?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cantidad_codigos?: number | null
+          contenido?: Json | null
+          created_at?: string | null
+          dias_validez?: number | null
+          external_id?: string
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
+          id?: string
+          maquinas?: string | null
+          nombre?: string
+          raw_data?: Json | null
+          tipo?: string
+          ubicacion?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       direcciones_guardadas: {
         Row: {
           address_1: string
