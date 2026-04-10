@@ -260,7 +260,7 @@ export const AdminIncidents = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                      {updatingId === incident.id && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {updatingId === incident.id && <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />}
                     </div>
 
                     {/* Messages */}
