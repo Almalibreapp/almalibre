@@ -171,13 +171,20 @@ export const AdminSalesAnalytics = () => {
         .map(d => formatLocal(d));
       const validDates = new Set(spanishDates);
 
-      const allSales = await Promise.all(
-        uniqueByImei.flatMap(m =>
-          spanishDates.map(fecha => fetchSpanishDaySales(m.mac_address, m.id, fecha))
-        )
-      );
+      // Process ONE machine at a time, dates in batches of 3 to avoid overwhelming the API
+      const allSales: any[] = [];
+      for (const m of uniqueByImei) {
+        const BATCH_SIZE = 3;
+        for (let i = 0; i < spanishDates.length; i += BATCH_SIZE) {
+          const batch = spanishDates.slice(i, i + BATCH_SIZE);
+          const batchResults = await Promise.all(
+            batch.map(fecha => fetchSpanishDaySales(m.mac_address, m.id, fecha).catch(() => []))
+          );
+          allSales.push(...batchResults.flat());
+        }
+      }
 
-      return deduplicateSales(allSales.flat().filter(s => validDates.has(s.fechaSpain)));
+      return deduplicateSales(allSales.filter(s => validDates.has(s.fechaSpain)));
     },
     staleTime: 5 * 60 * 1000,
     refetchInterval: isCurrentMonth ? 60000 : false,
