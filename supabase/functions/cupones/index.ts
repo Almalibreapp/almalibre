@@ -164,13 +164,21 @@ serve(async (req) => {
       const body = await req.json()
       console.log('[cupones] Creating coupon:', JSON.stringify(body))
 
-      // Call manufacturer API
-      const result = await apiRequest('/api/mch/editCoupon', body)
-      console.log('[cupones] Create result:', JSON.stringify(result))
+      let apiResult: any = null
+      let apiSuccess = false
 
-      // Cache locally regardless of API list availability
-      const externalId = String(result.couponId ?? result.id ?? `local_${Date.now()}`)
-      
+      // Try manufacturer API
+      try {
+        apiResult = await apiRequest('/api/mch/editCoupon', body)
+        console.log('[cupones] Create result:', JSON.stringify(apiResult))
+        apiSuccess = true
+      } catch (err) {
+        console.log('[cupones] Manufacturer API unavailable for create, caching locally:', err.message)
+      }
+
+      // Always cache locally
+      const externalId = String(apiResult?.couponId ?? apiResult?.id ?? `local_${Date.now()}`)
+
       await supabase.from('cupones_cache').upsert({
         external_id: externalId,
         nombre: body.couponName ?? '',
@@ -182,14 +190,17 @@ serve(async (req) => {
         ubicacion: body.localName ?? '',
         maquinas: body.deviceImeis ?? '',
         cantidad_codigos: Number(body.totalCount ?? 0),
-        raw_data: { ...body, result },
+        raw_data: { ...body, result: apiResult },
       }, { onConflict: 'external_id' })
 
       return new Response(JSON.stringify({
         success: true,
         resultado: true,
-        mensaje: result.msg ?? result.message ?? 'Cupón creado',
+        mensaje: apiSuccess
+          ? (apiResult?.msg ?? apiResult?.message ?? 'Cupón creado')
+          : 'Cupón guardado localmente (API del fabricante no disponible)',
         couponId: externalId,
+        api_synced: apiSuccess,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
