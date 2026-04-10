@@ -31,8 +31,6 @@ export type NormalizedVenta = Venta & {
   venta_api_id?: string | number;
 };
 
-const normalizeDate = (value: unknown, fallback = '') => String(value || fallback).substring(0, 10);
-
 const normalizeTime = (value: unknown) => {
   const raw = String(value || '00:00');
   return raw.length >= 5 ? raw.substring(0, 5) : '00:00';
@@ -58,17 +56,34 @@ const resolvePaymentMethod = (sale: SaleLike) => {
 };
 
 /**
+ * Compute the Spain date (YYYY-MM-DD) from the ISO fecha field.
+ * The backend returns fecha as ISO datetime in UTC (e.g. "2026-04-09T23:16:59")
+ * and hora already in Spain time (e.g. "01:16").
+ * 
+ * We use the ISO fecha to compute the actual Spain calendar date.
+ */
+const computeSpainDate = (fecha: string): string => {
+  if (fecha.includes('T')) {
+    const d = new Date(fecha.endsWith('Z') ? fecha : fecha + 'Z');
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+    }
+  }
+  return fecha.substring(0, 10);
+};
+
+/**
  * Map a raw sale from the API to a normalized venta.
- * Backend ALREADY returns hora in Spain time and fecha as the Spain date.
- * NO timezone conversion is applied.
+ * Backend returns hora in Spain time. We compute fechaSpain from the ISO fecha.
  */
 export const mapSpainSaleToVenta = (sale: SaleLike): NormalizedVenta => {
-  const fecha = normalizeDate(sale.fecha);
+  const rawFecha = String(sale.fecha || '');
   const hora = normalizeTime(sale.hora);
+  const fecha = computeSpainDate(rawFecha);
   const saleUid = resolveSaleUid(sale, fecha, hora);
 
   return {
-    id: String(sale.id ?? saleUid ?? sale.venta_api_id ?? sale.numero_orden ?? `${fecha}|${hora}|${toNumber(sale.precio)}|${String(sale.producto || '')}`),
+    id: String(sale.id ?? saleUid),
     fecha,
     hora,
     fechaSpain: fecha,
@@ -105,9 +120,7 @@ export const summarizeSales = <T extends { precio?: unknown; cantidad_unidades?:
 export const buildHourlySalesData = <T extends { _spainHora?: unknown; hora?: unknown; precio?: unknown }>(sales: T[]) => {
   const grouped = sales.reduce((acc, sale) => {
     const hourKey = `${normalizeTime(sale._spainHora ?? sale.hora).split(':')[0]}:00`;
-    if (!acc[hourKey]) {
-      acc[hourKey] = { ventas: 0, ingresos: 0 };
-    }
+    if (!acc[hourKey]) acc[hourKey] = { ventas: 0, ingresos: 0 };
     acc[hourKey].ventas += 1;
     acc[hourKey].ingresos += toNumber(sale.precio);
     return acc;
@@ -142,8 +155,8 @@ export const getMonthDatesUntil = (spainDate: string) => {
 };
 
 /**
- * Normalize a batch of sales — fields are used directly since
- * the backend already returns everything in Spain time.
+ * Normalize a batch of sales. Computes Spain date from the ISO fecha field.
+ * hora is used directly (already Spain time from backend).
  */
 export const normalizeSalesBatchToSpain = <T extends SaleLike>(
   sales: T[],
@@ -151,8 +164,9 @@ export const normalizeSalesBatchToSpain = <T extends SaleLike>(
   _forcedTimezoneMode?: SalesTimezoneMode
 ) => {
   return sales.map((sale) => {
-    const fecha = normalizeDate(sale.fecha, fallbackDate);
+    const rawFecha = String(sale.fecha ?? fallbackDate);
     const hora = normalizeTime(sale.hora);
+    const fecha = computeSpainDate(rawFecha);
     const saleUid = String(
       sale.id ?? sale.venta_api_id ?? sale.numero_orden
         ?? `${fecha}|${hora}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
@@ -183,18 +197,29 @@ export const dedupeSalesByUid = <T extends { saleUid?: string; id?: string | num
 
 /**
  * Fetch sales for a given Spain date.
- * The backend handles timezone conversion — we only need to fetch ONE date.
- * Past days come from PostgreSQL (<500ms), today comes from the live API.
+ * 
+ * The backend organizes sales by UTC date, but hora is in Spain time.
+ * Spain is UTC+1 (winter) or UTC+2 (summer), so a Spain day spans two UTC dates.
+ * Example: Spain April 10 00:00 = UTC April 9 22:00.
+ * 
+ * We fetch BOTH spainDate and the previous UTC date, normalize to Spain dates,
+ * then filter to only the requested Spain date.
  */
 export const fetchSpanishDayOrders = async (
   imei: string,
   spainDate: string,
   fetcher: (imei: string, fecha?: string) => Promise<{ fecha?: string; ventas?: SaleLike[] }>
 ) => {
-  const response = await fetcher(imei, spainDate).catch(() => null);
-  const sales = response?.ventas ?? [];
-  const normalized = normalizeSalesBatchToSpain(sales, spainDate);
-  return dedupeSalesByUid(normalized);
+  const prevDate = shiftSpainDate(spainDate, -1);
+  const [response1, response2] = await Promise.all([
+    fetcher(imei, prevDate).catch(() => null),
+    fetcher(imei, spainDate).catch(() => null),
+  ]);
+  const sales1 = response1?.ventas ?? [];
+  const sales2 = response2?.ventas ?? [];
+  const allSales = [...sales1, ...sales2];
+  const normalized = normalizeSalesBatchToSpain(allSales, spainDate);
+  return dedupeSalesByUid(normalized).filter((sale) => sale.fechaSpain === spainDate);
 };
 
 export const fetchSpainDayVentas = async (
