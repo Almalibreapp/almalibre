@@ -45,7 +45,11 @@ export const fetchVentasResumen = async (imei: string) => {
   }
 };
 
-// Detalle de ventas
+/**
+ * Fetch sales for a specific date.
+ * The backend returns hora and fecha ALREADY in Spain time (UTC+2).
+ * NO timezone conversion needed on the frontend.
+ */
 export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
   const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
   try {
@@ -60,58 +64,15 @@ export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
       return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
     }
     const data = JSON.parse(text);
-    return {
-      mac_addr: data.imei || imei,
-      fecha: data.fecha || dateStr,
-      total_ventas: data.total || (data.ventas || []).length,
-      ventas: (data.ventas || []).map((v: any) => ({
-        ...v,
-        hora: v.hora || '00:00',
-        fecha: v.fecha || dateStr,
-        producto: v.producto || '',
-        precio: Number(v.precio || 0),
-        cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-        metodo_pago: v.metodo_pago || 'efectivo',
-        estado: v.estado || 'exitoso',
-        toppings: v.toppings || [],
-      })),
-    };
-  } catch (err) {
-    console.warn(`[fetchVentasDetalle] Error for ${imei} ${dateStr}:`, err);
-    return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
-  }
-};
-
-// Ordenes del fabricante
-export const fetchOrdenes = async (imei: string, fecha?: string) => {
-  const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  try {
-    const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_CONFIG.headers });
-    if (!response.ok) {
-      console.warn(`[fetchOrdenes] HTTP ${response.status} for ${imei} ${dateStr}`);
-      return {
-        mac_addr: imei,
-        fecha: dateStr,
-        total_ventas: 0,
-        ventas: [],
-      };
-    }
-    const text = await response.text();
-    // Guard against HTML error pages
-    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-      console.warn(`[fetchOrdenes] Server returned HTML for ${imei} ${dateStr}`);
-      return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
-    }
-    const data = JSON.parse(text);
     const ventas = (data.ventas || []).map((v: any) => ({
       ...v,
-      id: v.id || v.numero_orden || `${v.hora}-${v.precio}`,
+      // Use hora/fecha directly — already in Spain time from backend
       hora: v.hora || '00:00',
-      fecha: v.fecha || dateStr,
+      fecha: dateStr,
       producto: v.producto || '',
       precio: Number(v.precio || 0),
       cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-      metodo_pago: v.metodo_pago || 'efectivo',
+      metodo_pago: v.metodo_pago || '',
       estado: v.estado || 'exitoso',
       toppings: v.toppings || [],
     }));
@@ -120,6 +81,51 @@ export const fetchOrdenes = async (imei: string, fecha?: string) => {
       fecha: data.fecha || dateStr,
       total_ventas: data.total || ventas.length,
       ventas,
+      fuente: data.fuente,
+    };
+  } catch (err) {
+    console.warn(`[fetchVentasDetalle] Error for ${imei} ${dateStr}:`, err);
+    return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
+  }
+};
+
+/**
+ * Fetch orders for a specific date.
+ * Backend returns data already in Spain timezone — no conversion needed.
+ */
+export const fetchOrdenes = async (imei: string, fecha?: string) => {
+  const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  try {
+    const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_CONFIG.headers });
+    if (!response.ok) {
+      console.warn(`[fetchOrdenes] HTTP ${response.status} for ${imei} ${dateStr}`);
+      return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
+    }
+    const text = await response.text();
+    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+      console.warn(`[fetchOrdenes] Server returned HTML for ${imei} ${dateStr}`);
+      return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
+    }
+    const data = JSON.parse(text);
+    const ventas = (data.ventas || []).map((v: any) => ({
+      ...v,
+      id: v.id || v.numero_orden || `${v.hora}-${v.precio}`,
+      // hora/fecha already in Spain time from backend
+      hora: v.hora || '00:00',
+      fecha: dateStr,
+      producto: v.producto || '',
+      precio: Number(v.precio || 0),
+      cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+      metodo_pago: v.metodo_pago || '',
+      estado: v.estado || 'exitoso',
+      toppings: v.toppings || [],
+    }));
+    return {
+      mac_addr: data.imei || imei,
+      fecha: data.fecha || dateStr,
+      total_ventas: data.total || ventas.length,
+      ventas,
+      fuente: data.fuente,
     };
   } catch (err) {
     console.warn(`[fetchOrdenes] Error for ${imei} ${dateStr}:`, err);
@@ -151,11 +157,15 @@ export const fetchToppings = async (imei: string) => {
   };
 };
 
-// Temperatura
+/**
+ * Fetch temperature data.
+ * Backend returns timestamps already in Spain time.
+ */
 export const fetchTemperatura = async (imei: string, start?: string, end?: string) => {
   const now = new Date();
-  const endDate = end || now.toISOString();
-  const startDate = start || new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString();
+  // Format start/end in Spain-friendly format for the backend
+  const endDate = end || now.toISOString().replace('T', ' ').substring(0, 19);
+  const startDate = start || new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
   try {
     const response = await fetch(
       `${API_CONFIG.endpoints.temperatura}?imei=${imei}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
@@ -181,6 +191,8 @@ export const fetchTemperatura = async (imei: string, start?: string, end?: strin
       unidad: latest?.unidad || data.unidad || 'C',
       estado: latest?.estado || data.estado || 'normal',
       timestamp: latest?.timestamp || data.timestamp || new Date().toISOString(),
+      datos, // expose full array for charts
+      fuente: data.fuente,
     };
   } catch (err) {
     console.warn(`[temperatura] Error fetching for ${imei}:`, err);

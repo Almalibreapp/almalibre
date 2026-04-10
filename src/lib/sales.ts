@@ -6,8 +6,6 @@ type SaleLike = {
   numero_orden?: string | number;
   fecha?: string;
   hora?: string;
-  fecha_spain?: string;
-  hora_spain?: string;
   precio?: number | string;
   producto?: string;
   estado?: string;
@@ -20,7 +18,7 @@ type SaleLike = {
   [key: string]: unknown;
 };
 
-export type SalesTimezoneMode = 'spain' | 'china';
+export type SalesTimezoneMode = 'spain';
 
 export type NormalizedVenta = Venta & {
   fecha: string;
@@ -59,38 +57,14 @@ const resolvePaymentMethod = (sale: SaleLike) => {
   return normalized || undefined;
 };
 
-const shiftIsoDate = (date: string, days: number) => {
-  const [year, month, day] = date.split('-').map(Number);
-  const value = new Date(Date.UTC(year, (month || 1) - 1, day || 1));
-  value.setUTCDate(value.getUTCDate() + days);
-  return value.toISOString().substring(0, 10);
-};
-
 /**
- * Extract the Spain date from a fecha field.
- * The edge function returns fecha in ISO format (e.g. "2026-04-09T14:46:59.000Z")
- * or plain "YYYY-MM-DD". The hora field is ALREADY in Spain time.
- * We extract the date portion from the ISO string, but since hora is Spain time,
- * we need to compute the actual Spain date from the UTC timestamp.
+ * Map a raw sale from the API to a normalized venta.
+ * Backend ALREADY returns hora in Spain time and fecha as the Spain date.
+ * NO timezone conversion is applied.
  */
-const extractSpainDate = (fecha: string): string => {
-  // If it's ISO format with time, compute Spain date from the UTC timestamp
-  if (fecha.includes('T')) {
-    const d = new Date(fecha);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-    }
-  }
-  // Plain date string — use as-is (first 10 chars)
-  return fecha.substring(0, 10);
-};
-
 export const mapSpainSaleToVenta = (sale: SaleLike): NormalizedVenta => {
-  // The edge function ALREADY returns hora in Spain time and fecha in ISO UTC.
-  // DO NOT apply China→Spain conversion — that would double-convert.
-  const rawFecha = String(sale.fecha ?? sale.fecha_spain ?? '');
-  const hora = normalizeTime(sale.hora ?? sale.hora_spain);
-  const fecha = extractSpainDate(rawFecha);
+  const fecha = normalizeDate(sale.fecha);
+  const hora = normalizeTime(sale.hora);
   const saleUid = resolveSaleUid(sale, fecha, hora);
 
   return {
@@ -153,7 +127,12 @@ export const getPeakSalesHour = <T extends { _spainHora?: unknown; hora?: unknow
 
 export const getCurrentSpainDate = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
 
-export const shiftSpainDate = (date: string, days: number) => shiftIsoDate(date, days);
+export const shiftSpainDate = (date: string, days: number) => {
+  const [year, month, day] = date.split('-').map(Number);
+  const value = new Date(Date.UTC(year, (month || 1) - 1, day || 1));
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().substring(0, 10);
+};
 
 export const getMonthDatesUntil = (spainDate: string) => {
   const [year, month, day] = spainDate.split('-').map(Number);
@@ -162,18 +141,18 @@ export const getMonthDatesUntil = (spainDate: string) => {
   });
 };
 
+/**
+ * Normalize a batch of sales — fields are used directly since
+ * the backend already returns everything in Spain time.
+ */
 export const normalizeSalesBatchToSpain = <T extends SaleLike>(
   sales: T[],
   fallbackDate: string,
   _forcedTimezoneMode?: SalesTimezoneMode
 ) => {
-  // The edge function ALREADY returns hora in Spain time.
-  // We just normalize the fields without re-converting.
   return sales.map((sale) => {
-    const rawFecha = String(sale.fecha ?? fallbackDate);
+    const fecha = normalizeDate(sale.fecha, fallbackDate);
     const hora = normalizeTime(sale.hora);
-    const fecha = extractSpainDate(rawFecha);
-
     const saleUid = String(
       sale.id ?? sale.venta_api_id ?? sale.numero_orden
         ?? `${fecha}|${hora}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
@@ -204,28 +183,18 @@ export const dedupeSalesByUid = <T extends { saleUid?: string; id?: string | num
 
 /**
  * Fetch sales for a given Spain date.
- * The edge function returns hora already in Spain time and fecha in ISO UTC.
- * A Spain day can span two API dates (due to UTC offset), so we fetch the 
- * requested date and the next day, then filter by Spain date.
+ * The backend handles timezone conversion — we only need to fetch ONE date.
+ * Past days come from PostgreSQL (<500ms), today comes from the live API.
  */
 export const fetchSpanishDayOrders = async (
   imei: string,
   spainDate: string,
   fetcher: (imei: string, fecha?: string) => Promise<{ fecha?: string; ventas?: SaleLike[] }>
 ) => {
-  // Spain is UTC+1 (winter) or UTC+2 (summer/CEST).
-  // Spain midnight = 22:00 or 23:00 UTC of the PREVIOUS day.
-  // So to cover a full Spain day, we need API data from spainDate-1 AND spainDate.
-  const prevDate = shiftIsoDate(spainDate, -1);
-  const [response1, response2] = await Promise.all([
-    fetcher(imei, prevDate).catch(() => null),
-    fetcher(imei, spainDate).catch(() => null),
-  ]);
-  const sales1 = response1?.ventas ?? [];
-  const sales2 = response2?.ventas ?? [];
-  const allSales = [...sales1, ...sales2];
-  const normalized = normalizeSalesBatchToSpain(allSales, spainDate);
-  return dedupeSalesByUid(normalized).filter((sale) => sale.fechaSpain === spainDate);
+  const response = await fetcher(imei, spainDate).catch(() => null);
+  const sales = response?.ventas ?? [];
+  const normalized = normalizeSalesBatchToSpain(sales, spainDate);
+  return dedupeSalesByUid(normalized);
 };
 
 export const fetchSpainDayVentas = async (
