@@ -213,10 +213,13 @@ export const fetchSpanishDayOrders = async (
   spainDate: string,
   fetcher: (imei: string, fecha?: string) => Promise<{ fecha?: string; ventas?: SaleLike[] }>
 ) => {
-  const nextDate = shiftIsoDate(spainDate, 1);
+  // Spain is UTC+1 (winter) or UTC+2 (summer/CEST).
+  // Spain midnight = 22:00 or 23:00 UTC of the PREVIOUS day.
+  // So to cover a full Spain day, we need API data from spainDate-1 AND spainDate.
+  const prevDate = shiftIsoDate(spainDate, -1);
   const [response1, response2] = await Promise.all([
+    fetcher(imei, prevDate).catch(() => null),
     fetcher(imei, spainDate).catch(() => null),
-    fetcher(imei, nextDate).catch(() => null),
   ]);
   const sales1 = response1?.ventas ?? [];
   const sales2 = response2?.ventas ?? [];
