@@ -4,7 +4,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Package, AlertTriangle } from 'lucide-react';
+import { Package, AlertTriangle } from 'lucide-react';
+import { TableSkeleton } from '@/components/ui/sales-skeleton';
 
 interface StockItem {
   id: string;
@@ -47,18 +48,20 @@ export const AdminStock = () => {
 
   const criticalItems = stockItems.filter((s) => s.unidades_actuales <= s.alerta_minimo);
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
-
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-display font-bold flex items-center gap-2">
-          <Package className="h-6 w-6" /> Gestión de Stock
+    <div className="space-y-8 animate-fade-in">
+      {/* Header con gradiente */}
+      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-8 text-primary-foreground">
+        <h1 className="text-3xl font-display font-bold flex items-center gap-3">
+          <Package className="h-8 w-8" /> Gestión de Stock
         </h1>
-        <p className="text-muted-foreground">{stockItems.length} toppings monitorizados</p>
+        <p className="text-primary-foreground/70 mt-1">{isLoading ? 'Cargando...' : `${stockItems.length} toppings monitorizados`}</p>
       </div>
+
+      {isLoading ? (
+        <TableSkeleton rows={6} cols={5} />
+      ) : (
+      <>
 
       {criticalItems.length > 0 && (
         <Card className="border-critical/50 bg-critical-light">
@@ -155,6 +158,8 @@ export const AdminStock = () => {
             </Table>
           </CardContent>
         </Card>
+      )}
+      </>
       )}
     </div>
   );
