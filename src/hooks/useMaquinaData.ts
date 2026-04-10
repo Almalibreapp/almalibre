@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { 
   fetchMiMaquina,
   fetchVentasResumen, 
-  fetchVentasDetalle,
+  fetchOrdenes,
   fetchToppings, 
   fetchTemperatura,
   fetchEstadisticasToppings 
@@ -13,6 +13,7 @@ import {
   VentasDetalleResponse, 
   ToppingsResponse 
 } from '@/types';
+import { fetchSpanishDayOrders } from '@/lib/sales';
 
 export const useMiMaquina = (imei: string | undefined) => {
   return useQuery({
