@@ -23,10 +23,17 @@ export interface Maquina {
 // Respuesta de temperatura - ESTRUCTURA REAL
 export interface TemperaturaResponse {
   mac_addr: string;
-  temperatura: number;
+  temperatura: number | null;
   unidad: string;
-  estado: 'normal' | 'alerta' | 'critico';
+  estado: string;
   timestamp: string;
+  datos?: Array<{
+    timestamp: string;
+    temperatura: number;
+    sensor?: string;
+    estado?: string;
+  }>;
+  fuente?: string;
 }
 
 // Respuesta de ventas-resumen - ESTRUCTURA REAL
