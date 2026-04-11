@@ -362,21 +362,16 @@ export const AdminMachineDetail = () => {
         <Card className="border-warning/50"><CardContent className="py-8 text-center"><AlertCircle className="h-10 w-10 text-warning mx-auto mb-3" /><p className="text-muted-foreground">{error?.message || 'Sin datos disponibles'}</p></CardContent></Card>
       ) : (
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 h-auto">
-            <TabsTrigger value="overview" className="text-xs sm:text-sm px-1 sm:px-3 py-2">General</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4 h-auto">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm px-1 sm:px-3 py-2">Temperatura</TabsTrigger>
             <TabsTrigger value="estado" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3 py-2"><Activity className="h-3 w-3 hidden sm:block" />Estado</TabsTrigger>
-            <TabsTrigger value="sales" className="text-xs sm:text-sm px-1 sm:px-3 py-2">Ventas</TabsTrigger>
             <TabsTrigger value="stock" className="text-xs sm:text-sm px-1 sm:px-3 py-2">Stock</TabsTrigger>
             <TabsTrigger value="control" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3 py-2"><Gamepad2 className="h-3 w-3 hidden sm:block" />Control</TabsTrigger>
           </TabsList>
 
-          {/* Overview */}
+          {/* Temperatura */}
           <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card><CardContent className="p-4 text-center"><Thermometer className="h-5 w-5 text-primary mx-auto mb-2" /><p className="text-3xl font-bold text-primary">{temperatura?.temperatura !== undefined ? `${temperatura.temperatura}°C` : '--'}</p><Badge className={cn("mt-1", temperatura?.temperatura !== undefined && temperatura.temperatura >= 11 && "bg-critical text-critical-foreground", temperatura?.temperatura !== undefined && temperatura.temperatura < 11 && "bg-success text-success-foreground", temperatura?.temperatura === undefined && "bg-muted text-muted-foreground")}>{temperatura?.temperatura !== undefined ? (temperatura.temperatura >= 11 ? 'Crítico' : 'Normal') : 'Sin datos'}</Badge></CardContent></Card>
-              <Card><CardContent className="p-4 text-center"><Euro className="h-5 w-5 text-primary mx-auto mb-2" /><p className="text-3xl font-bold text-primary">{ventasHoySpain.euros.toFixed(2)}€</p><p className="text-xs text-muted-foreground">{ventasHoySpain.cantidad} ventas hoy</p></CardContent></Card>
-              <Card><CardContent className="p-4 text-center"><Package className="h-5 w-5 text-primary mx-auto mb-2" /><p className="text-3xl font-bold">{stock?.total_toppings ?? 0}</p><p className="text-xs text-muted-foreground">toppings configurados</p></CardContent></Card>
-            </div>
+            <Card><CardContent className="p-4 text-center"><Thermometer className="h-5 w-5 text-primary mx-auto mb-2" /><p className="text-3xl font-bold text-primary">{temperatura?.temperatura !== undefined ? `${temperatura.temperatura}°C` : '--'}</p><Badge className={cn("mt-1", temperatura?.temperatura !== undefined && temperatura.temperatura >= 11 && "bg-critical text-critical-foreground", temperatura?.temperatura !== undefined && temperatura.temperatura < 11 && "bg-success text-success-foreground", temperatura?.temperatura === undefined && "bg-muted text-muted-foreground")}>{temperatura?.temperatura !== undefined ? (temperatura.temperatura >= 11 ? 'Crítico' : 'Normal') : 'Sin datos'}</Badge></CardContent></Card>
             <TemperatureTraceability maquinaId={machineId} temperatura={temperatura} imei={imei} />
           </TabsContent>
 
@@ -470,43 +465,6 @@ export const AdminMachineDetail = () => {
                 )}
               </>
             )}
-          </TabsContent>
-
-          {/* Sales */}
-          <TabsContent value="sales" className="space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <Button variant="outline" size="icon" onClick={() => navigateDate('prev')}><ChevronLeft className="h-4 w-4" /></Button>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="flex-1 max-w-xs">
-                    <CalendarIcon className="h-4 w-4 mr-2" />
-                    <span className="capitalize">{displayDate}</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="center">
-                  <CalendarComponent
-                    mode="single"
-                    selected={calendarSelectedDate}
-                    onSelect={(date) => {
-                      if (!date) return;
-                      const nextSelectedDate = format(date, 'yyyy-MM-dd');
-                      setSelectedDate(normalizeNavigableDate(nextSelectedDate));
-                    }}
-                    disabled={(date) => format(date, 'yyyy-MM-dd') > todayStr}
-                    locale={es}
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-              <Button variant="outline" size="icon" onClick={() => navigateDate('next')} disabled={isToday}><ChevronRight className="h-4 w-4" /></Button>
-            </div>
-            <div className="flex items-center justify-center gap-2">
-              <Button variant={isToday ? "default" : "outline"} size="sm" onClick={() => setSelectedDate(null)}>Hoy</Button>
-              <Button variant="outline" size="sm" onClick={() => setSelectedDate(yesterdayStr)}>Ayer</Button>
-            </div>
-            <Card><CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4 text-primary" />Ventas por Hora</CardTitle></CardHeader><CardContent>
-              <SalesChart ventas={currentVentas?.ventas || []} fecha={currentVentas?.fecha} />
-            </CardContent></Card>
           </TabsContent>
 
           {/* Stock */}
