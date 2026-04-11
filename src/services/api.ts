@@ -1,5 +1,11 @@
 import { API_CONFIG } from '@/config/api';
 
+const normalizeTemperatureDateParam = (value: string | undefined, fallback: string) => {
+  const raw = String(value || '').trim();
+  const match = raw.match(/\d{4}-\d{2}-\d{2}/);
+  return match?.[0] || fallback;
+};
+
 // Información general de la máquina
 export const fetchMiMaquina = async (imei: string) => {
   const response = await fetch(`${API_CONFIG.endpoints.estado}?imei=${imei}`, { headers: API_CONFIG.headers });
@@ -162,10 +168,10 @@ export const fetchToppings = async (imei: string) => {
  * Backend returns timestamps already in Spain time.
  */
 export const fetchTemperatura = async (imei: string, start?: string, end?: string) => {
-  const now = new Date();
-  // Format start/end in Spain-friendly format for the backend
-  const endDate = end || now.toISOString().replace('T', ' ').substring(0, 19);
-  const startDate = start || new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+  const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const endDate = normalizeTemperatureDateParam(end, todaySpain);
+  const startDate = normalizeTemperatureDateParam(start, endDate);
+
   try {
     const response = await fetch(
       `${API_CONFIG.endpoints.temperatura}?imei=${imei}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`,
@@ -181,17 +187,23 @@ export const fetchTemperatura = async (imei: string, start?: string, end?: strin
         timestamp: new Date().toISOString(),
       };
     }
+
     const data = await response.json();
+    console.log('RESPUESTA TEMPERATURA:', data);
+
     const datos = Array.isArray(data.datos) ? data.datos : [];
-    // API returns data in ascending order (oldest first) — pick last element for most recent
     const latest = datos.length > 0 ? datos[datos.length - 1] : null;
+    const temperaturaActual = latest ? Number(latest.temperatura) : null;
+
+    console.log('TEMPERATURA ACTUAL:', temperaturaActual);
+
     return {
       mac_addr: imei,
-      temperatura: latest?.temperatura ?? data.temperatura ?? null,
-      unidad: latest?.unidad || data.unidad || 'C',
-      estado: latest?.estado || data.estado || 'normal',
-      timestamp: latest?.timestamp || data.timestamp || new Date().toISOString(),
-      datos, // expose full array for charts
+      temperatura: Number.isFinite(temperaturaActual) ? temperaturaActual : null,
+      unidad: 'C',
+      estado: latest?.estado || 'sin_datos',
+      timestamp: latest?.timestamp || '',
+      datos,
       fuente: data.fuente,
     };
   } catch (err) {
@@ -201,7 +213,7 @@ export const fetchTemperatura = async (imei: string, start?: string, end?: strin
       temperatura: null,
       unidad: 'C',
       estado: 'sin_datos',
-      timestamp: new Date().toISOString(),
+      timestamp: '',
     };
   }
 };

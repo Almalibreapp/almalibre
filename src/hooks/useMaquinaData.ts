@@ -93,10 +93,9 @@ export const useTemperatura = (imei: string | undefined) => {
     queryKey: ['temperatura', imei],
     queryFn: () => fetchTemperatura(imei!),
     enabled: !!imei && imei.length > 0,
-    // Temperatura: refetch cada 2 minutos (dato más crítico)
-    refetchInterval: 2 * 60 * 1000,
+    refetchInterval: 30 * 1000,
     retry: 2,
-    staleTime: 60 * 1000,
+    staleTime: 15 * 1000,
   });
 };
 
