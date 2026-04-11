@@ -8,9 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Sparkles } from 'lucide-react';
 import { API_CONFIG } from '@/config/api';
-
-const ALMA_AVATAR_URL =
-  'https://nrfhtviwgrkbyiujxlrd.supabase.co/storage/v1/object/public/assets/alma-avatar.png';
+import almaAvatarImg from '@/assets/alma-avatar.png';
 
 const FALLBACK_MESSAGES: Record<string, string> = {
   motivacion: '¡Hoy es un gran día para vender! 💪',
@@ -87,7 +85,7 @@ export function AlmaTipModal({ imei }: AlmaTipModalProps) {
           <div className="relative">
             {!avatarError ? (
               <img
-                src={ALMA_AVATAR_URL}
+                src={almaAvatarImg}
                 alt="Alma"
                 className="h-20 w-20 rounded-full object-cover border-4 border-white shadow-lg"
                 onError={() => setAvatarError(true)}
