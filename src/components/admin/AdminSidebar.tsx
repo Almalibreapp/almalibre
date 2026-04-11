@@ -21,8 +21,6 @@ const navItems = [
   { path: '/admin/franchisees', icon: Users, label: 'Franquiciados' },
   { path: '/admin/sales', icon: Euro, label: 'Ventas y Análisis' },
   { path: '/admin/cupones', icon: Ticket, label: 'Cupones' },
-  { path: '/admin/incidents', icon: AlertTriangle, label: 'Incidencias' },
-  { path: '/admin/notifications', icon: Mail, label: 'Notificaciones' },
 ];
 
 export const AdminSidebar = () => {
