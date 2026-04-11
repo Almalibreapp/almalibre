@@ -38,8 +38,8 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: Discoun
   const [isCodesOpen, setIsCodesOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['cupones'],
-    queryFn: () => fetchCupones(1),
+    queryKey: ['cupones', imei],
+    queryFn: () => fetchCupones(1, imei),
   });
 
   const cuponesList: CuponDescuento[] = data?.cupones ?? [];
