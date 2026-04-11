@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { mostrarHoraVenta, extraerFechaVenta } from '@/lib/timezone-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,18 +80,23 @@ export const AdminSales = () => {
         const apiPromises = targetMachines.map(async (m) => {
           try {
             const sales = await fetchSpanishDayOrders(m.mac_address, dateStr, fetchOrdenes);
-            return sales.map((v: any) => ({
-              id: `api-${m.id}-${v.saleUid || v.id}`,
-              sale_uid: v.saleUid || v.id,
-              maquina_id: m.id, imei: m.mac_address,
-              fecha: v.fechaSpain || v.fecha || dateStr,
-              hora: v.horaSpain || v.hora || '00:00',
-              producto: v.producto || '', precio: Number(v.precio || 0),
-              cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-              metodo_pago: v.metodo_pago || 'efectivo',
-              numero_orden: v.numero_orden || null,
-              estado: v.estado || 'exitoso', toppings: v.toppings || [],
-            }));
+            return sales.map((v: any) => {
+              const fhc = v.fecha_hora_china || '';
+              const hora = fhc ? mostrarHoraVenta(fhc) : (v.horaSpain || v.hora || '00:00');
+              const fecha = fhc ? extraerFechaVenta(fhc) : (v.fechaSpain || v.fecha || dateStr);
+              return {
+                id: `api-${m.id}-${v.saleUid || v.id}`,
+                sale_uid: v.saleUid || v.id,
+                maquina_id: m.id, imei: m.mac_address,
+                fecha, hora,
+                producto: v.producto || '', precio: Number(v.precio || 0),
+                cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+                metodo_pago: v.metodo_pago || 'efectivo',
+                numero_orden: v.numero_orden || null,
+                estado: v.estado || 'exitoso', toppings: v.toppings || [],
+                fecha_hora_china: fhc,
+              };
+            });
           } catch { return []; }
         });
         const results = await Promise.allSettled(apiPromises);
@@ -137,7 +143,8 @@ export const AdminSales = () => {
 
     const byHour: Record<string, { ventas: number; euros: number }> = {};
     ventasDia.forEach(v => {
-      const h = (v.hora || '00:00').split(':')[0] + ':00';
+      const horaDisplay = v.fecha_hora_china ? mostrarHoraVenta(v.fecha_hora_china) : (v.hora || '00:00');
+      const h = horaDisplay.split(':')[0] + ':00';
       if (!byHour[h]) byHour[h] = { ventas: 0, euros: 0 };
       byHour[h].ventas++;
       byHour[h].euros += Number(v.precio);
@@ -354,7 +361,7 @@ export const AdminSales = () => {
                       <TableBody>
                         {ventasDia?.map(v => (
                           <TableRow key={v.id} className="hover:bg-muted/30 transition-colors">
-                            <TableCell className="font-mono text-xs">{(v.hora || '00:00').substring(0, 5)}</TableCell>
+                            <TableCell className="font-mono text-xs">{v.fecha_hora_china ? mostrarHoraVenta(v.fecha_hora_china) : (v.hora || '00:00').substring(0, 5)}</TableCell>
                             {selectedMachine === 'all' && <TableCell className="text-xs">{getMachineName(v.maquina_id)}</TableCell>}
                             <TableCell className="font-medium text-sm max-w-[150px] truncate">{parseProductAndToppings(v.producto).productName}</TableCell>
                             <TableCell className="text-right font-bold text-primary">{Number(v.precio).toFixed(2)}€</TableCell>
