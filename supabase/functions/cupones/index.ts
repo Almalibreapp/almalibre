@@ -233,35 +233,45 @@ serve(async (req) => {
       const couponId = url.searchParams.get('couponId') ?? ''
       const page = Number(url.searchParams.get('page') ?? 1)
 
-      try {
-        const data = await apiRequest('/api/mch/getCouponRecordList', {
-          couponId,
-          page,
-          pageSize: 100,
-        })
-        
-        const rawCodigos = data.list ?? data.data?.list ?? data.records ?? data.codigos ?? []
-        const codigos = (Array.isArray(rawCodigos) ? rawCodigos : []).map((item: any) => ({
-          id: String(item.couponRecordId ?? item.id ?? item.code ?? ''),
-          codigo: String(item.code ?? item.codigo ?? ''),
-          estado: Number(item.status ?? 0) === 0 ? 'disponible' : 'usado',
-          usado: Number(item.status ?? 0) !== 0,
-          fecha_expiracion: item.endTime ?? item.fecha_expiracion ?? '',
-          fecha_creacion: item.createTime ?? item.fecha_creacion ?? '',
-        }))
+      let codigos: any[] = []
+      let apiSuccess = false
 
-        return new Response(JSON.stringify({
-          success: true,
-          codigos,
-          total: codigos.length,
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-      } catch (err) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: err.message,
-          codigos: [],
-        }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      // Try manufacturer API (skip for locally-created coupons)
+      if (!couponId.startsWith('local_')) {
+        try {
+          const data = await apiRequest('/api/mch/getCouponRecordList', {
+            couponId,
+            page,
+            pageSize: 100,
+          })
+          console.log('[cupones] Records response:', JSON.stringify(data).substring(0, 500))
+          
+          const rawCodigos = data.list ?? data.data?.list ?? data.records ?? data.codigos ?? []
+          codigos = (Array.isArray(rawCodigos) ? rawCodigos : []).map((item: any) => ({
+            id: String(item.couponRecordId ?? item.id ?? item.code ?? ''),
+            codigo: String(item.code ?? item.codigo ?? ''),
+            estado: Number(item.status ?? 0) === 0 ? 'disponible' : 'usado',
+            usado: Number(item.status ?? 0) !== 0,
+            fecha_expiracion: item.endTime ?? item.fecha_expiracion ?? '',
+            fecha_creacion: item.createTime ?? item.fecha_creacion ?? '',
+          }))
+          apiSuccess = true
+        } catch (err) {
+          console.log('[cupones] Manufacturer API unavailable for records:', err.message)
+        }
       }
+
+      return new Response(JSON.stringify({
+        success: true,
+        codigos,
+        total: codigos.length,
+        fuente: couponId.startsWith('local_') ? 'local' : (apiSuccess ? 'api' : 'cache'),
+        nota: !apiSuccess && !couponId.startsWith('local_') 
+          ? 'API del fabricante no disponible temporalmente' 
+          : couponId.startsWith('local_') 
+            ? 'Cupón guardado localmente - los códigos se generarán cuando la API esté disponible'
+            : undefined,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // ===== GENERATE CODES =====
