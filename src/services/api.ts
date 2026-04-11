@@ -183,8 +183,8 @@ export const fetchTemperatura = async (imei: string, start?: string, end?: strin
     }
     const data = await response.json();
     const datos = Array.isArray(data.datos) ? data.datos : [];
-    // API returns newest first — pick datos[0] for the most recent reading
-    const latest = datos.length > 0 ? datos[0] : null;
+    // API returns data in ascending order (oldest first) — pick last element for most recent
+    const latest = datos.length > 0 ? datos[datos.length - 1] : null;
     return {
       mac_addr: imei,
       temperatura: latest?.temperatura ?? data.temperatura ?? null,
