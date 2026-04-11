@@ -36,6 +36,7 @@ import {
   AlertTriangle,
   GraduationCap,
   Wrench,
+  Download,
 } from 'lucide-react';
 
 const menuItems = [
@@ -52,6 +53,7 @@ const supportItems = [
 
 const toolItems = [
   { path: '/tutorials', icon: GraduationCap, label: 'Video Tutoriales', description: 'Aprende a usar tu máquina' },
+  { path: '/export', icon: Download, label: 'Exportar Datos', description: 'Descarga históricos en Excel' },
 ];
 
 export const Settings = () => {
