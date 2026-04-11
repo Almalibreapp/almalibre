@@ -139,23 +139,42 @@ export const fetchOrdenes = async (imei: string, fecha?: string) => {
   }
 };
 
-// Stock de toppings
+// Stock de toppings — merges manufacturer API with stock_config capacities
 export const fetchToppings = async (imei: string) => {
-  const response = await fetch(`${API_CONFIG.endpoints.stock}?imei=${imei}`, { headers: API_CONFIG.headers });
+  const { supabase } = await import('@/integrations/supabase/client');
+
+  // Fetch manufacturer API and stock_config in parallel
+  const [response, { data: stockConfig }] = await Promise.all([
+    fetch(`${API_CONFIG.endpoints.stock}?imei=${imei}`, { headers: API_CONFIG.headers }),
+    supabase.from('stock_config').select('topping_position, capacidad_maxima, unidades_actuales').eq('machine_imei', imei),
+  ]);
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudo obtener el stock de toppings`);
   }
+
   const data = await response.json();
   const stock = data.stock || [];
-  const toppings = stock.map((s: any) => ({
-    posicion: s.position || s.posicion,
-    nombre: s.nombre || s.name || '',
-    stock_actual: s.unidades_actuales ?? s.actual ?? s.stock_actual ?? 0,
-    capacidad_maxima: s.capacidad_maxima ?? s.maximo ?? 100,
-    porcentaje: s.porcentaje ?? 0,
-    estado: s.estado || 'ok',
-  }));
+
+  // Build a map of configured capacities from stock_config
+  const configMap = new Map<string, { capacidad_maxima: number; unidades_actuales: number }>();
+  (stockConfig || []).forEach((c: any) => {
+    configMap.set(String(c.topping_position), { capacidad_maxima: c.capacidad_maxima, unidades_actuales: c.unidades_actuales });
+  });
+
+  const toppings = stock.map((s: any) => {
+    const pos = String(s.position || s.posicion);
+    const config = configMap.get(pos);
+    return {
+      posicion: pos,
+      nombre: s.nombre || s.name || '',
+      stock_actual: config?.unidades_actuales ?? s.unidades_actuales ?? s.actual ?? s.stock_actual ?? 0,
+      capacidad_maxima: config?.capacidad_maxima ?? s.capacidad_maxima ?? s.maximo ?? 100,
+      porcentaje: s.porcentaje ?? 0,
+      estado: s.estado || 'ok',
+    };
+  });
   return {
     mac_addr: imei,
     toppings,
