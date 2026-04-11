@@ -3,11 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TableSkeleton } from '@/components/ui/sales-skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchTemperatura } from '@/services/api';
 import { Search, MapPin, Cpu } from 'lucide-react';
 
 interface MachineData {
