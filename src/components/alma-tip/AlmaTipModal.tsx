@@ -85,7 +85,7 @@ export function AlmaTipModal({ imei }: AlmaTipModalProps) {
           <div className="relative">
             {!avatarError ? (
               <img
-                src={ALMA_AVATAR_URL}
+                src={almaAvatarImg}
                 alt="Alma"
                 className="h-20 w-20 rounded-full object-cover border-4 border-white shadow-lg"
                 onError={() => setAvatarError(true)}
