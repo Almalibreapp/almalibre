@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { convertSaleToSpain, parseChinaDateTime, formatSpainTime, formatSpainDate } from '@/lib/timezone-utils';
+import { mostrarHoraVenta, extraerFechaVenta } from '@/lib/timezone-utils';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,7 @@ type MachineSaleLike = {
   id?: string | number;
   venta_api_id?: string | number;
   numero_orden?: string | number;
+  fecha_hora_china?: string;
   fecha?: string;
   hora?: string;
   precio?: number | string;
@@ -50,36 +51,26 @@ type NormalizedMachineSale = Venta & {
   _spainHora: string;
   saleUid: string;
   venta_api_id?: string | number;
-};
-
-const normalizeSaleDate = (value: unknown, fallback = '') => String(value || fallback).substring(0, 10);
-
-const normalizeSaleTime = (value: unknown) => {
-  const raw = String(value || '00:00');
-  return raw.length >= 5 ? raw.substring(0, 5) : '00:00';
+  fecha_hora_china?: string;
 };
 
 const buildSaleUid = (sale: MachineSaleLike, fallbackDate: string) => String(
   sale.id
     ?? sale.venta_api_id
     ?? sale.numero_orden
-    ?? `${normalizeSaleDate(sale.fecha, fallbackDate)}|${normalizeSaleTime(sale.hora)}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
+    ?? `${sale.fecha_hora_china || fallbackDate}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
 );
 
 const normalizeMachineSale = (sale: MachineSaleLike, fallbackDate: string): NormalizedMachineSale => {
-  const rawFecha = String(sale.fecha || fallbackDate);
-  const rawHora = normalizeSaleTime(sale.hora);
-  // Convert China time → Spain time
-  const spain = convertSaleToSpain(rawFecha.substring(0, 10), rawHora);
-  // If fecha has ISO format, use parseChinaDateTime for more accuracy
-  let fecha = spain.fecha;
-  let hora = spain.hora;
-  if (rawFecha.includes('T')) {
-    const utcDate = parseChinaDateTime(rawFecha.replace('T', ' ').replace(/\.000Z$/, '').replace(/Z$/, ''));
-    if (!isNaN(utcDate.getTime())) {
-      fecha = formatSpainDate(utcDate);
-      hora = formatSpainTime(utcDate);
-    }
+  // Use fecha_hora_china as source of truth
+  let fecha: string;
+  let hora: string;
+  if (sale.fecha_hora_china) {
+    fecha = extraerFechaVenta(sale.fecha_hora_china);
+    hora = mostrarHoraVenta(sale.fecha_hora_china);
+  } else {
+    fecha = String(sale.fecha || fallbackDate).substring(0, 10);
+    hora = String(sale.hora || '00:00').substring(0, 5);
   }
   const saleUid = buildSaleUid(sale, fallbackDate);
 
@@ -95,6 +86,7 @@ const normalizeMachineSale = (sale: MachineSaleLike, fallbackDate: string): Norm
     _spainFecha: fecha,
     _spainHora: hora,
     saleUid,
+    fecha_hora_china: sale.fecha_hora_china,
     numero_orden: sale.numero_orden ? String(sale.numero_orden) : undefined,
   };
 };
