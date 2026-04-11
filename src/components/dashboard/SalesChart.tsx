@@ -1,5 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Venta } from '@/types';
+import { mostrarHoraVenta } from '@/lib/timezone-utils';
 
 interface SalesChartProps {
   ventas: Venta[];
@@ -7,9 +8,11 @@ interface SalesChartProps {
 }
 
 export const SalesChart = ({ ventas, fecha }: SalesChartProps) => {
-  // Group sales by hour — hora already comes in Spain time, use directly
+  // Group sales by hour using fecha_hora_china → mostrarHoraVenta
   const ventasPorHora = ventas.reduce((acc, venta) => {
-    const hora = (venta as any)._spainHora || venta.hora || '00:00';
+    const hora = (venta as any)._spainHora
+      || ((venta as any).fecha_hora_china ? mostrarHoraVenta((venta as any).fecha_hora_china) : venta.hora)
+      || '00:00';
     const horaKey = hora.split(':')[0] + ':00';
     if (!acc[horaKey]) {
       acc[horaKey] = { cantidad: 0, ingresos: 0 };

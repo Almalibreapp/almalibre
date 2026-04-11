@@ -53,8 +53,7 @@ export const fetchVentasResumen = async (imei: string) => {
 
 /**
  * Fetch sales for a specific date.
- * The backend returns hora and fecha ALREADY in Spain time (UTC+2).
- * NO timezone conversion needed on the frontend.
+ * Backend now sends fecha_hora_china field for each sale.
  */
 export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
   const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
@@ -72,8 +71,7 @@ export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
     const data = JSON.parse(text);
     const ventas = (data.ventas || []).map((v: any) => ({
       ...v,
-      // Use hora/fecha directly — already in Spain time from backend
-      hora: v.hora || '00:00',
+      fecha_hora_china: v.fecha_hora_china || '',
       fecha: dateStr,
       producto: v.producto || '',
       precio: Number(v.precio || 0),
@@ -97,7 +95,7 @@ export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
 
 /**
  * Fetch orders for a specific date.
- * Backend returns data already in Spain timezone — no conversion needed.
+ * Backend now sends fecha_hora_china field.
  */
 export const fetchOrdenes = async (imei: string, fecha?: string) => {
   const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
@@ -115,9 +113,8 @@ export const fetchOrdenes = async (imei: string, fecha?: string) => {
     const data = JSON.parse(text);
     const ventas = (data.ventas || []).map((v: any) => ({
       ...v,
-      id: v.id || v.numero_orden || `${v.hora}-${v.precio}`,
-      // hora/fecha already in Spain time from backend
-      hora: v.hora || '00:00',
+      id: v.id || v.numero_orden || `${v.fecha_hora_china}-${v.precio}`,
+      fecha_hora_china: v.fecha_hora_china || '',
       fecha: dateStr,
       producto: v.producto || '',
       precio: Number(v.precio || 0),
