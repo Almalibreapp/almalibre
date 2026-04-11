@@ -201,10 +201,13 @@ export const AdminAnalytics = () => {
 
     return ventasHistorico
       .map((v) => {
-        // Convert China time → Spain time
-        const spainConverted = convertSaleToSpain((v.fecha || '').substring(0, 10), (v.hora || '00:00').substring(0, 5));
-        const fechaSpain = spainConverted.fecha;
-        const horaSpain = spainConverted.hora;
+        // Use fecha_hora_china if available, otherwise fallback to fecha/hora
+        const fechaSpain = (v as any).fecha_hora_china
+          ? extraerFechaVenta((v as any).fecha_hora_china)
+          : (v.fecha || '').substring(0, 10);
+        const horaSpain = (v as any).fecha_hora_china
+          ? mostrarHoraVenta((v as any).fecha_hora_china)
+          : (v.hora || '00:00').substring(0, 5);
         const saleDate = new Date(`${fechaSpain}T00:00:00`);
 
         const productInfo = parseProductAndToppings(v.producto);
