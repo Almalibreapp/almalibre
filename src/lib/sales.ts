@@ -90,12 +90,14 @@ const convertChinaToSpain = (fecha: string, hora?: string): { fecha: string; hor
 
 /**
  * Map a raw sale from the API to a normalized venta.
- * Backend returns hora in Spain time. We compute fechaSpain from the ISO fecha.
+ * Backend returns timestamps in China time (UTC+8). We convert to Spain.
  */
 export const mapSpainSaleToVenta = (sale: SaleLike): NormalizedVenta => {
   const rawFecha = String(sale.fecha || '');
-  const hora = normalizeTime(sale.hora);
-  const fecha = computeSpainDate(rawFecha);
+  const rawHora = normalizeTime(sale.hora);
+  const spain = convertChinaToSpain(rawFecha, rawHora);
+  const fecha = spain.fecha;
+  const hora = spain.hora;
   const saleUid = resolveSaleUid(sale, fecha, hora);
 
   return {
@@ -172,7 +174,7 @@ export const getMonthDatesUntil = (spainDate: string) => {
 
 /**
  * Normalize a batch of sales. Computes Spain date from the ISO fecha field.
- * hora is used directly (already Spain time from backend).
+ * Timestamps come in China time (UTC+8). We convert to Spain.
  */
 export const normalizeSalesBatchToSpain = <T extends SaleLike>(
   sales: T[],
@@ -181,8 +183,10 @@ export const normalizeSalesBatchToSpain = <T extends SaleLike>(
 ) => {
   return sales.map((sale) => {
     const rawFecha = String(sale.fecha ?? fallbackDate);
-    const hora = normalizeTime(sale.hora);
-    const fecha = computeSpainDate(rawFecha);
+    const rawHora = normalizeTime(sale.hora);
+    const spain = convertChinaToSpain(rawFecha, rawHora);
+    const fecha = spain.fecha;
+    const hora = spain.hora;
     const saleUid = String(
       sale.id ?? sale.venta_api_id ?? sale.numero_orden
         ?? `${fecha}|${hora}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
