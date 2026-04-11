@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { convertSaleToSpain, parseChinaDateTime, formatSpainTime, formatSpainDate } from '@/lib/timezone-utils';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -66,8 +67,20 @@ const buildSaleUid = (sale: MachineSaleLike, fallbackDate: string) => String(
 );
 
 const normalizeMachineSale = (sale: MachineSaleLike, fallbackDate: string): NormalizedMachineSale => {
-  const fecha = normalizeSaleDate(sale.fecha, fallbackDate);
-  const hora = normalizeSaleTime(sale.hora);
+  const rawFecha = String(sale.fecha || fallbackDate);
+  const rawHora = normalizeSaleTime(sale.hora);
+  // Convert China time → Spain time
+  const spain = convertSaleToSpain(rawFecha.substring(0, 10), rawHora);
+  // If fecha has ISO format, use parseChinaDateTime for more accuracy
+  let fecha = spain.fecha;
+  let hora = spain.hora;
+  if (rawFecha.includes('T')) {
+    const utcDate = parseChinaDateTime(rawFecha.replace('T', ' ').replace(/\.000Z$/, '').replace(/Z$/, ''));
+    if (!isNaN(utcDate.getTime())) {
+      fecha = formatSpainDate(utcDate);
+      hora = formatSpainTime(utcDate);
+    }
+  }
   const saleUid = buildSaleUid(sale, fallbackDate);
 
   return {

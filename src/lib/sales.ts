@@ -1,4 +1,5 @@
 import { Venta } from '@/types';
+import { parseChinaDateTime, formatSpainTime, formatSpainDate } from '@/lib/timezone-utils';
 
 type SaleLike = {
   id?: string | number;
@@ -56,30 +57,47 @@ const resolvePaymentMethod = (sale: SaleLike) => {
 };
 
 /**
- * Compute the Spain date (YYYY-MM-DD) from the ISO fecha field.
- * The backend returns fecha as ISO datetime in UTC (e.g. "2026-04-09T23:16:59")
- * and hora already in Spain time (e.g. "01:16").
- * 
- * We use the ISO fecha to compute the actual Spain calendar date.
+ * Convert a China-time fecha (ISO or "YYYY-MM-DD HH:mm:ss") to Spain date + time.
+ * The backend returns timestamps in China time (UTC+8).
+ * We convert to Spain (Europe/Madrid) for display.
  */
-const computeSpainDate = (fecha: string): string => {
-  if (fecha.includes('T')) {
-    const d = new Date(fecha.endsWith('Z') ? fecha : fecha + 'Z');
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+const convertChinaToSpain = (fecha: string, hora?: string): { fecha: string; hora: string } => {
+  // If fecha has a time component (ISO), use it directly
+  if (fecha.includes('T') || fecha.includes(' ')) {
+    const normalized = fecha.replace('T', ' ').replace(/\.000Z$/, '').replace(/Z$/, '');
+    const utcDate = parseChinaDateTime(normalized);
+    if (!isNaN(utcDate.getTime())) {
+      return {
+        fecha: formatSpainDate(utcDate),
+        hora: formatSpainTime(utcDate),
+      };
     }
   }
-  return fecha.substring(0, 10);
+  // If we have a separate hora field, combine with fecha date part
+  if (hora && hora !== '00:00') {
+    const dateStr = fecha.substring(0, 10);
+    const chinaString = `${dateStr} ${hora}:00`;
+    const utcDate = parseChinaDateTime(chinaString);
+    if (!isNaN(utcDate.getTime())) {
+      return {
+        fecha: formatSpainDate(utcDate),
+        hora: formatSpainTime(utcDate),
+      };
+    }
+  }
+  return { fecha: fecha.substring(0, 10), hora: hora || '00:00' };
 };
 
 /**
  * Map a raw sale from the API to a normalized venta.
- * Backend returns hora in Spain time. We compute fechaSpain from the ISO fecha.
+ * Backend returns timestamps in China time (UTC+8). We convert to Spain.
  */
 export const mapSpainSaleToVenta = (sale: SaleLike): NormalizedVenta => {
   const rawFecha = String(sale.fecha || '');
-  const hora = normalizeTime(sale.hora);
-  const fecha = computeSpainDate(rawFecha);
+  const rawHora = normalizeTime(sale.hora);
+  const spain = convertChinaToSpain(rawFecha, rawHora);
+  const fecha = spain.fecha;
+  const hora = spain.hora;
   const saleUid = resolveSaleUid(sale, fecha, hora);
 
   return {
@@ -156,7 +174,7 @@ export const getMonthDatesUntil = (spainDate: string) => {
 
 /**
  * Normalize a batch of sales. Computes Spain date from the ISO fecha field.
- * hora is used directly (already Spain time from backend).
+ * Timestamps come in China time (UTC+8). We convert to Spain.
  */
 export const normalizeSalesBatchToSpain = <T extends SaleLike>(
   sales: T[],
@@ -165,8 +183,10 @@ export const normalizeSalesBatchToSpain = <T extends SaleLike>(
 ) => {
   return sales.map((sale) => {
     const rawFecha = String(sale.fecha ?? fallbackDate);
-    const hora = normalizeTime(sale.hora);
-    const fecha = computeSpainDate(rawFecha);
+    const rawHora = normalizeTime(sale.hora);
+    const spain = convertChinaToSpain(rawFecha, rawHora);
+    const fecha = spain.fecha;
+    const hora = spain.hora;
     const saleUid = String(
       sale.id ?? sale.venta_api_id ?? sale.numero_orden
         ?? `${fecha}|${hora}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`

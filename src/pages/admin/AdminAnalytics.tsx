@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { convertSaleToSpain } from '@/lib/timezone-utils';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -200,9 +201,10 @@ export const AdminAnalytics = () => {
 
     return ventasHistorico
       .map((v) => {
-        // Data already comes in Spain time — no conversion needed
-        const fechaSpain = (v.fecha || '').substring(0, 10);
-        const horaSpain = (v.hora || '00:00').substring(0, 5);
+        // Convert China time → Spain time
+        const spainConverted = convertSaleToSpain((v.fecha || '').substring(0, 10), (v.hora || '00:00').substring(0, 5));
+        const fechaSpain = spainConverted.fecha;
+        const horaSpain = spainConverted.hora;
         const saleDate = new Date(`${fechaSpain}T00:00:00`);
 
         const productInfo = parseProductAndToppings(v.producto);
