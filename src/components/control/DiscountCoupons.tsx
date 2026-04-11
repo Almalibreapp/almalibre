@@ -102,10 +102,11 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: Discoun
                     <h4 className="font-semibold">{cupon.nombre}</h4>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Badge variant="secondary" className="text-primary font-bold">
-                        {cupon.tipo === 'una_copa' ? '🍦 Copa gratis' : `-${cupon.descuento}€`}
+                        {cupon.tipo === 'una_copa' ? '🍦 Copa gratis' : `-${cupon.contenido?.money ?? cupon.descuento}€`}
                       </Badge>
-                      <span>•</span>
-                      <span>{cupon.cantidad_codigos > 0 ? `${cupon.cantidad_codigos} códigos` : 'Códigos disponibles'}</span>
+                      {cupon.dias_validez > 0 && (
+                        <><span>•</span><span>{cupon.dias_validez} días</span></>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Válido: {cupon.fecha_inicio?.split(' ')[0] ?? '—'} - {cupon.fecha_fin?.split(' ')[0] ?? '—'}
