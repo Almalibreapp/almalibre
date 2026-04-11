@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Mail,
   Ticket,
+  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
@@ -21,6 +22,7 @@ const navItems = [
   { path: '/admin/franchisees', icon: Users, label: 'Franquiciados' },
   { path: '/admin/sales', icon: Euro, label: 'Ventas y Análisis' },
   { path: '/admin/cupones', icon: Ticket, label: 'Cupones' },
+  { path: '/admin/export', icon: Download, label: 'Exportar Datos' },
 ];
 
 export const AdminSidebar = () => {
