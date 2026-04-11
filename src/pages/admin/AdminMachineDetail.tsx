@@ -116,7 +116,7 @@ const mergeSalesResponsesForDate = (
   return responses.flatMap((response, index) => {
     if (!response?.ventas?.length) return [];
 
-    const fallbackDate = normalizeSaleDate(response.fecha, fallbackDates[index] || targetDate);
+    const fallbackDate = String(response.fecha || fallbackDates[index] || targetDate).substring(0, 10);
 
     return response.ventas.flatMap((sale) => {
       const normalizedSale = normalizeMachineSale(sale, fallbackDate);
