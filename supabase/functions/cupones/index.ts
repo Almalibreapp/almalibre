@@ -277,14 +277,22 @@ serve(async (req) => {
     // ===== GENERATE CODES =====
     if (action === 'generate' && req.method === 'POST') {
       const body = await req.json()
+      
+      if (String(body.couponId ?? '').startsWith('local_')) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Este cupón fue guardado localmente. Los códigos se generarán cuando la API del fabricante esté disponible.',
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+
       try {
         const result = await apiRequest('/api/mch/generateCouponCode', body)
         return new Response(JSON.stringify({ success: true, ...result }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ success: false, error: 'API del fabricante no disponible: ' + err.message }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
     }
