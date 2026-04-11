@@ -147,6 +147,7 @@ export const Dashboard = () => {
         </div>
       )}
 
+      <AlmaTipModal imei={maquinas[0]?.mac_address} />
       <BottomNav />
     </div>
   );
