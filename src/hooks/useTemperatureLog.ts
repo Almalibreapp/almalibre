@@ -16,6 +16,8 @@ interface TemperatureReading {
 
 // Sync temperature history from the new detailed API
 const syncTemperatureHistory = async (imei: string, maquinaId: string, hours: number) => {
+  if (!imei?.trim() || !maquinaId?.trim()) return null;
+
   const end = new Date();
   const start = new Date();
   start.setHours(start.getHours() - hours);
@@ -36,14 +38,16 @@ const syncTemperatureHistory = async (imei: string, maquinaId: string, hours: nu
 };
 
 export const useTemperatureLog = (maquinaId: string | undefined, hours: number = 24, imei?: string) => {
+  const hasMachineContext = Boolean(maquinaId?.trim() && imei?.trim());
+
   // Trigger sync when query runs
   const syncQuery = useQuery({
-    queryKey: ['temperature-sync', maquinaId, hours],
+    queryKey: ['temperature-sync', maquinaId, imei, hours],
     queryFn: async () => {
       if (!imei || !maquinaId) return null;
       return syncTemperatureHistory(imei, maquinaId, hours);
     },
-    enabled: !!maquinaId && !!imei,
+    enabled: hasMachineContext,
     staleTime: 2 * 60 * 1000, // Only sync every 2 minutes
     refetchInterval: 2 * 60 * 1000,
   });

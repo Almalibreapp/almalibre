@@ -371,7 +371,7 @@ export const AdminMachineDetail = () => {
 
           {/* Temperatura */}
           <TabsContent value="overview" className="space-y-4">
-            <Card><CardContent className="p-4 text-center"><Thermometer className="h-5 w-5 text-primary mx-auto mb-2" /><p className="text-3xl font-bold text-primary">{temperatura?.temperatura !== undefined ? `${temperatura.temperatura}°C` : '--'}</p><Badge className={cn("mt-1", temperatura?.temperatura !== undefined && temperatura.temperatura >= 11 && "bg-critical text-critical-foreground", temperatura?.temperatura !== undefined && temperatura.temperatura < 11 && "bg-success text-success-foreground", temperatura?.temperatura === undefined && "bg-muted text-muted-foreground")}>{temperatura?.temperatura !== undefined ? (temperatura.temperatura >= 11 ? 'Crítico' : 'Normal') : 'Sin datos'}</Badge></CardContent></Card>
+            <Card><CardContent className="p-4 text-center"><Thermometer className="h-5 w-5 text-primary mx-auto mb-2" /><p className="text-3xl font-bold text-primary">{temperatura?.temperatura != null ? `${temperatura.temperatura}°C` : 'Sin datos'}</p><Badge className={cn("mt-1", temperatura?.temperatura != null && temperatura.temperatura >= 11 && "bg-critical text-critical-foreground", temperatura?.temperatura != null && temperatura.temperatura < 11 && "bg-success text-success-foreground", temperatura?.temperatura == null && "bg-muted text-muted-foreground")}>{temperatura?.temperatura != null ? (temperatura.temperatura >= 11 ? 'Crítico' : 'Normal') : 'Sin datos'}</Badge></CardContent></Card>
             <TemperatureTraceability maquinaId={machineId} temperatura={temperatura} imei={imei} />
           </TabsContent>
 

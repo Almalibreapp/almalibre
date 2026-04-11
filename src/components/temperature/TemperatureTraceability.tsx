@@ -38,7 +38,7 @@ export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: Temper
 
   // Auto-log each new API reading to the database
   useEffect(() => {
-    if (!maquinaId || !temperatura || temperatura.temperatura === undefined) return;
+    if (!maquinaId || temperatura?.temperatura == null) return;
 
     const key = `${temperatura.temperatura}-${temperatura.timestamp}`;
     if (lastLoggedRef.current === key) return;
@@ -143,7 +143,7 @@ export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: Temper
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Current temperature + stats */}
-        {temperatura?.temperatura !== undefined && (
+        {temperatura?.temperatura != null && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-muted/50 rounded-lg p-3 text-center">
               <Thermometer className="h-4 w-4 mx-auto mb-1 text-primary" />
