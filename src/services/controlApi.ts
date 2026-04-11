@@ -152,9 +152,11 @@ export const sincronizarMedios = async (imei: string) => {
 
 // === CUPONES ===
 
-export const fetchCupones = async (page: number = 1): Promise<{ cupones: CuponDescuento[]; total: number; pagina_actual: number; total_paginas: number }> => {
+export const fetchCupones = async (page: number = 1, imei?: string): Promise<{ cupones: CuponDescuento[]; total: number; pagina_actual: number; total_paginas: number }> => {
+  const params = new URLSearchParams({ action: 'list', page: String(page) });
+  if (imei) params.set('imei', imei);
   const response = await fetch(
-    `${CUPONES_URL}?action=list&page=${page}`,
+    `${CUPONES_URL}?${params.toString()}`,
     { headers: CUPONES_HEADERS }
   );
   if (!response.ok) {
