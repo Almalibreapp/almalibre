@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { mostrarHoraVenta, extraerFechaVenta } from '@/lib/timezone-utils';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,22 +27,28 @@ import {
 const fetchSpanishDaySales = async (imei: string, maquinaId: string, spanishDate: string) => {
   const sales = await fetchSpanishDayOrders(imei, spanishDate, fetchOrdenes);
 
-  return sales.map((v: any) => ({
-    id: `${maquinaId}-${v.saleUid || v.id}`,
-    maquina_id: maquinaId,
-    imei,
-    fecha: v.fecha || spanishDate,
-    fechaSpain: v.fechaSpain || v.fecha || spanishDate,
-    hora: v.hora || '00:00',
-    horaSpain: v.horaSpain || v.hora || '00:00',
-    producto: v.producto || '',
-    precio: Number(v.precio || 0),
-    cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-    metodo_pago: v.metodo_pago ?? v.payment_method ?? v.pay_type ?? '',
-    numero_orden: v.numero_orden || v.order_no || null,
-    estado: v.estado || 'exitoso',
-    toppings: v.toppings || [],
-  }));
+  return sales.map((v: any) => {
+    const fhc = v.fecha_hora_china || '';
+    const hora = fhc ? mostrarHoraVenta(fhc) : (v.horaSpain || v.hora || '00:00');
+    const fecha = fhc ? extraerFechaVenta(fhc) : (v.fechaSpain || v.fecha || spanishDate);
+    return {
+      id: `${maquinaId}-${v.saleUid || v.id}`,
+      maquina_id: maquinaId,
+      imei,
+      fecha,
+      fechaSpain: fecha,
+      hora,
+      horaSpain: hora,
+      producto: v.producto || '',
+      precio: Number(v.precio || 0),
+      cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+      metodo_pago: v.metodo_pago ?? v.payment_method ?? v.pay_type ?? '',
+      numero_orden: v.numero_orden || v.order_no || null,
+      estado: v.estado || 'exitoso',
+      toppings: v.toppings || [],
+      fecha_hora_china: fhc,
+    };
+  });
 };
 
 /** Helper: deduplicate sales by unique sale ID */
