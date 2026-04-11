@@ -166,8 +166,9 @@ export const AdminMachineDetail = () => {
       if (!detalle?.ventas) return [];
       return detalle.ventas.map((v: any) => ({
         precio: Number(v.precio || 0),
-        hora: v.hora || '00:00',
-        fecha: (detalle.fecha || todayStr).substring(0, 10),
+        fecha_hora_china: v.fecha_hora_china || '',
+        fecha: v.fecha_hora_china ? extraerFechaVenta(v.fecha_hora_china) : (detalle.fecha || todayStr).substring(0, 10),
+        hora: v.fecha_hora_china ? mostrarHoraVenta(v.fecha_hora_china) : (v.hora || '00:00'),
         cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
         estado: v.estado || 'exitoso',
       }));
