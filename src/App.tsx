@@ -47,6 +47,8 @@ import { AdminSalesAnalytics } from "./pages/admin/AdminSalesAnalytics";
 import { AdminIncidents } from "./pages/admin/AdminIncidents";
 import { AdminEmailNotifications } from "./pages/admin/AdminEmailNotifications";
 import { AdminCupones } from "./pages/admin/AdminCupones";
+import { AdminExportData } from "./pages/admin/AdminExportData";
+import { ExportData } from "./pages/ExportData";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -207,6 +209,7 @@ const AppContent = () => {
         <Route path="/ai/profitability" element={<ProfitabilityAnalysis />} />
         <Route path="/ai/daily-summary" element={<DailySummary />} />
         <Route path="/network" element={<NetworkDashboard />} />
+        <Route path="/export" element={<ExportData />} />
 
         {/* Admin routes */}
         <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
@@ -218,6 +221,7 @@ const AppContent = () => {
           <Route path="sales" element={<AdminSalesAnalytics />} />
           <Route path="analytics" element={<AdminSalesAnalytics />} />
           <Route path="cupones" element={<AdminCupones />} />
+          <Route path="export" element={<AdminExportData />} />
           <Route path="incidents" element={<AdminIncidents />} />
           <Route path="notifications" element={<AdminEmailNotifications />} />
         </Route>
