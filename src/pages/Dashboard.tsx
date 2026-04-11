@@ -12,6 +12,7 @@ import { initPushNotifications } from '@/services/pushNotifications';
 import { initLocalNotifications } from '@/services/localNotifications';
 import { Plus, Settings, IceCream, RefreshCw, Network } from 'lucide-react';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
+import { AlmaTipModal } from '@/components/alma-tip/AlmaTipModal';
 
 function DashboardLoadingSkeleton() {
   return (
@@ -146,6 +147,7 @@ export const Dashboard = () => {
         </div>
       )}
 
+      <AlmaTipModal imei={maquinas[0]?.mac_address} />
       <BottomNav />
     </div>
   );
