@@ -48,7 +48,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: Discoun
     mutationFn: (cuponId: string) => eliminarCupon([cuponId]),
     onSuccess: () => {
       toast({ title: '✅ Cupón eliminado' });
-      queryClient.invalidateQueries({ queryKey: ['cupones'] });
+      queryClient.invalidateQueries({ queryKey: ['cupones', imei] });
     },
     onError: (err: Error) => {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -157,7 +157,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: Discoun
             allImeis={allImeis.length > 0 ? allImeis : [imei]}
             onSuccess={() => {
               setIsCreateOpen(false);
-              queryClient.invalidateQueries({ queryKey: ['cupones'] });
+              queryClient.invalidateQueries({ queryKey: ['cupones', imei] });
             }}
           />
         </DialogContent>
