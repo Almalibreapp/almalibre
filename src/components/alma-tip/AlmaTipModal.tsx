@@ -8,9 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Sparkles } from 'lucide-react';
 import { API_CONFIG } from '@/config/api';
-
-const ALMA_AVATAR_URL =
-  'https://nrfhtviwgrkbyiujxlrd.supabase.co/storage/v1/object/public/assets/alma-avatar.png';
+import almaAvatarImg from '@/assets/alma-avatar.png';
 
 const FALLBACK_MESSAGES: Record<string, string> = {
   motivacion: '¡Hoy es un gran día para vender! 💪',
