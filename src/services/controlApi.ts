@@ -1,10 +1,10 @@
 import { API_CONFIG } from '@/config/api';
 
-// Cupones endpoint uses THIS project's edge function (with local caching)
-const CUPONES_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cupones`;
+// Cupones: llamar DIRECTAMENTE al proyecto externo del fabricante
+const CUPONES_URL = 'https://nrfhtviwgrkbyiujxlrd.supabase.co/functions/v1/cupones';
 const CUPONES_HEADERS: Record<string, string> = {
-  'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-  'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+  'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZmh0dml3Z3JrYnlpdWp4bHJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODQ5NTMsImV4cCI6MjA5MTI2MDk1M30.TRxGviX8eZ5kty4th38BPqmkHXhQTEhCZ_1Oki_VGmE',
+  'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZmh0dml3Z3JrYnlpdWp4bHJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODQ5NTMsImV4cCI6MjA5MTI2MDk1M30.TRxGviX8eZ5kty4th38BPqmkHXhQTEhCZ_1Oki_VGmE',
   'Content-Type': 'application/json',
 };
 
