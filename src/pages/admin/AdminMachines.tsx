@@ -1,15 +1,12 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TableSkeleton } from '@/components/ui/sales-skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchTemperatura } from '@/services/api';
-import { Search, MapPin, Thermometer, Cpu } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Search, MapPin, Cpu } from 'lucide-react';
 
 interface MachineData {
   id: string;
@@ -22,7 +19,6 @@ interface MachineData {
   ownerName?: string;
   ownerEmail?: string;
   ownerRole?: 'admin' | 'user';
-  temperatura?: number;
 }
 
 interface ProfileRow {
@@ -66,7 +62,6 @@ const deduplicateMachinesByImei = (machines: MachineData[], profiles: ProfileRow
 export const AdminMachines = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const lastKnownTempsRef = useRef(new Map<string, number>());
 
   const { data: machines = [], isLoading } = useQuery({
     queryKey: ['admin-machines-enriched-v2'],
@@ -79,26 +74,11 @@ export const AdminMachines = () => {
       if (maquinasResult.error) throw maquinasResult.error;
       if (profilesResult.error) throw profilesResult.error;
       if (rolesResult.error) throw rolesResult.error;
-      const visibleMachines = deduplicateMachinesByImei(
+      return deduplicateMachinesByImei(
         (maquinasResult.data || []) as MachineData[],
         (profilesResult.data || []) as ProfileRow[],
         (rolesResult.data || []) as RoleRow[]
       );
-      const uniqueImeis = visibleMachines.map((m) => m.mac_address);
-      const temperatureMap = new Map(lastKnownTempsRef.current);
-      const temperatureResults = await Promise.allSettled(
-        uniqueImeis.map(async (imei) => {
-          const temp = await fetchTemperatura(imei);
-          return { imei, temperatura: typeof temp?.temperatura === 'number' && Number.isFinite(temp.temperatura) ? temp.temperatura : null };
-        })
-      );
-      for (const result of temperatureResults) {
-        if (result.status === 'fulfilled' && typeof result.value.temperatura === 'number') {
-          temperatureMap.set(result.value.imei, result.value.temperatura);
-        }
-      }
-      lastKnownTempsRef.current = temperatureMap;
-      return visibleMachines.map((m) => ({ ...m, temperatura: temperatureMap.get(m.mac_address) }));
     },
     staleTime: 60 * 1000,
     refetchInterval: 30000,
@@ -116,12 +96,6 @@ export const AdminMachines = () => {
     [machines, search]
   );
 
-  const getStatusBadge = (machine: MachineData) => {
-    if (!machine.activa) return <Badge variant="secondary">Inactiva</Badge>;
-    if (typeof machine.temperatura !== 'number') return <Badge variant="secondary">Sin lectura</Badge>;
-    if (machine.temperatura >= 11) return <Badge variant="destructive">Crítico</Badge>;
-    return <Badge className="bg-success text-success-foreground">Normal</Badge>;
-  };
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -139,7 +113,7 @@ export const AdminMachines = () => {
       </div>
 
       {isLoading ? (
-        <TableSkeleton rows={6} cols={5} />
+        <TableSkeleton rows={6} cols={3} />
       ) : (
         <Card>
           <CardContent className="p-0">
@@ -149,8 +123,6 @@ export const AdminMachines = () => {
                   <TableHead>Máquina</TableHead>
                   <TableHead className="hidden md:table-cell">IMEI</TableHead>
                   <TableHead className="hidden lg:table-cell">Franquiciado</TableHead>
-                  <TableHead className="hidden sm:table-cell">Temp</TableHead>
-                  <TableHead>Estado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -170,20 +142,10 @@ export const AdminMachines = () => {
                     <TableCell className="hidden lg:table-cell">
                       <div><p className="text-sm">{machine.ownerName}</p><p className="text-xs text-muted-foreground">{machine.ownerEmail}</p></div>
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      {typeof machine.temperatura === 'number' ? (
-                        <span className={cn('flex items-center gap-1', machine.temperatura >= 11 ? 'text-destructive font-bold' : 'text-success')}>
-                          <Thermometer className="h-3.5 w-3.5" /> {machine.temperatura}°C
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Sin lectura</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(machine)}</TableCell>
                   </TableRow>
                 ))}
                 {filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No se encontraron máquinas</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={3} className="text-center py-8 text-muted-foreground">No se encontraron máquinas</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
