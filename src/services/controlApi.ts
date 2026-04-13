@@ -307,10 +307,10 @@ export const controlLimpieza = async (imei: string) => sendControlCommand(imei, 
 // === REPOSICIÓN DE STOCK ===
 
 export const actualizarStockTopping = async (imei: string, posiciones: string[]) => {
-  const response = await fetch(API_CONFIG.endpoints.stock, {
+  const response = await fetch(`${API_CONFIG.endpoints.stock}?imei=${imei}`, {
     method: 'POST',
     headers: API_CONFIG.postHeaders,
-    body: JSON.stringify({ imei, posiciones, llenar_completo: true }),
+    body: JSON.stringify({ posiciones, llenar_completo: true }),
   });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -328,10 +328,10 @@ export const actualizarStockConSync = async (imei: string, position: string | nu
   }
 
   try {
-    const response = await fetch(API_CONFIG.endpoints.stock, {
+    const response = await fetch(`${API_CONFIG.endpoints.stock}?imei=${imei}`, {
       method: 'POST',
       headers: API_CONFIG.postHeaders,
-      body: JSON.stringify({ imei, position: positionStr, cantidad: cantidadNum }),
+      body: JSON.stringify({ position: positionStr, cantidad: cantidadNum }),
     });
 
     if (!response.ok) {
