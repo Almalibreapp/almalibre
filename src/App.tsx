@@ -206,6 +206,7 @@ const AppContent = () => {
         <Route path="/support" element={<Support />} />
         <Route path="/notifications" element={<NotificationSettings />} />
         <Route path="/ai" element={<AI />} />
+        <Route path="/cupones" element={<Cupones />} />
         <Route path="/ai/stock-prediction" element={<StockPrediction />} />
         <Route path="/ai/profitability" element={<ProfitabilityAnalysis />} />
         <Route path="/ai/daily-summary" element={<DailySummary />} />
