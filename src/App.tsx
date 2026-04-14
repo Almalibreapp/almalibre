@@ -22,6 +22,7 @@ import { PaymentMethods } from "./pages/PaymentMethods";
 import { Support } from "./pages/Support";
 import { NotificationSettings } from "./pages/NotificationSettings";
 import { AI } from "./pages/AI";
+import { Cupones } from "./pages/Cupones";
 import { StockPrediction } from "./pages/StockPrediction";
 import { ProfitabilityAnalysis } from "./pages/ProfitabilityAnalysis";
 import { DailySummary } from "./pages/DailySummary";
@@ -205,6 +206,7 @@ const AppContent = () => {
         <Route path="/support" element={<Support />} />
         <Route path="/notifications" element={<NotificationSettings />} />
         <Route path="/ai" element={<AI />} />
+        <Route path="/cupones" element={<Cupones />} />
         <Route path="/ai/stock-prediction" element={<StockPrediction />} />
         <Route path="/ai/profitability" element={<ProfitabilityAnalysis />} />
         <Route path="/ai/daily-summary" element={<DailySummary />} />
