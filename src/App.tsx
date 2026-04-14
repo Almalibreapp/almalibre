@@ -22,6 +22,7 @@ import { PaymentMethods } from "./pages/PaymentMethods";
 import { Support } from "./pages/Support";
 import { NotificationSettings } from "./pages/NotificationSettings";
 import { AI } from "./pages/AI";
+import { Cupones } from "./pages/Cupones";
 import { StockPrediction } from "./pages/StockPrediction";
 import { ProfitabilityAnalysis } from "./pages/ProfitabilityAnalysis";
 import { DailySummary } from "./pages/DailySummary";
