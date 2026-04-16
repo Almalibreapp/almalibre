@@ -104,7 +104,7 @@ export const AdminSales = () => {
         const seen = new Set<string>();
         return allSales.filter(v => { const key = String(v.sale_uid || v.id); if (seen.has(key)) return false; seen.add(key); return true; });
       }
-      let query = supabase.from('ventas_historico').select('*').eq('fecha', dateStr).order('hora', { ascending: false });
+      let query = supabase.from('ventas_historico').select('*').eq('fecha', dateStr).order('hora', { ascending: true });
       if (selectedMachine !== 'all') query = query.eq('maquina_id', selectedMachine);
       const { data, error } = await query;
       if (error) throw error;
