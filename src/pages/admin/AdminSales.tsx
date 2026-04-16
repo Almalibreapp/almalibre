@@ -116,9 +116,13 @@ export const AdminSales = () => {
 
   const ventasDia = useMemo(() => {
     if (!ventasDiaRaw) return [];
+    const getDisplayHora = (v: any) => {
+      if (v.fecha_hora_china) return convertirHoraSegunMaquina(v.fecha_hora_china, v.imei || '');
+      return (v.hora || '00:00').substring(0, 5);
+    };
     return ventasDiaRaw
       .filter(v => (v.fecha || '').substring(0, 10) === dateStr)
-      .sort((a, b) => (a.hora || '00:00').localeCompare(b.hora || '00:00'));
+      .sort((a, b) => getDisplayHora(b).localeCompare(getDisplayHora(a)));
   }, [ventasDiaRaw, dateStr]);
 
   const { data: ventasAyerRaw } = useQuery({
