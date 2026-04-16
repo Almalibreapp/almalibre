@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { mostrarHoraVenta, extraerFechaVenta } from '@/lib/timezone-utils';
+import { convertirHoraSegunMaquina, extraerFechaVenta } from '@/lib/timezone-utils';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -206,7 +206,7 @@ export const AdminAnalytics = () => {
           ? extraerFechaVenta((v as any).fecha_hora_china)
           : (v.fecha || '').substring(0, 10);
         const horaSpain = (v as any).fecha_hora_china
-          ? mostrarHoraVenta((v as any).fecha_hora_china)
+          ? convertirHoraSegunMaquina((v as any).fecha_hora_china, (v as any).imei || '')
           : (v.hora || '00:00').substring(0, 5);
         const saleDate = new Date(`${fechaSpain}T00:00:00`);
 
