@@ -239,9 +239,19 @@ export const AdminMachineDetail = () => {
     return prepareSalesForChartDate(ventasDetalle.ventas, todayStr, todayStr, imei);
   }, [ventasDetalle, todayStr]);
 
+  const sortVentasDesc = (ventas: any[]) => {
+    const getHora = (v: any): string => {
+      if (v?.fecha_hora_china && imei) return convertirHoraSegunMaquina(v.fecha_hora_china, imei);
+      return String(v?.hora || '00:00').substring(0, 5);
+    };
+    return [...ventas].sort((a, b) => getHora(b).localeCompare(getHora(a)));
+  };
+
   const currentVentas = isToday
-    ? { ventas: ventasHoyChart, fecha: todayStr, total_ventas: ventasHoyChart.length }
-    : ventasSelectedDate;
+    ? { ventas: sortVentasDesc(ventasHoyChart), fecha: todayStr, total_ventas: ventasHoyChart.length }
+    : ventasSelectedDate
+      ? { ...ventasSelectedDate, ventas: sortVentasDesc(ventasSelectedDate.ventas) }
+      : ventasSelectedDate;
 
   // Prefetch adjacent days for faster navigation
   useEffect(() => {
