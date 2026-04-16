@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { mostrarHoraVenta, extraerFechaVenta } from '@/lib/timezone-utils';
+import { convertirHoraSegunMaquina, extraerFechaVenta } from '@/lib/timezone-utils';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -61,13 +61,13 @@ const buildSaleUid = (sale: MachineSaleLike, fallbackDate: string) => String(
     ?? `${sale.fecha_hora_china || fallbackDate}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
 );
 
-const normalizeMachineSale = (sale: MachineSaleLike, fallbackDate: string): NormalizedMachineSale => {
+const normalizeMachineSale = (sale: MachineSaleLike, fallbackDate: string, imei: string = ''): NormalizedMachineSale => {
   // Use fecha_hora_china as source of truth
   let fecha: string;
   let hora: string;
   if (sale.fecha_hora_china) {
     fecha = extraerFechaVenta(sale.fecha_hora_china);
-    hora = mostrarHoraVenta(sale.fecha_hora_china);
+    hora = convertirHoraSegunMaquina(sale.fecha_hora_china, imei);
   } else {
     fecha = String(sale.fecha || fallbackDate).substring(0, 10);
     hora = String(sale.hora || '00:00').substring(0, 5);
@@ -91,11 +91,11 @@ const normalizeMachineSale = (sale: MachineSaleLike, fallbackDate: string): Norm
   };
 };
 
-const prepareSalesForChartDate = <T extends MachineSaleLike>(sales: T[], targetDate: string, fallbackDate: string) => {
+const prepareSalesForChartDate = <T extends MachineSaleLike>(sales: T[], targetDate: string, fallbackDate: string, imei: string = '') => {
   const seen = new Set<string>();
 
   return sales.flatMap((sale) => {
-    const normalizedSale = normalizeMachineSale(sale, fallbackDate);
+    const normalizedSale = normalizeMachineSale(sale, fallbackDate, imei);
     if (normalizedSale.fecha !== targetDate) return [];
 
     const saleUid = normalizedSale.saleUid;
@@ -109,7 +109,8 @@ const prepareSalesForChartDate = <T extends MachineSaleLike>(sales: T[], targetD
 const mergeSalesResponsesForDate = (
   responses: Array<{ fecha?: string; ventas?: MachineSaleLike[] } | null>,
   targetDate: string,
-  fallbackDates: string[]
+  fallbackDates: string[],
+  imei: string = ''
 ) => {
   const seen = new Set<string>();
 
@@ -119,7 +120,7 @@ const mergeSalesResponsesForDate = (
     const fallbackDate = String(response.fecha || fallbackDates[index] || targetDate).substring(0, 10);
 
     return response.ventas.flatMap((sale) => {
-      const normalizedSale = normalizeMachineSale(sale, fallbackDate);
+      const normalizedSale = normalizeMachineSale(sale, fallbackDate, imei);
       if (normalizedSale.fecha !== targetDate) return [];
 
       const saleUid = normalizedSale.saleUid;
@@ -168,7 +169,7 @@ export const AdminMachineDetail = () => {
         precio: Number(v.precio || 0),
         fecha_hora_china: v.fecha_hora_china || '',
         fecha: v.fecha_hora_china ? extraerFechaVenta(v.fecha_hora_china) : (detalle.fecha || todayStr).substring(0, 10),
-        hora: v.fecha_hora_china ? mostrarHoraVenta(v.fecha_hora_china) : (v.hora || '00:00'),
+        hora: v.fecha_hora_china ? convertirHoraSegunMaquina(v.fecha_hora_china, imei!) : (v.hora || '00:00'),
         cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
         estado: v.estado || 'exitoso',
       }));
@@ -227,7 +228,7 @@ export const AdminMachineDetail = () => {
     queryFn: async () => {
       if (!imei || !selectedDate) return null;
       const result = await fetchOrdenes(imei, selectedDate).catch(() => null);
-      const ventas = prepareSalesForChartDate(result?.ventas || [], selectedDate, selectedDate);
+      const ventas = prepareSalesForChartDate(result?.ventas || [], selectedDate, selectedDate, imei);
       return { ventas, fecha: selectedDate, total_ventas: ventas.length };
     },
     enabled: !!imei && !isToday && !!selectedDate,
@@ -235,7 +236,7 @@ export const AdminMachineDetail = () => {
 
   const ventasHoyChart = useMemo(() => {
     if (!ventasDetalle?.ventas) return [];
-    return prepareSalesForChartDate(ventasDetalle.ventas, todayStr, todayStr);
+    return prepareSalesForChartDate(ventasDetalle.ventas, todayStr, todayStr, imei);
   }, [ventasDetalle, todayStr]);
 
   const currentVentas = isToday
@@ -253,7 +254,7 @@ export const AdminMachineDetail = () => {
       queryKey: ['ventas-ordenes-date', imei, prevStr],
       queryFn: async () => {
         const result = await fetchOrdenes(imei, prevStr).catch(() => null);
-        const ventas = prepareSalesForChartDate(result?.ventas || [], prevStr, prevStr);
+        const ventas = prepareSalesForChartDate(result?.ventas || [], prevStr, prevStr, imei);
         return { ventas, fecha: prevStr, total_ventas: ventas.length };
       },
       staleTime: 5 * 60 * 1000,
@@ -264,7 +265,7 @@ export const AdminMachineDetail = () => {
         queryKey: ['ventas-ordenes-date', imei, nextStr],
         queryFn: async () => {
           const result = await fetchOrdenes(imei, nextStr).catch(() => null);
-          const ventas = prepareSalesForChartDate(result?.ventas || [], nextStr, nextStr);
+          const ventas = prepareSalesForChartDate(result?.ventas || [], nextStr, nextStr, imei);
           return { ventas, fecha: nextStr, total_ventas: ventas.length };
         },
         staleTime: 5 * 60 * 1000,

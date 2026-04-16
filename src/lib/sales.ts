@@ -1,5 +1,5 @@
 import { Venta } from '@/types';
-import { mostrarHoraVenta, extraerFechaVenta } from '@/lib/timezone-utils';
+import { convertirHoraSegunMaquina, extraerFechaVenta } from '@/lib/timezone-utils';
 
 type SaleLike = {
   id?: string | number;
@@ -42,12 +42,12 @@ const toNumber = (value: unknown) => {
 /**
  * Extract Spain date and time from a sale using fecha_hora_china.
  */
-const extractSpainDateTime = (sale: SaleLike): { fecha: string; hora: string } => {
+const extractSpainDateTime = (sale: SaleLike, imei: string = ''): { fecha: string; hora: string } => {
   const fechaHoraChina = sale.fecha_hora_china;
   if (fechaHoraChina) {
     return {
       fecha: extraerFechaVenta(fechaHoraChina),
-      hora: mostrarHoraVenta(fechaHoraChina),
+      hora: convertirHoraSegunMaquina(fechaHoraChina, imei),
     };
   }
   // Fallback for legacy data without fecha_hora_china
@@ -74,8 +74,8 @@ const resolvePaymentMethod = (sale: SaleLike) => {
  * Map a raw sale from the API to a normalized venta.
  * Uses fecha_hora_china as the source of truth for time.
  */
-export const mapSpainSaleToVenta = (sale: SaleLike): NormalizedVenta => {
-  const spain = extractSpainDateTime(sale);
+export const mapSpainSaleToVenta = (sale: SaleLike, imei: string = ''): NormalizedVenta => {
+  const spain = extractSpainDateTime(sale, imei);
   const fecha = spain.fecha;
   const hora = spain.hora;
   const saleUid = resolveSaleUid(sale, fecha, hora);
@@ -160,10 +160,11 @@ export const getMonthDatesUntil = (spainDate: string) => {
 export const normalizeSalesBatchToSpain = <T extends SaleLike>(
   sales: T[],
   fallbackDate: string,
-  _forcedTimezoneMode?: SalesTimezoneMode
+  _forcedTimezoneMode?: SalesTimezoneMode,
+  imei: string = ''
 ) => {
   return sales.map((sale) => {
-    const spain = extractSpainDateTime(sale);
+    const spain = extractSpainDateTime(sale, imei);
     const fecha = spain.fecha || fallbackDate;
     const hora = spain.hora;
     const saleUid = String(
@@ -210,7 +211,7 @@ export const fetchSpanishDayOrders = async (
   const sales1 = response1?.ventas ?? [];
   const sales2 = response2?.ventas ?? [];
   const allSales = [...sales1, ...sales2];
-  const normalized = normalizeSalesBatchToSpain(allSales, spainDate);
+  const normalized = normalizeSalesBatchToSpain(allSales, spainDate, undefined, imei);
   return dedupeSalesByUid(normalized).filter((sale) => sale.fechaSpain === spainDate);
 };
 
@@ -220,5 +221,5 @@ export const fetchSpainDayVentas = async (
   fetcher: (imei: string, fecha?: string) => Promise<{ fecha?: string; ventas?: SaleLike[] }>
 ) => {
   const sales = await fetchSpanishDayOrders(imei, spainDate, fetcher);
-  return sales.map(mapSpainSaleToVenta);
+  return sales.map((sale) => mapSpainSaleToVenta(sale, imei));
 };
