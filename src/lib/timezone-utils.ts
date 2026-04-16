@@ -5,26 +5,39 @@
  */
 
 /**
- * Convert a fecha_hora_china string to Spain display time.
- * Input: "2026-04-11 16:27:12" (China local time)
- * Output: "16:00" (Spain time, with -27 min adjustment)
+ * Convert a fecha_hora_china string to Spain display time,
+ * applying machine-specific adjustments.
+ * 
+ * - Machine 865622072039477 (China): subtract 6 hours (UTC+8 → UTC+2)
+ * - All other machines: use time as-is (already in Spain time)
  */
-export function mostrarHoraVenta(fechaHoraChina: string): string {
+export function convertirHoraSegunMaquina(fechaHoraChina: string, imei: string): string {
   if (!fechaHoraChina) return '00:00';
   const [fecha, hora] = fechaHoraChina.split(' ');
   if (!fecha || !hora) return '00:00';
   const [year, month, day] = fecha.split('-').map(Number);
   const [hour, minute, second = 0] = hora.split(':').map(Number);
 
-  // Create date and subtract 27 minutes (required adjustment)
   const date = new Date(year, month - 1, day, hour, minute, second);
-  date.setMinutes(date.getMinutes() - 27);
+
+  // SOLO para máquina en China: restar 6 horas (UTC+8 → España UTC+2)
+  if (imei === '865622072039477') {
+    date.setHours(date.getHours() - 6);
+  }
 
   return date.toLocaleTimeString('es-ES', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
   });
+}
+
+/**
+ * Legacy wrapper — uses convertirHoraSegunMaquina with empty imei (no adjustment).
+ * @deprecated Use convertirHoraSegunMaquina(fechaHoraChina, imei) instead.
+ */
+export function mostrarHoraVenta(fechaHoraChina: string): string {
+  return convertirHoraSegunMaquina(fechaHoraChina, '');
 }
 
 /**
@@ -40,10 +53,10 @@ export function extraerFechaVenta(fechaHoraChina: string): string {
 /**
  * Convert fecha_hora_china to both date and time for Spain.
  */
-export function convertirVentaAEspana(fechaHoraChina: string): { fecha: string; hora: string } {
+export function convertirVentaAEspana(fechaHoraChina: string, imei: string = ''): { fecha: string; hora: string } {
   return {
     fecha: extraerFechaVenta(fechaHoraChina),
-    hora: mostrarHoraVenta(fechaHoraChina),
+    hora: convertirHoraSegunMaquina(fechaHoraChina, imei),
   };
 }
 
