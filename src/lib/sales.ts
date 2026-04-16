@@ -211,7 +211,7 @@ export const fetchSpanishDayOrders = async (
   const sales1 = response1?.ventas ?? [];
   const sales2 = response2?.ventas ?? [];
   const allSales = [...sales1, ...sales2];
-  const normalized = normalizeSalesBatchToSpain(allSales, spainDate);
+  const normalized = normalizeSalesBatchToSpain(allSales, spainDate, undefined, imei);
   return dedupeSalesByUid(normalized).filter((sale) => sale.fechaSpain === spainDate);
 };
 
