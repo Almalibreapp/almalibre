@@ -186,15 +186,30 @@ export const MachineDetail = () => {
     }
   }, [imei, selectedDate, todaySpain, queryClient]);
 
+  // Helper to get the displayed hora (machine-aware) for sorting
+  const getDisplayHora = (v: any): string => {
+    if (v?.fecha_hora_china && imei) return convertirHoraSegunMaquina(v.fecha_hora_china, imei);
+    return String(v?.hora || '00:00').substring(0, 5);
+  };
+
   // Today's sales already come pre-normalized from useVentasDetalle
   const ventasHoyFiltered = useMemo(() => {
     if (!ventasDetalle?.ventas) return [];
-    return ventasDetalle.ventas;
-  }, [ventasDetalle]);
+    return [...ventasDetalle.ventas].sort((a: any, b: any) =>
+      getDisplayHora(b).localeCompare(getDisplayHora(a))
+    );
+  }, [ventasDetalle, imei]);
+
+  const ventasSelectedSorted = useMemo(() => {
+    if (!ventasSelectedDateRaw) return [];
+    return [...ventasSelectedDateRaw].sort((a: any, b: any) =>
+      getDisplayHora(b).localeCompare(getDisplayHora(a))
+    );
+  }, [ventasSelectedDateRaw, imei]);
 
   const currentVentas = isToday 
     ? { ventas: ventasHoyFiltered, total_ventas: ventasHoyFiltered.length }
-    : { ventas: ventasSelectedDateRaw || [], total_ventas: (ventasSelectedDateRaw || []).length };
+    : { ventas: ventasSelectedSorted, total_ventas: ventasSelectedSorted.length };
   const currentLoading = isToday ? false : loadingSelected;
 
   // --- Spain-timezone-aware sales calculations ---
