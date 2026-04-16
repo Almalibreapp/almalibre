@@ -1,5 +1,5 @@
 import { Venta } from '@/types';
-import { mostrarHoraVenta, extraerFechaVenta } from '@/lib/timezone-utils';
+import { convertirHoraSegunMaquina, extraerFechaVenta } from '@/lib/timezone-utils';
 
 type SaleLike = {
   id?: string | number;
@@ -42,12 +42,12 @@ const toNumber = (value: unknown) => {
 /**
  * Extract Spain date and time from a sale using fecha_hora_china.
  */
-const extractSpainDateTime = (sale: SaleLike): { fecha: string; hora: string } => {
+const extractSpainDateTime = (sale: SaleLike, imei: string = ''): { fecha: string; hora: string } => {
   const fechaHoraChina = sale.fecha_hora_china;
   if (fechaHoraChina) {
     return {
       fecha: extraerFechaVenta(fechaHoraChina),
-      hora: mostrarHoraVenta(fechaHoraChina),
+      hora: convertirHoraSegunMaquina(fechaHoraChina, imei),
     };
   }
   // Fallback for legacy data without fecha_hora_china
@@ -74,8 +74,8 @@ const resolvePaymentMethod = (sale: SaleLike) => {
  * Map a raw sale from the API to a normalized venta.
  * Uses fecha_hora_china as the source of truth for time.
  */
-export const mapSpainSaleToVenta = (sale: SaleLike): NormalizedVenta => {
-  const spain = extractSpainDateTime(sale);
+export const mapSpainSaleToVenta = (sale: SaleLike, imei: string = ''): NormalizedVenta => {
+  const spain = extractSpainDateTime(sale, imei);
   const fecha = spain.fecha;
   const hora = spain.hora;
   const saleUid = resolveSaleUid(sale, fecha, hora);
