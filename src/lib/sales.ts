@@ -160,10 +160,11 @@ export const getMonthDatesUntil = (spainDate: string) => {
 export const normalizeSalesBatchToSpain = <T extends SaleLike>(
   sales: T[],
   fallbackDate: string,
-  _forcedTimezoneMode?: SalesTimezoneMode
+  _forcedTimezoneMode?: SalesTimezoneMode,
+  imei: string = ''
 ) => {
   return sales.map((sale) => {
-    const spain = extractSpainDateTime(sale);
+    const spain = extractSpainDateTime(sale, imei);
     const fecha = spain.fecha || fallbackDate;
     const hora = spain.hora;
     const saleUid = String(
@@ -220,5 +221,5 @@ export const fetchSpainDayVentas = async (
   fetcher: (imei: string, fecha?: string) => Promise<{ fecha?: string; ventas?: SaleLike[] }>
 ) => {
   const sales = await fetchSpanishDayOrders(imei, spainDate, fetcher);
-  return sales.map(mapSpainSaleToVenta);
+  return sales.map((sale) => mapSpainSaleToVenta(sale, imei));
 };
