@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { mostrarHoraVenta, extraerFechaVenta } from '@/lib/timezone-utils';
+import { convertirHoraSegunMaquina, extraerFechaVenta } from '@/lib/timezone-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -82,7 +82,7 @@ export const AdminSales = () => {
             const sales = await fetchSpanishDayOrders(m.mac_address, dateStr, fetchOrdenes);
             return sales.map((v: any) => {
               const fhc = v.fecha_hora_china || '';
-              const hora = fhc ? mostrarHoraVenta(fhc) : (v.horaSpain || v.hora || '00:00');
+              const hora = fhc ? convertirHoraSegunMaquina(fhc, m.mac_address) : (v.horaSpain || v.hora || '00:00');
               const fecha = fhc ? extraerFechaVenta(fhc) : (v.fechaSpain || v.fecha || dateStr);
               return {
                 id: `api-${m.id}-${v.saleUid || v.id}`,
@@ -143,7 +143,7 @@ export const AdminSales = () => {
 
     const byHour: Record<string, { ventas: number; euros: number }> = {};
     ventasDia.forEach(v => {
-      const horaDisplay = v.fecha_hora_china ? mostrarHoraVenta(v.fecha_hora_china) : (v.hora || '00:00');
+      const horaDisplay = v.fecha_hora_china ? convertirHoraSegunMaquina(v.fecha_hora_china, v.imei || '') : (v.hora || '00:00');
       const h = horaDisplay.split(':')[0] + ':00';
       if (!byHour[h]) byHour[h] = { ventas: 0, euros: 0 };
       byHour[h].ventas++;
@@ -361,7 +361,7 @@ export const AdminSales = () => {
                       <TableBody>
                         {ventasDia?.map(v => (
                           <TableRow key={v.id} className="hover:bg-muted/30 transition-colors">
-                            <TableCell className="font-mono text-xs">{v.fecha_hora_china ? mostrarHoraVenta(v.fecha_hora_china) : (v.hora || '00:00').substring(0, 5)}</TableCell>
+                            <TableCell className="font-mono text-xs">{v.fecha_hora_china ? convertirHoraSegunMaquina(v.fecha_hora_china, v.imei || '') : (v.hora || '00:00').substring(0, 5)}</TableCell>
                             {selectedMachine === 'all' && <TableCell className="text-xs">{getMachineName(v.maquina_id)}</TableCell>}
                             <TableCell className="font-medium text-sm max-w-[150px] truncate">{parseProductAndToppings(v.producto).productName}</TableCell>
                             <TableCell className="text-right font-bold text-primary">{Number(v.precio).toFixed(2)}€</TableCell>

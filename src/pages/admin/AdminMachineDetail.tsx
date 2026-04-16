@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { mostrarHoraVenta, extraerFechaVenta } from '@/lib/timezone-utils';
+import { convertirHoraSegunMaquina, extraerFechaVenta } from '@/lib/timezone-utils';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
