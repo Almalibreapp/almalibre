@@ -228,7 +228,7 @@ export const AdminMachineDetail = () => {
     queryFn: async () => {
       if (!imei || !selectedDate) return null;
       const result = await fetchOrdenes(imei, selectedDate).catch(() => null);
-      const ventas = prepareSalesForChartDate(result?.ventas || [], selectedDate, selectedDate);
+      const ventas = prepareSalesForChartDate(result?.ventas || [], selectedDate, selectedDate, imei);
       return { ventas, fecha: selectedDate, total_ventas: ventas.length };
     },
     enabled: !!imei && !isToday && !!selectedDate,
@@ -236,7 +236,7 @@ export const AdminMachineDetail = () => {
 
   const ventasHoyChart = useMemo(() => {
     if (!ventasDetalle?.ventas) return [];
-    return prepareSalesForChartDate(ventasDetalle.ventas, todayStr, todayStr);
+    return prepareSalesForChartDate(ventasDetalle.ventas, todayStr, todayStr, imei);
   }, [ventasDetalle, todayStr]);
 
   const currentVentas = isToday
@@ -254,7 +254,7 @@ export const AdminMachineDetail = () => {
       queryKey: ['ventas-ordenes-date', imei, prevStr],
       queryFn: async () => {
         const result = await fetchOrdenes(imei, prevStr).catch(() => null);
-        const ventas = prepareSalesForChartDate(result?.ventas || [], prevStr, prevStr);
+        const ventas = prepareSalesForChartDate(result?.ventas || [], prevStr, prevStr, imei);
         return { ventas, fecha: prevStr, total_ventas: ventas.length };
       },
       staleTime: 5 * 60 * 1000,
@@ -265,7 +265,7 @@ export const AdminMachineDetail = () => {
         queryKey: ['ventas-ordenes-date', imei, nextStr],
         queryFn: async () => {
           const result = await fetchOrdenes(imei, nextStr).catch(() => null);
-          const ventas = prepareSalesForChartDate(result?.ventas || [], nextStr, nextStr);
+          const ventas = prepareSalesForChartDate(result?.ventas || [], nextStr, nextStr, imei);
           return { ventas, fecha: nextStr, total_ventas: ventas.length };
         },
         staleTime: 5 * 60 * 1000,
