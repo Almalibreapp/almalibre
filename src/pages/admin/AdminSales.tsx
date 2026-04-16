@@ -116,7 +116,9 @@ export const AdminSales = () => {
 
   const ventasDia = useMemo(() => {
     if (!ventasDiaRaw) return [];
-    return ventasDiaRaw.filter(v => (v.fecha || '').substring(0, 10) === dateStr);
+    return ventasDiaRaw
+      .filter(v => (v.fecha || '').substring(0, 10) === dateStr)
+      .sort((a, b) => (a.hora || '00:00').localeCompare(b.hora || '00:00'));
   }, [ventasDiaRaw, dateStr]);
 
   const { data: ventasAyerRaw } = useQuery({
