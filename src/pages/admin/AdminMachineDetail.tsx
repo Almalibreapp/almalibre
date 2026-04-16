@@ -61,13 +61,13 @@ const buildSaleUid = (sale: MachineSaleLike, fallbackDate: string) => String(
     ?? `${sale.fecha_hora_china || fallbackDate}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
 );
 
-const normalizeMachineSale = (sale: MachineSaleLike, fallbackDate: string): NormalizedMachineSale => {
+const normalizeMachineSale = (sale: MachineSaleLike, fallbackDate: string, imei: string = ''): NormalizedMachineSale => {
   // Use fecha_hora_china as source of truth
   let fecha: string;
   let hora: string;
   if (sale.fecha_hora_china) {
     fecha = extraerFechaVenta(sale.fecha_hora_china);
-    hora = mostrarHoraVenta(sale.fecha_hora_china);
+    hora = convertirHoraSegunMaquina(sale.fecha_hora_china, imei);
   } else {
     fecha = String(sale.fecha || fallbackDate).substring(0, 10);
     hora = String(sale.hora || '00:00').substring(0, 5);
@@ -168,7 +168,7 @@ export const AdminMachineDetail = () => {
         precio: Number(v.precio || 0),
         fecha_hora_china: v.fecha_hora_china || '',
         fecha: v.fecha_hora_china ? extraerFechaVenta(v.fecha_hora_china) : (detalle.fecha || todayStr).substring(0, 10),
-        hora: v.fecha_hora_china ? mostrarHoraVenta(v.fecha_hora_china) : (v.hora || '00:00'),
+        hora: v.fecha_hora_china ? convertirHoraSegunMaquina(v.fecha_hora_china, imei!) : (v.hora || '00:00'),
         cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
         estado: v.estado || 'exitoso',
       }));
