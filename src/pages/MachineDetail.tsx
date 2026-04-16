@@ -23,6 +23,7 @@ import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
 import { ControlTab } from '@/components/control/ControlTab';
 import { cn } from '@/lib/utils';
 import { format, subDays } from 'date-fns';
+import { convertirHoraSegunMaquina } from '@/lib/timezone-utils';
 import { es } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { fetchSpanishDayOrders, isSuccessfulSale, summarizeSales, getCurrentSpainDate, shiftSpainDate, getMonthDatesUntil } from '@/lib/sales';
