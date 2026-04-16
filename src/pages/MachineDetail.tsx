@@ -734,7 +734,8 @@ export const MachineDetail = () => {
                     </CardHeader>
                     <CardContent>
                       <SalesChart 
-                        ventas={(currentVentas?.ventas || []) as any[]} 
+                        ventas={(currentVentas?.ventas || []) as any[]}
+                        imei={imei}
                       />
                     </CardContent>
                   </Card>
