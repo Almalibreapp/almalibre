@@ -91,11 +91,11 @@ const normalizeMachineSale = (sale: MachineSaleLike, fallbackDate: string, imei:
   };
 };
 
-const prepareSalesForChartDate = <T extends MachineSaleLike>(sales: T[], targetDate: string, fallbackDate: string) => {
+const prepareSalesForChartDate = <T extends MachineSaleLike>(sales: T[], targetDate: string, fallbackDate: string, imei: string = '') => {
   const seen = new Set<string>();
 
   return sales.flatMap((sale) => {
-    const normalizedSale = normalizeMachineSale(sale, fallbackDate);
+    const normalizedSale = normalizeMachineSale(sale, fallbackDate, imei);
     if (normalizedSale.fecha !== targetDate) return [];
 
     const saleUid = normalizedSale.saleUid;
@@ -109,7 +109,8 @@ const prepareSalesForChartDate = <T extends MachineSaleLike>(sales: T[], targetD
 const mergeSalesResponsesForDate = (
   responses: Array<{ fecha?: string; ventas?: MachineSaleLike[] } | null>,
   targetDate: string,
-  fallbackDates: string[]
+  fallbackDates: string[],
+  imei: string = ''
 ) => {
   const seen = new Set<string>();
 
@@ -119,7 +120,7 @@ const mergeSalesResponsesForDate = (
     const fallbackDate = String(response.fecha || fallbackDates[index] || targetDate).substring(0, 10);
 
     return response.ventas.flatMap((sale) => {
-      const normalizedSale = normalizeMachineSale(sale, fallbackDate);
+      const normalizedSale = normalizeMachineSale(sale, fallbackDate, imei);
       if (normalizedSale.fecha !== targetDate) return [];
 
       const saleUid = normalizedSale.saleUid;
