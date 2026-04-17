@@ -13,23 +13,30 @@
  */
 export function convertirHoraSegunMaquina(fechaHoraChina: string, imei: string): string {
   if (!fechaHoraChina) return '00:00';
-  const [fecha, hora] = fechaHoraChina.split(' ');
+  const normalized = fechaHoraChina.replace('T', ' ').replace(/\.\d+Z?$/, '').replace(/Z$/, '');
+  const [fecha, hora] = normalized.split(' ');
   if (!fecha || !hora) return '00:00';
   const [year, month, day] = fecha.split('-').map(Number);
   const [hour, minute, second = 0] = hora.split(':').map(Number);
 
-  const date = new Date(year, month - 1, day, hour, minute, second);
-
-  // SOLO para máquina en China: restar 6 horas (UTC+8 → España UTC+2)
+  // Para la máquina 865622072039477: el timestamp viene en UTC+8 (China).
+  // Lo convertimos a UTC restando 8 horas y luego formateamos en zona Europe/Madrid
+  // para que se aplique automáticamente el horario de invierno/verano.
   if (imei === '865622072039477') {
-    date.setHours(date.getHours() - 6);
+    const utcMs = Date.UTC(year, month - 1, day, hour - 8, minute, second);
+    const utcDate = new Date(utcMs);
+    return utcDate.toLocaleTimeString('es-ES', {
+      timeZone: 'Europe/Madrid',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
   }
 
-  return date.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
+  // Resto de máquinas: la hora ya viene en hora española, devolver tal cual.
+  const hh = String(hour).padStart(2, '0');
+  const mm = String(minute).padStart(2, '0');
+  return `${hh}:${mm}`;
 }
 
 /**
