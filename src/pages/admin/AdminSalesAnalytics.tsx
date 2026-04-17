@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { convertirHoraSegunMaquina, extraerFechaVenta } from '@/lib/timezone-utils';
+import { convertirHoraSegunMaquina, extraerFechaSegunMaquina } from '@/lib/timezone-utils';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,7 +30,7 @@ const fetchSpanishDaySales = async (imei: string, maquinaId: string, spanishDate
   return sales.map((v: any) => {
     const fhc = v.fecha_hora_china || '';
     const hora = fhc ? convertirHoraSegunMaquina(fhc, imei) : (v.horaSpain || v.hora || '00:00');
-    const fecha = fhc ? extraerFechaVenta(fhc) : (v.fechaSpain || v.fecha || spanishDate);
+    const fecha = fhc ? extraerFechaSegunMaquina(fhc, imei) : (v.fechaSpain || v.fecha || spanishDate);
     return {
       id: `${maquinaId}-${v.saleUid || v.id}`,
       maquina_id: maquinaId,

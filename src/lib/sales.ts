@@ -1,5 +1,5 @@
 import { Venta } from '@/types';
-import { convertirHoraSegunMaquina, extraerFechaVenta } from '@/lib/timezone-utils';
+import { convertirHoraSegunMaquina, extraerFechaSegunMaquina } from '@/lib/timezone-utils';
 
 type SaleLike = {
   id?: string | number;
@@ -46,7 +46,7 @@ const extractSpainDateTime = (sale: SaleLike, imei: string = ''): { fecha: strin
   const fechaHoraChina = sale.fecha_hora_china;
   if (fechaHoraChina) {
     return {
-      fecha: extraerFechaVenta(fechaHoraChina),
+      fecha: extraerFechaSegunMaquina(fechaHoraChina, imei),
       hora: convertirHoraSegunMaquina(fechaHoraChina, imei),
     };
   }

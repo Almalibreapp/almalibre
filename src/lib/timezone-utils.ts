@@ -48,13 +48,34 @@ export function mostrarHoraVenta(fechaHoraChina: string): string {
 }
 
 /**
- * Extract Spain date from fecha_hora_china.
- * Input: "2026-04-11 16:27:12"
- * Output: "2026-04-11"
+ * Extract Spain date from fecha_hora_china, applying machine-specific adjustments.
+ *
+ * - Machine 865622072039477 (China UTC+8): convert to Europe/Madrid date.
+ * - All other machines: date is already in Spain time, return as-is.
+ */
+export function extraerFechaSegunMaquina(fechaHoraChina: string, imei: string): string {
+  if (!fechaHoraChina) return '';
+  const normalized = fechaHoraChina.replace('T', ' ').replace(/\.\d+Z?$/, '').replace(/Z$/, '');
+  const [fecha, hora] = normalized.split(' ');
+  if (!fecha) return '';
+
+  if (imei === '865622072039477' && hora) {
+    const [year, month, day] = fecha.split('-').map(Number);
+    const [hour, minute, second = 0] = hora.split(':').map(Number);
+    const utcMs = Date.UTC(year, month - 1, day, hour - 8, minute, second);
+    // 'sv-SE' locale produces YYYY-MM-DD format
+    return new Date(utcMs).toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  }
+
+  return fecha;
+}
+
+/**
+ * Extract Spain date from fecha_hora_china (no machine adjustment).
+ * @deprecated Use extraerFechaSegunMaquina(fechaHoraChina, imei) instead.
  */
 export function extraerFechaVenta(fechaHoraChina: string): string {
-  if (!fechaHoraChina) return '';
-  return fechaHoraChina.split(' ')[0] || '';
+  return extraerFechaSegunMaquina(fechaHoraChina, '');
 }
 
 /**
@@ -62,7 +83,7 @@ export function extraerFechaVenta(fechaHoraChina: string): string {
  */
 export function convertirVentaAEspana(fechaHoraChina: string, imei: string = ''): { fecha: string; hora: string } {
   return {
-    fecha: extraerFechaVenta(fechaHoraChina),
+    fecha: extraerFechaSegunMaquina(fechaHoraChina, imei),
     hora: convertirHoraSegunMaquina(fechaHoraChina, imei),
   };
 }
