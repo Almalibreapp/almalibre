@@ -204,13 +204,20 @@ export const fetchSpanishDayOrders = async (
   fetcher: (imei: string, fecha?: string) => Promise<{ fecha?: string; ventas?: SaleLike[] }>
 ) => {
   const prevDate = shiftSpainDate(spainDate, -1);
-  const [response1, response2] = await Promise.all([
-    fetcher(imei, prevDate).catch(() => null),
-    fetcher(imei, spainDate).catch(() => null),
-  ]);
-  const sales1 = response1?.ventas ?? [];
-  const sales2 = response2?.ventas ?? [];
-  const allSales = [...sales1, ...sales2];
+  const nextDate = shiftSpainDate(spainDate, 1);
+
+  // Para máquinas con desfase horario China (UTC+8) la API devuelve ventas por
+  // fecha china. Una venta del día siguiente en hora china puede caer en el
+  // día anterior en hora española, así que hay que ampliar el rango de fetch.
+  const isChinaMachine = imei === '865622072039477';
+  const datesToFetch = isChinaMachine
+    ? [prevDate, spainDate, nextDate]
+    : [prevDate, spainDate];
+
+  const responses = await Promise.all(
+    datesToFetch.map((fecha) => fetcher(imei, fecha).catch(() => null))
+  );
+  const allSales = responses.flatMap((r) => r?.ventas ?? []);
   const normalized = normalizeSalesBatchToSpain(allSales, spainDate, undefined, imei);
   return dedupeSalesByUid(normalized).filter((sale) => sale.fechaSpain === spainDate);
 };
