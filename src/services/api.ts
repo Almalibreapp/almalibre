@@ -18,21 +18,12 @@ export const fetchMiMaquina = async (imei: string) => {
 
 // Resumen de ventas - fetch today's sales and compute summary
 export const fetchVentasResumen = async (imei: string) => {
+  const { fetchSpanishDayOrders } = await import('@/lib/sales');
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
   try {
-    const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${today}`, { headers: API_CONFIG.headers });
-    if (!response.ok) {
-      console.warn(`[fetchVentasResumen] HTTP ${response.status} for ${imei}`);
-      return { mac_addr: imei, ventas_hoy: { cantidad: 0, total_euros: 0 }, ventas_ayer: { cantidad: 0, total_euros: 0 }, ventas_mes: { cantidad: 0, total_euros: 0 } };
-    }
-    const text = await response.text();
-    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-      console.warn(`[fetchVentasResumen] Server returned HTML for ${imei}`);
-      return { mac_addr: imei, ventas_hoy: { cantidad: 0, total_euros: 0 }, ventas_ayer: { cantidad: 0, total_euros: 0 }, ventas_mes: { cantidad: 0, total_euros: 0 } };
-    }
-    const data = JSON.parse(text);
-    const ventas = data.ventas || [];
-    const exitosas = ventas.filter((v: any) => {
+    // Usa fetchSpanishDayOrders para que la máquina 865622072039477 (China UTC+8)
+    // incluya las ventas de mañana-China que en España son de hoy.
+    const exitosas = (await fetchSpanishDayOrders(imei, today, fetchOrdenes)).filter((v: any) => {
       const estado = (v.estado || '').toLowerCase();
       return estado !== 'fallido' && estado !== 'cancelado' && estado !== 'failed' && estado !== 'cancelled';
     });
