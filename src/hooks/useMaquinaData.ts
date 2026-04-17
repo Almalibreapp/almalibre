@@ -66,7 +66,8 @@ export const useVentasDetalle = (imei: string | undefined) => {
           metodo_pago: String(v.metodo_pago || ''),
           estado: String(v.estado || 'exitoso'),
           toppings: Array.isArray(v.toppings) ? v.toppings : [],
-        })),
+          fecha_hora_china: (v as any).fecha_hora_china,
+        })) as any,
       } as VentasDetalleResponse;
     },
     enabled: !!imei && imei.length > 0,
