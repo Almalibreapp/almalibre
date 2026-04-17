@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { convertirHoraSegunMaquina, extraerFechaVenta } from '@/lib/timezone-utils';
+import { convertirHoraSegunMaquina, extraerFechaSegunMaquina } from '@/lib/timezone-utils';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -66,7 +66,7 @@ const normalizeMachineSale = (sale: MachineSaleLike, fallbackDate: string, imei:
   let fecha: string;
   let hora: string;
   if (sale.fecha_hora_china) {
-    fecha = extraerFechaVenta(sale.fecha_hora_china);
+    fecha = extraerFechaSegunMaquina(sale.fecha_hora_china, imei);
     hora = convertirHoraSegunMaquina(sale.fecha_hora_china, imei);
   } else {
     fecha = String(sale.fecha || fallbackDate).substring(0, 10);
@@ -168,7 +168,7 @@ export const AdminMachineDetail = () => {
       return detalle.ventas.map((v: any) => ({
         precio: Number(v.precio || 0),
         fecha_hora_china: v.fecha_hora_china || '',
-        fecha: v.fecha_hora_china ? extraerFechaVenta(v.fecha_hora_china) : (detalle.fecha || todayStr).substring(0, 10),
+        fecha: v.fecha_hora_china ? extraerFechaSegunMaquina(v.fecha_hora_china, imei!) : (detalle.fecha || todayStr).substring(0, 10),
         hora: v.fecha_hora_china ? convertirHoraSegunMaquina(v.fecha_hora_china, imei!) : (v.hora || '00:00'),
         cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
         estado: v.estado || 'exitoso',

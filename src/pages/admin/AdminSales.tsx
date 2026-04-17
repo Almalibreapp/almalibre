@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { convertirHoraSegunMaquina, extraerFechaVenta } from '@/lib/timezone-utils';
+import { convertirHoraSegunMaquina, extraerFechaSegunMaquina } from '@/lib/timezone-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,7 +83,7 @@ export const AdminSales = () => {
             return sales.map((v: any) => {
               const fhc = v.fecha_hora_china || '';
               const hora = fhc ? convertirHoraSegunMaquina(fhc, m.mac_address) : (v.horaSpain || v.hora || '00:00');
-              const fecha = fhc ? extraerFechaVenta(fhc) : (v.fechaSpain || v.fecha || dateStr);
+              const fecha = fhc ? extraerFechaSegunMaquina(fhc, m.mac_address) : (v.fechaSpain || v.fecha || dateStr);
               return {
                 id: `api-${m.id}-${v.saleUid || v.id}`,
                 sale_uid: v.saleUid || v.id,
