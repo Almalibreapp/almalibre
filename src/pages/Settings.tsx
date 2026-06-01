@@ -52,7 +52,8 @@ const supportItems = [
 ];
 
 const toolItems = [
-  { path: '/tutorials', icon: GraduationCap, label: 'Video Tutoriales', description: 'Aprende a usar tu máquina' },
+  { path: '/academy', icon: GraduationCap, label: 'Almalibre Academy', description: 'Formación operativa obligatoria' },
+  { path: '/tutorials', icon: Wrench, label: 'Video Tutoriales', description: 'Aprende a usar tu máquina' },
   { path: '/export', icon: Download, label: 'Exportar Datos', description: 'Descarga históricos en Excel' },
 ];
 

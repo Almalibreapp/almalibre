@@ -27,6 +27,7 @@ import { StockPrediction } from "./pages/StockPrediction";
 import { ProfitabilityAnalysis } from "./pages/ProfitabilityAnalysis";
 import { DailySummary } from "./pages/DailySummary";
 import { NetworkDashboard } from "./pages/NetworkDashboard";
+import { Academy } from "./pages/Academy";
 import NotFound from "./pages/NotFound";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -212,6 +213,7 @@ const AppContent = () => {
         <Route path="/ai/daily-summary" element={<DailySummary />} />
         <Route path="/network" element={<NetworkDashboard />} />
         <Route path="/export" element={<ExportData />} />
+        <Route path="/academy" element={<Academy />} />
 
         {/* Admin routes */}
         <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
