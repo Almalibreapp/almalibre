@@ -14,6 +14,107 @@ export type Database = {
   }
   public: {
     Tables: {
+      academy_consentimiento: {
+        Row: {
+          aceptado_at: string
+          firma_nombre: string
+          id: string
+          texto_consentimiento: string
+          user_id: string
+        }
+        Insert: {
+          aceptado_at?: string
+          firma_nombre: string
+          id?: string
+          texto_consentimiento: string
+          user_id: string
+        }
+        Update: {
+          aceptado_at?: string
+          firma_nombre?: string
+          id?: string
+          texto_consentimiento?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      academy_modulos: {
+        Row: {
+          activo: boolean
+          created_at: string
+          descripcion: string | null
+          duracion_segundos: number | null
+          id: string
+          orden: number
+          titulo: string
+          updated_at: string
+          video_url: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          descripcion?: string | null
+          duracion_segundos?: number | null
+          id?: string
+          orden?: number
+          titulo: string
+          updated_at?: string
+          video_url: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          descripcion?: string | null
+          duracion_segundos?: number | null
+          id?: string
+          orden?: number
+          titulo?: string
+          updated_at?: string
+          video_url?: string
+        }
+        Relationships: []
+      }
+      academy_progreso: {
+        Row: {
+          completado: boolean
+          completado_at: string | null
+          created_at: string
+          id: string
+          modulo_id: string
+          segundos_vistos: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completado?: boolean
+          completado_at?: string | null
+          created_at?: string
+          id?: string
+          modulo_id: string
+          segundos_vistos?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completado?: boolean
+          completado_at?: string | null
+          created_at?: string
+          id?: string
+          modulo_id?: string
+          segundos_vistos?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_progreso_modulo_id_fkey"
+            columns: ["modulo_id"]
+            isOneToOne: false
+            referencedRelation: "academy_modulos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       canjes_codigo: {
         Row: {
           codigo_id: string
