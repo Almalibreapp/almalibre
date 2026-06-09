@@ -191,13 +191,13 @@ export const AdminSales = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-5 md:space-y-8 animate-fade-in">
       {/* Header con gradiente */}
-      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-8 text-primary-foreground">
+      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-4 md:p-8 text-primary-foreground">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-display font-bold flex items-center gap-3">
-              <Euro className="h-8 w-8" /> Ventas Globales
+            <h1 className="text-xl md:text-3xl font-display font-bold flex items-center gap-3">
+              <Euro className="h-6 w-6 md:h-8 md:w-8 shrink-0" /> Ventas Globales
             </h1>
             <p className="text-primary-foreground/70 mt-1">Desglose detallado de ventas por día</p>
           </div>

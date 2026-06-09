@@ -40,11 +40,11 @@ export const AdminCupones = () => {
   const allImeis = useMemo(() => machines.map((m: MachineOption) => m.mac_address), [machines]);
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-5 md:space-y-8 animate-fade-in">
       {/* Header */}
-      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-8 text-primary-foreground">
-        <h1 className="text-3xl font-display font-bold flex items-center gap-3">
-          <Ticket className="h-8 w-8" /> Cupones de Descuento
+      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-4 md:p-8 text-primary-foreground">
+        <h1 className="text-xl md:text-3xl font-display font-bold flex items-center gap-3">
+          <Ticket className="h-6 w-6 md:h-8 md:w-8 shrink-0" /> Cupones de Descuento
         </h1>
         <p className="text-primary-foreground/70 mt-1">Gestiona los cupones de descuento de tus máquinas</p>
       </div>
