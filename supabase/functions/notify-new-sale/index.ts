@@ -30,15 +30,42 @@ Deno.serve(async (req) => {
     )
 
     let machineName = imei || 'Desconocida'
+    let ownerUserId: string | null = null
     try {
       const { data } = await supabase
         .from('maquinas')
-        .select('nombre_personalizado')
+        .select('nombre_personalizado, usuario_id')
         .eq('mac_address', imei)
         .limit(1)
         .single()
       if (data?.nombre_personalizado) machineName = data.nombre_personalizado
+      if (data?.usuario_id) ownerUserId = data.usuario_id
     } catch { /* use IMEI as fallback */ }
+
+    // ---- Push al franquiciado dueño de la máquina ----
+    if (ownerUserId) {
+      try {
+        const { data: prefs } = await supabase
+          .from('preferencias_notificaciones')
+          .select('nuevas_ventas, canal_push')
+          .eq('usuario_id', ownerUserId)
+          .maybeSingle()
+
+        const pushEnabled = !prefs || (prefs.nuevas_ventas !== false && prefs.canal_push !== false)
+        if (pushEnabled) {
+          await supabase.functions.invoke('send-push', {
+            body: {
+              titulo: `🍦 Nueva venta · ${Number(precio || 0).toFixed(2)}€`,
+              mensaje: `${producto || 'Producto'} en ${machineName}`,
+              url: '/',
+              filtros: { usuario_ids: [ownerUserId] },
+            },
+          })
+        }
+      } catch (err) {
+        console.error('[notify-new-sale] Push error:', err)
+      }
+    }
 
     // Format toppings
     const toppingsList = Array.isArray(toppings) && toppings.length > 0
