@@ -568,9 +568,9 @@ export const AdminSalesAnalytics = () => {
                       const intensity = day.euros > 0 ? Math.max(0.15, day.euros / maxEuros) : 0;
                       const isToday = day.fecha === todayStr;
                       return (
-                        <div key={day.fecha} className={cn("p-2 rounded-lg text-center transition-colors min-h-[60px] flex flex-col justify-center", isToday && "ring-2 ring-primary", day.ventas === 0 && "bg-muted/30")} style={day.euros > 0 ? { backgroundColor: `hsl(var(--primary) / ${intensity})` } : undefined}>
-                          <span className={cn("text-xs font-medium", day.euros > 0 && intensity > 0.5 && "text-primary-foreground")}>{day.dia}</span>
-                          {day.ventas > 0 && (<><span className={cn("text-xs font-bold", intensity > 0.5 ? "text-primary-foreground" : "text-foreground")}>{day.euros.toFixed(0)}€</span><span className={cn("text-[10px]", intensity > 0.5 ? "text-primary-foreground/80" : "text-muted-foreground")}>{day.ventas}v</span></>)}
+                        <div key={day.fecha} className={cn("p-1 md:p-2 rounded-md md:rounded-lg text-center transition-colors min-h-[44px] md:min-h-[60px] flex flex-col justify-center", isToday && "ring-2 ring-primary", day.ventas === 0 && "bg-muted/30")} style={day.euros > 0 ? { backgroundColor: `hsl(var(--primary) / ${intensity})` } : undefined}>
+                          <span className={cn("text-[10px] md:text-xs font-medium", day.euros > 0 && intensity > 0.5 && "text-primary-foreground")}>{day.dia}</span>
+                          {day.ventas > 0 && (<span className={cn("text-[10px] md:text-xs font-bold", intensity > 0.5 ? "text-primary-foreground" : "text-foreground")}>{day.euros.toFixed(0)}€</span>)}
                         </div>
                       );
                     })}
