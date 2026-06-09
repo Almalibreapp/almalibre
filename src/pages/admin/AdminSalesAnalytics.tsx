@@ -520,11 +520,11 @@ export const AdminSalesAnalytics = () => {
             )}
 
             <Tabs defaultValue="daily-chart" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="daily-chart">Diario</TabsTrigger>
-                <TabsTrigger value="toppings">Toppings</TabsTrigger>
-                <TabsTrigger value="payments">Pagos</TabsTrigger>
-                <TabsTrigger value="calendar">Calendario</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4 h-auto">
+                <TabsTrigger value="daily-chart" className="text-xs md:text-sm px-1">Diario</TabsTrigger>
+                <TabsTrigger value="toppings" className="text-xs md:text-sm px-1">Toppings</TabsTrigger>
+                <TabsTrigger value="payments" className="text-xs md:text-sm px-1">Pagos</TabsTrigger>
+                <TabsTrigger value="calendar" className="text-xs md:text-sm px-1">Calend.</TabsTrigger>
               </TabsList>
 
               <TabsContent value="daily-chart" className="space-y-4">
