@@ -12,6 +12,7 @@ import {
   Mail,
   Ticket,
   Download,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
@@ -22,6 +23,7 @@ const navItems = [
   { path: '/admin/franchisees', icon: Users, label: 'Franquiciados' },
   { path: '/admin/sales', icon: Euro, label: 'Ventas y Análisis' },
   { path: '/admin/cupones', icon: Ticket, label: 'Cupones' },
+  { path: '/admin/push', icon: Send, label: 'Push' },
   { path: '/admin/export', icon: Download, label: 'Exportar Datos' },
 ];
 

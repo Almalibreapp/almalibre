@@ -187,6 +187,7 @@ const AppContent = () => {
   return (
     <div className="min-h-screen safe-area-top safe-area-bottom">
       <GlobalPrefetch />
+      <InstallBanner />
       <Routes>
         {/* User routes */}
         <Route path="/" element={<Index />} />
@@ -226,6 +227,7 @@ const AppContent = () => {
           <Route path="analytics" element={<AdminSalesAnalytics />} />
           <Route path="cupones" element={<AdminCupones />} />
           <Route path="export" element={<AdminExportData />} />
+          <Route path="push" element={<AdminPushNotifications />} />
           <Route path="incidents" element={<AdminIncidents />} />
           <Route path="notifications" element={<AdminEmailNotifications />} />
         </Route>
