@@ -408,10 +408,10 @@ export const AdminSalesAnalytics = () => {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="resumen">Resumen</TabsTrigger>
-                <TabsTrigger value="detalle">Ventas Individuales</TabsTrigger>
-                <TabsTrigger value="horario">Por Hora</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 h-auto">
+                <TabsTrigger value="resumen" className="text-xs md:text-sm px-1">Resumen</TabsTrigger>
+                <TabsTrigger value="detalle" className="text-xs md:text-sm px-1"><span className="md:hidden">Detalle</span><span className="hidden md:inline">Ventas Individuales</span></TabsTrigger>
+                <TabsTrigger value="horario" className="text-xs md:text-sm px-1">Por Hora</TabsTrigger>
               </TabsList>
 
               <TabsContent value="resumen" className="space-y-4">
