@@ -437,7 +437,32 @@ export const AdminSalesAnalytics = () => {
 
               <TabsContent value="detalle">
                 <Card><CardHeader><CardTitle className="text-base flex items-center gap-2"><List className="h-4 w-4" /> Todas las ventas<Badge variant="secondary" className="ml-auto">{ventasDia?.length || 0}</Badge></CardTitle></CardHeader><CardContent className="p-0">
-                  <div className="overflow-x-auto"><Table><TableHeader><TableRow>
+                  {/* Mobile list */}
+                  <div className="md:hidden divide-y">
+                    {ventasDia?.map(v => {
+                      const pm = normalizePaymentMethod(v.metodo_pago);
+                      const tops = formatToppings(v.toppings, v.producto);
+                      return (
+                        <div key={v.id} className="p-3 space-y-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-sm truncate">{parseProductAndToppings(v.producto).productName}</p>
+                              {selectedMachine === 'all' && <p className="text-[11px] text-muted-foreground truncate">{getMachineName(v.maquina_id)}</p>}
+                            </div>
+                            <p className="font-bold text-primary text-sm shrink-0">{Number(v.precio).toFixed(2)}€</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono">{v.horaSpain}</Badge>
+                            <Badge variant="outline" className="text-[10px] py-0 px-1.5">{pm.charAt(0).toUpperCase() + pm.slice(1)}</Badge>
+                            {v.estado !== 'exitoso' && <Badge variant="destructive" className="text-[10px] py-0 px-1.5">{v.estado}</Badge>}
+                          </div>
+                          {tops !== '—' && <p className="text-[11px] text-muted-foreground truncate">+ {tops}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-x-auto"><Table><TableHeader><TableRow>
                     <TableHead className="w-[70px]">Hora</TableHead>
                     {selectedMachine === 'all' && <TableHead>Máquina</TableHead>}
                     <TableHead>Producto</TableHead>
