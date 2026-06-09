@@ -28,6 +28,7 @@ import { ProfitabilityAnalysis } from "./pages/ProfitabilityAnalysis";
 import { DailySummary } from "./pages/DailySummary";
 import { NetworkDashboard } from "./pages/NetworkDashboard";
 import { Academy } from "./pages/Academy";
+import { InstallBanner } from "@/components/pwa/InstallBanner";
 import NotFound from "./pages/NotFound";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +51,7 @@ import { AdminIncidents } from "./pages/admin/AdminIncidents";
 import { AdminEmailNotifications } from "./pages/admin/AdminEmailNotifications";
 import { AdminCupones } from "./pages/admin/AdminCupones";
 import { AdminExportData } from "./pages/admin/AdminExportData";
+import { AdminPushNotifications } from "./pages/admin/AdminPushNotifications";
 import { ExportData } from "./pages/ExportData";
 
 const queryClient = new QueryClient({
