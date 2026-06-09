@@ -11,7 +11,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { cn } from '@/lib/utils';
 import { format, subDays, addDays, isToday as isTodayFn, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend } from 'recharts';
 import { fetchOrdenes } from '@/services/api';
 import { fetchSpanishDayOrders } from '@/lib/sales';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
