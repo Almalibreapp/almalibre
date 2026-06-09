@@ -99,10 +99,10 @@ export const AdminDashboard = () => {
   }, [ventasHoy, machines, lowStockAlerts, tempAlerts]);
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-5 md:space-y-8 animate-fade-in">
       {/* Header con gradiente */}
-      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-8 text-primary-foreground">
-        <h1 className="text-3xl font-display font-bold">Dashboard General</h1>
+      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-4 md:p-8 text-primary-foreground">
+        <h1 className="text-xl md:text-3xl font-display font-bold">Dashboard General</h1>
         <p className="text-primary-foreground/70 mt-1">Vista general de todas las máquinas Almalibre</p>
       </div>
 

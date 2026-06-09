@@ -11,7 +11,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { cn } from '@/lib/utils';
 import { format, subDays, addDays, isToday as isTodayFn, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend } from 'recharts';
 import { fetchOrdenes } from '@/services/api';
 import { fetchSpanishDayOrders } from '@/lib/sales';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
@@ -324,20 +324,21 @@ export const AdminSalesAnalytics = () => {
   const isLoading = viewMode === 'daily' ? loadingDaily : loadingMonthly;
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-5 md:space-y-8 animate-fade-in">
       {/* Header con gradiente */}
-      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-8 text-primary-foreground">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-display font-bold flex items-center gap-3">
-              <BarChart3 className="h-8 w-8" /> Ventas y Análisis
+      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-4 md:p-8 text-primary-foreground">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-3xl font-display font-bold flex items-center gap-2 md:gap-3">
+              <BarChart3 className="h-6 w-6 md:h-8 md:w-8 shrink-0" />
+              <span className="truncate">Ventas y Análisis</span>
             </h1>
-            <p className="text-primary-foreground/70 mt-1">Desglose detallado de ventas</p>
+            <p className="text-xs md:text-sm text-primary-foreground/70 mt-1">Desglose detallado de ventas</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
             <Select value={selectedMachine} onValueChange={setSelectedMachine}>
-              <SelectTrigger className="w-[200px] bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground">
-                <SelectValue placeholder="Todas las máquinas" />
+              <SelectTrigger className="flex-1 md:w-[200px] md:flex-none bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground">
+                <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las máquinas</SelectItem>
@@ -346,21 +347,21 @@ export const AdminSalesAnalytics = () => {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={handleRefresh} disabled={syncing} variant="secondary" size="sm">
-              <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />
-              {syncing ? 'Actualizando...' : 'Actualizar'}
+            <Button onClick={handleRefresh} disabled={syncing} variant="secondary" size="sm" className="shrink-0">
+              <RefreshCw className={cn("h-4 w-4 md:mr-2", syncing && "animate-spin")} />
+              <span className="hidden md:inline">{syncing ? 'Actualizando...' : 'Actualizar'}</span>
             </Button>
           </div>
         </div>
       </div>
 
       {/* View Mode Toggle */}
-      <div className="flex items-center justify-center gap-2">
+      <div className="grid grid-cols-2 gap-2 md:flex md:items-center md:justify-center">
         <Button variant={viewMode === 'daily' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('daily')}>
-          <Calendar className="h-4 w-4 mr-1" /> Vista Diaria
+          <Calendar className="h-4 w-4 mr-1" /> Diaria
         </Button>
         <Button variant={viewMode === 'monthly' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('monthly')}>
-          <BarChart3 className="h-4 w-4 mr-1" /> Vista Mensual
+          <BarChart3 className="h-4 w-4 mr-1" /> Mensual
         </Button>
       </div>
 
@@ -407,10 +408,10 @@ export const AdminSalesAnalytics = () => {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="resumen">Resumen</TabsTrigger>
-                <TabsTrigger value="detalle">Ventas Individuales</TabsTrigger>
-                <TabsTrigger value="horario">Por Hora</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 h-auto">
+                <TabsTrigger value="resumen" className="text-xs md:text-sm px-1">Resumen</TabsTrigger>
+                <TabsTrigger value="detalle" className="text-xs md:text-sm px-1"><span className="md:hidden">Detalle</span><span className="hidden md:inline">Ventas Individuales</span></TabsTrigger>
+                <TabsTrigger value="horario" className="text-xs md:text-sm px-1">Por Hora</TabsTrigger>
               </TabsList>
 
               <TabsContent value="resumen" className="space-y-4">
@@ -436,7 +437,32 @@ export const AdminSalesAnalytics = () => {
 
               <TabsContent value="detalle">
                 <Card><CardHeader><CardTitle className="text-base flex items-center gap-2"><List className="h-4 w-4" /> Todas las ventas<Badge variant="secondary" className="ml-auto">{ventasDia?.length || 0}</Badge></CardTitle></CardHeader><CardContent className="p-0">
-                  <div className="overflow-x-auto"><Table><TableHeader><TableRow>
+                  {/* Mobile list */}
+                  <div className="md:hidden divide-y">
+                    {ventasDia?.map(v => {
+                      const pm = normalizePaymentMethod(v.metodo_pago);
+                      const tops = formatToppings(v.toppings, v.producto);
+                      return (
+                        <div key={v.id} className="p-3 space-y-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-sm truncate">{parseProductAndToppings(v.producto).productName}</p>
+                              {selectedMachine === 'all' && <p className="text-[11px] text-muted-foreground truncate">{getMachineName(v.maquina_id)}</p>}
+                            </div>
+                            <p className="font-bold text-primary text-sm shrink-0">{Number(v.precio).toFixed(2)}€</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono">{v.horaSpain}</Badge>
+                            <Badge variant="outline" className="text-[10px] py-0 px-1.5">{pm.charAt(0).toUpperCase() + pm.slice(1)}</Badge>
+                            {v.estado !== 'exitoso' && <Badge variant="destructive" className="text-[10px] py-0 px-1.5">{v.estado}</Badge>}
+                          </div>
+                          {tops !== '—' && <p className="text-[11px] text-muted-foreground truncate">+ {tops}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-x-auto"><Table><TableHeader><TableRow>
                     <TableHead className="w-[70px]">Hora</TableHead>
                     {selectedMachine === 'all' && <TableHead>Máquina</TableHead>}
                     <TableHead>Producto</TableHead>
@@ -494,11 +520,11 @@ export const AdminSalesAnalytics = () => {
             )}
 
             <Tabs defaultValue="daily-chart" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="daily-chart">Diario</TabsTrigger>
-                <TabsTrigger value="toppings">Toppings</TabsTrigger>
-                <TabsTrigger value="payments">Pagos</TabsTrigger>
-                <TabsTrigger value="calendar">Calendario</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4 h-auto">
+                <TabsTrigger value="daily-chart" className="text-xs md:text-sm px-1">Diario</TabsTrigger>
+                <TabsTrigger value="toppings" className="text-xs md:text-sm px-1">Toppings</TabsTrigger>
+                <TabsTrigger value="payments" className="text-xs md:text-sm px-1">Pagos</TabsTrigger>
+                <TabsTrigger value="calendar" className="text-xs md:text-sm px-1">Calend.</TabsTrigger>
               </TabsList>
 
               <TabsContent value="daily-chart" className="space-y-4">
@@ -513,7 +539,7 @@ export const AdminSalesAnalytics = () => {
               <TabsContent value="toppings" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card><CardHeader><CardTitle className="text-base flex items-center gap-2"><Package className="h-4 w-4" /> Popularidad de Toppings</CardTitle></CardHeader><CardContent>
-                    <div className="h-64 w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={monthlyMetrics.ventasPorTopping.slice(0, 8)} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="cantidad" nameKey="nombre" label={({ nombre, cantidad }) => `${nombre}: ${cantidad}`}>{monthlyMetrics.ventasPorTopping.slice(0, 8).map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}</Pie><Tooltip /></PieChart></ResponsiveContainer></div>
+                    <div className="h-64 w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={monthlyMetrics.ventasPorTopping.slice(0, 8)} cx="50%" cy="50%" innerRadius={40} outerRadius={75} dataKey="cantidad" nameKey="nombre">{monthlyMetrics.ventasPorTopping.slice(0, 8).map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}</Pie><Tooltip formatter={(v: number, _n, p: any) => [`${v} usos`, p?.payload?.nombre]} /><Legend wrapperStyle={{ fontSize: '11px' }} /></PieChart></ResponsiveContainer></div>
                   </CardContent></Card>
                   <Card><CardHeader><CardTitle className="text-base">Ranking de Toppings</CardTitle></CardHeader><CardContent>
                     <div className="space-y-2">{monthlyMetrics.ventasPorTopping.map((t, i) => { const max = monthlyMetrics.ventasPorTopping[0]?.cantidad || 1; return (<div key={i} className="space-y-1"><div className="flex justify-between text-sm"><span>{t.nombre}</span><span className="font-semibold">{t.cantidad} usos</span></div><div className="h-2 bg-muted rounded-full overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${(t.cantidad / max) * 100}%`, backgroundColor: COLORS[i % COLORS.length] }} /></div></div>); })}</div>
@@ -524,7 +550,7 @@ export const AdminSalesAnalytics = () => {
               <TabsContent value="payments" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card><CardHeader><CardTitle className="text-base flex items-center gap-2"><CreditCard className="h-4 w-4" /> Métodos de Pago</CardTitle></CardHeader><CardContent>
-                    <div className="h-64 w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={monthlyMetrics.ventasPorMetodoPago} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="ventas" nameKey="metodo" label={({ metodo, ventas }) => `${metodo}: ${ventas}`}>{monthlyMetrics.ventasPorMetodoPago.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}</Pie><Tooltip /></PieChart></ResponsiveContainer></div>
+                    <div className="h-64 w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={monthlyMetrics.ventasPorMetodoPago} cx="50%" cy="50%" innerRadius={40} outerRadius={75} dataKey="ventas" nameKey="metodo">{monthlyMetrics.ventasPorMetodoPago.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}</Pie><Tooltip formatter={(v: number, _n, p: any) => [`${v} ventas`, p?.payload?.metodo]} /><Legend wrapperStyle={{ fontSize: '11px' }} /></PieChart></ResponsiveContainer></div>
                   </CardContent></Card>
                   <Card><CardHeader><CardTitle className="text-base">Detalle por Método</CardTitle></CardHeader><CardContent>
                     <div className="space-y-4">{monthlyMetrics.ventasPorMetodoPago.map((m, i) => (<div key={i} className="p-3 rounded-lg bg-muted/50"><div className="flex items-center justify-between mb-1"><span className="font-medium">{m.metodo}</span><Badge variant="secondary">{((m.ventas / monthlyMetrics.totalVentas) * 100).toFixed(1)}%</Badge></div><div className="flex justify-between text-sm text-muted-foreground"><span>{m.ventas} transacciones</span><span className="font-semibold text-foreground">{m.euros.toFixed(2)}€</span></div></div>))}</div>
@@ -542,9 +568,9 @@ export const AdminSalesAnalytics = () => {
                       const intensity = day.euros > 0 ? Math.max(0.15, day.euros / maxEuros) : 0;
                       const isToday = day.fecha === todayStr;
                       return (
-                        <div key={day.fecha} className={cn("p-2 rounded-lg text-center transition-colors min-h-[60px] flex flex-col justify-center", isToday && "ring-2 ring-primary", day.ventas === 0 && "bg-muted/30")} style={day.euros > 0 ? { backgroundColor: `hsl(var(--primary) / ${intensity})` } : undefined}>
-                          <span className={cn("text-xs font-medium", day.euros > 0 && intensity > 0.5 && "text-primary-foreground")}>{day.dia}</span>
-                          {day.ventas > 0 && (<><span className={cn("text-xs font-bold", intensity > 0.5 ? "text-primary-foreground" : "text-foreground")}>{day.euros.toFixed(0)}€</span><span className={cn("text-[10px]", intensity > 0.5 ? "text-primary-foreground/80" : "text-muted-foreground")}>{day.ventas}v</span></>)}
+                        <div key={day.fecha} className={cn("p-1 md:p-2 rounded-md md:rounded-lg text-center transition-colors min-h-[44px] md:min-h-[60px] flex flex-col justify-center", isToday && "ring-2 ring-primary", day.ventas === 0 && "bg-muted/30")} style={day.euros > 0 ? { backgroundColor: `hsl(var(--primary) / ${intensity})` } : undefined}>
+                          <span className={cn("text-[10px] md:text-xs font-medium", day.euros > 0 && intensity > 0.5 && "text-primary-foreground")}>{day.dia}</span>
+                          {day.ventas > 0 && (<span className={cn("text-[10px] md:text-xs font-bold", intensity > 0.5 ? "text-primary-foreground" : "text-foreground")}>{day.euros.toFixed(0)}€</span>)}
                         </div>
                       );
                     })}

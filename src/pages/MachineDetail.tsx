@@ -466,12 +466,12 @@ export const MachineDetail = () => {
           </div>
         ) : (
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="overview">General</TabsTrigger>
-              <TabsTrigger value="sales">Ventas</TabsTrigger>
-              <TabsTrigger value="stock">Stock</TabsTrigger>
-              <TabsTrigger value="temp">Temp</TabsTrigger>
-              <TabsTrigger value="control">Control</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-5 h-auto">
+              <TabsTrigger value="overview" className="text-xs md:text-sm px-1">General</TabsTrigger>
+              <TabsTrigger value="sales" className="text-xs md:text-sm px-1">Ventas</TabsTrigger>
+              <TabsTrigger value="stock" className="text-xs md:text-sm px-1">Stock</TabsTrigger>
+              <TabsTrigger value="temp" className="text-xs md:text-sm px-1">Temp</TabsTrigger>
+              <TabsTrigger value="control" className="text-xs md:text-sm px-1">Control</TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
