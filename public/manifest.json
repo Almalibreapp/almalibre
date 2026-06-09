@@ -1,0 +1,22 @@
+{
+  "name": "Almalibre Franquicias",
+  "short_name": "Almalibre",
+  "description": "Sistema de gestión para franquiciados Almalibre",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#a855f7",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo-almalibre.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo-almalibre.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

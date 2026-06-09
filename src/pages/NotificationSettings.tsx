@@ -82,7 +82,7 @@ export const NotificationSettings = () => {
 
       <main className="container px-4 py-6 space-y-6">
         {/* Push Status Card */}
-        {pushStatus.platform !== 'web' && (
+        {pushStatus.available && (
           <Card className="animate-fade-in">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -119,8 +119,8 @@ export const NotificationSettings = () => {
           </Card>
         )}
 
-        {/* Web Notice */}
-        {pushStatus.platform === 'web' && (
+        {/* Not Supported Notice */}
+        {!pushStatus.available && (
           <Card className="animate-fade-in border-amber-500/50">
             <CardContent className="pt-6">
               <div className="flex items-start gap-3">
@@ -130,8 +130,7 @@ export const NotificationSettings = () => {
                 <div>
                   <p className="font-medium text-sm">Notificaciones push no disponibles</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Las notificaciones push solo están disponibles en la app móvil. 
-                    Descarga la app para recibir alertas en tiempo real.
+                    Tu navegador o dispositivo no soporta notificaciones push.
                   </p>
                 </div>
               </div>
