@@ -324,20 +324,21 @@ export const AdminSalesAnalytics = () => {
   const isLoading = viewMode === 'daily' ? loadingDaily : loadingMonthly;
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-5 md:space-y-8 animate-fade-in">
       {/* Header con gradiente */}
-      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-8 text-primary-foreground">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-display font-bold flex items-center gap-3">
-              <BarChart3 className="h-8 w-8" /> Ventas y Análisis
+      <div className="rounded-2xl bg-gradient-to-r from-primary via-primary/90 to-primary/70 p-4 md:p-8 text-primary-foreground">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-3xl font-display font-bold flex items-center gap-2 md:gap-3">
+              <BarChart3 className="h-6 w-6 md:h-8 md:w-8 shrink-0" />
+              <span className="truncate">Ventas y Análisis</span>
             </h1>
-            <p className="text-primary-foreground/70 mt-1">Desglose detallado de ventas</p>
+            <p className="text-xs md:text-sm text-primary-foreground/70 mt-1">Desglose detallado de ventas</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
             <Select value={selectedMachine} onValueChange={setSelectedMachine}>
-              <SelectTrigger className="w-[200px] bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground">
-                <SelectValue placeholder="Todas las máquinas" />
+              <SelectTrigger className="flex-1 md:w-[200px] md:flex-none bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground">
+                <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las máquinas</SelectItem>
@@ -346,21 +347,21 @@ export const AdminSalesAnalytics = () => {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={handleRefresh} disabled={syncing} variant="secondary" size="sm">
-              <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />
-              {syncing ? 'Actualizando...' : 'Actualizar'}
+            <Button onClick={handleRefresh} disabled={syncing} variant="secondary" size="sm" className="shrink-0">
+              <RefreshCw className={cn("h-4 w-4 md:mr-2", syncing && "animate-spin")} />
+              <span className="hidden md:inline">{syncing ? 'Actualizando...' : 'Actualizar'}</span>
             </Button>
           </div>
         </div>
       </div>
 
       {/* View Mode Toggle */}
-      <div className="flex items-center justify-center gap-2">
+      <div className="grid grid-cols-2 gap-2 md:flex md:items-center md:justify-center">
         <Button variant={viewMode === 'daily' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('daily')}>
-          <Calendar className="h-4 w-4 mr-1" /> Vista Diaria
+          <Calendar className="h-4 w-4 mr-1" /> Diaria
         </Button>
         <Button variant={viewMode === 'monthly' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('monthly')}>
-          <BarChart3 className="h-4 w-4 mr-1" /> Vista Mensual
+          <BarChart3 className="h-4 w-4 mr-1" /> Mensual
         </Button>
       </div>
 
