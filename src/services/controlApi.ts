@@ -55,7 +55,11 @@ export interface ImagenDisponible {
 // === PRODUCTOS ===
 
 export const fetchProductos = async (imei: string): Promise<ProductosResponse> => {
-  const response = await fetch(`${API_CONFIG.endpoints.productos}?imei=${imei}`, { headers: API_CONFIG.headers });
+  if (!imei) {
+    console.warn('[fetchProductos] Llamada ignorada: IMEI vacío');
+    return { success: false, productos: [] };
+  }
+  const response = await fetch(`${API_CONFIG.endpoints.productos}?imei=${encodeURIComponent(imei)}`, { headers: API_CONFIG.headers });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Error ${response.status}: No se pudieron obtener los productos`);
