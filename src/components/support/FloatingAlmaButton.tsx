@@ -1,14 +1,21 @@
 import { useLocation } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const WHATSAPP_NUMBER = "19016750678"; // sin "+" para wa.me
 const DEFAULT_MESSAGE = "Hola Alma, necesito ayuda con mi máquina";
 
-// Rutas donde NO mostramos el botón (admin, auth, checkout)
-const HIDDEN_PREFIXES = ["/admin", "/checkout"];
+// Rutas donde NO mostramos el botón (auth, checkout)
+const HIDDEN_PREFIXES = ["/checkout"];
 
 export const FloatingAlmaButton = () => {
   const { pathname } = useLocation();
+  const { user } = useAuth();
+  const { isAdmin, loading } = useUserRole(user?.id);
+
+  // Solo visible para franquiciados autenticados (no admins, no invitados)
+  if (!user || isAdmin || loading) return null;
   if (HIDDEN_PREFIXES.some((p) => pathname.startsWith(p))) return null;
 
   const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(DEFAULT_MESSAGE)}`;
@@ -31,4 +38,4 @@ export const FloatingAlmaButton = () => {
       <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-[2.5px] border-background md:hidden" />
     </a>
   );
-};
+}
