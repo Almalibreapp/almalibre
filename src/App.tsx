@@ -29,6 +29,7 @@ import { DailySummary } from "./pages/DailySummary";
 import { NetworkDashboard } from "./pages/NetworkDashboard";
 import { Academy } from "./pages/Academy";
 import { InstallBanner } from "@/components/pwa/InstallBanner";
+import { FloatingAlmaButton } from "@/components/support/FloatingAlmaButton";
 import NotFound from "./pages/NotFound";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -236,6 +237,7 @@ const AppContent = () => {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <FloatingAlmaButton />
     </div>
   );
 };
