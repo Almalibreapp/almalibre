@@ -19,11 +19,16 @@ export const FloatingAlmaButton = () => {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chatear con Alma por WhatsApp"
-      className="fixed z-50 right-4 bottom-24 md:bottom-6 flex items-center gap-2 rounded-full bg-[#25D366] hover:bg-[#1ebe57] text-white shadow-lg shadow-emerald-500/30 px-4 py-3 transition-transform active:scale-95"
-      style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+      className="fixed z-[45] right-4 bottom-24 md:bottom-8 md:right-8 flex items-center justify-center w-14 h-14 md:w-auto md:h-auto md:px-5 md:py-3.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95 alma-float"
+      style={{ 
+        marginBottom: "max(env(safe-area-inset-bottom), 0px)",
+        animation: "alma-pulse 3s ease-in-out infinite"
+      }}
     >
-      <MessageCircle className="h-5 w-5" />
-      <span className="font-semibold text-sm hidden sm:inline">Hablar con Alma</span>
+      <MessageCircle className="h-6 w-6 md:h-5 md:w-5 md:mr-2" strokeWidth={2} />
+      <span className="font-semibold text-sm hidden md:inline">Hablar con Alma</span>
+      {/* Online indicator dot - mobile only */}
+      <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-[2.5px] border-background md:hidden" />
     </a>
   );
 };
