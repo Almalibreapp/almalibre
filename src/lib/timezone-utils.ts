@@ -67,7 +67,7 @@ export function extraerFechaSegunMaquina(fechaHoraChina: string, imei: string): 
   const [fecha, hora] = normalized.split(' ');
   if (!fecha) return '';
 
-  if (imei === '865622072039477' && hora) {
+  if (CHINA_TIME_IMEIS.has(imei) && hora) {
     const [year, month, day] = fecha.split('-').map(Number);
     const [hour, minute, second = 0] = hora.split(':').map(Number);
     const utcMs = Date.UTC(year, month - 1, day, hour - 8, minute, second);
