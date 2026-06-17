@@ -122,7 +122,7 @@ export const AdminSales = () => {
     };
     return ventasDiaRaw
       .filter(v => (v.fecha || '').substring(0, 10) === dateStr)
-      .sort((a, b) => getDisplayHora(b).localeCompare(getDisplayHora(a)));
+      .sort((a, b) => getDisplayHora(a).localeCompare(getDisplayHora(b)));
   }, [ventasDiaRaw, dateStr]);
 
   const { data: ventasAyerRaw } = useQuery({
