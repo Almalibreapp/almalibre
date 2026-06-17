@@ -4,6 +4,14 @@
  * We convert to Spain time (Europe/Madrid) for display.
  */
 
+// IMEIs de máquinas cuyo timestamp viene en hora china (UTC+8).
+// Añadir aquí cualquier máquina nueva que reporte en horario chino.
+const CHINA_TIME_IMEIS = new Set<string>([
+  '865622072039477',
+  '865622073018769',
+  '865622072055218',
+]);
+
 /**
  * Convert a fecha_hora_china string to Spain display time,
  * applying machine-specific adjustments.
@@ -19,10 +27,10 @@ export function convertirHoraSegunMaquina(fechaHoraChina: string, imei: string):
   const [year, month, day] = fecha.split('-').map(Number);
   const [hour, minute, second = 0] = hora.split(':').map(Number);
 
-  // Para la máquina 865622072039477: el timestamp viene en UTC+8 (China).
-  // Lo convertimos a UTC restando 8 horas y luego formateamos en zona Europe/Madrid
-  // para que se aplique automáticamente el horario de invierno/verano.
-  if (imei === '865622072039477') {
+  // Máquinas cuyo timestamp viene en UTC+8 (hora china).
+  // Las convertimos a UTC restando 8 horas y formateamos en Europe/Madrid
+  // para aplicar automáticamente horario de invierno/verano.
+  if (CHINA_TIME_IMEIS.has(imei)) {
     const utcMs = Date.UTC(year, month - 1, day, hour - 8, minute, second);
     const utcDate = new Date(utcMs);
     return utcDate.toLocaleTimeString('es-ES', {
@@ -59,7 +67,7 @@ export function extraerFechaSegunMaquina(fechaHoraChina: string, imei: string): 
   const [fecha, hora] = normalized.split(' ');
   if (!fecha) return '';
 
-  if (imei === '865622072039477' && hora) {
+  if (CHINA_TIME_IMEIS.has(imei) && hora) {
     const [year, month, day] = fecha.split('-').map(Number);
     const [hour, minute, second = 0] = hora.split(':').map(Number);
     const utcMs = Date.UTC(year, month - 1, day, hour - 8, minute, second);
