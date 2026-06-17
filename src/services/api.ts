@@ -2,7 +2,7 @@ import { API_CONFIG } from '@/config/api';
 
 const normalizeTemperatureDateParam = (value: string | undefined, fallback: string) => {
   const raw = String(value || '').trim();
-  const match = raw.match(/\d{4}-\d{2}-\d{2}/));
+  const match = raw.match(/\d{4}-\d{2}-\d{2}/);
   return match?.[0] || fallback;
 };
 
