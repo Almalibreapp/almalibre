@@ -2,9 +2,24 @@ import { API_CONFIG } from '@/config/api';
 
 const normalizeTemperatureDateParam = (value: string | undefined, fallback: string) => {
   const raw = String(value || '').trim();
-  const match = raw.match(/\d{4}-\d{2}-\d{2}/);
+  const match = raw.match(/\d{4}-\d{2}-\d{2}/));
   return match?.[0] || fallback;
 };
+
+// In-flight dedupe + short circuit breaker for the flaky upstream "ventas" endpoint.
+// If the upstream fails, we cache an empty result briefly so we don't hammer it
+// (the manufacturer API returns 500/Nginx HTML when overloaded).
+const ventasInflight = new Map<string, Promise<any>>();
+const ventasFailureUntil = new Map<string, number>();
+const VENTAS_FAILURE_TTL_MS = 15000;
+
+const emptyVentas = (imei: string, dateStr: string) => ({
+  mac_addr: imei,
+  fecha: dateStr,
+  total_ventas: 0,
+  ventas: [] as any[],
+});
+
 
 // Información general de la máquina
 export const fetchMiMaquina = async (imei: string) => {
