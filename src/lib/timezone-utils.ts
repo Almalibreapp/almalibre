@@ -4,6 +4,14 @@
  * We convert to Spain time (Europe/Madrid) for display.
  */
 
+// IMEIs de máquinas cuyo timestamp viene en hora china (UTC+8).
+// Añadir aquí cualquier máquina nueva que reporte en horario chino.
+const CHINA_TIME_IMEIS = new Set<string>([
+  '865622072039477',
+  '865622073018769',
+  '865622072055218',
+]);
+
 /**
  * Convert a fecha_hora_china string to Spain display time,
  * applying machine-specific adjustments.
