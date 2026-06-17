@@ -19,10 +19,10 @@ export function convertirHoraSegunMaquina(fechaHoraChina: string, imei: string):
   const [year, month, day] = fecha.split('-').map(Number);
   const [hour, minute, second = 0] = hora.split(':').map(Number);
 
-  // Para la máquina 865622072039477: el timestamp viene en UTC+8 (China).
-  // Lo convertimos a UTC restando 8 horas y luego formateamos en zona Europe/Madrid
-  // para que se aplique automáticamente el horario de invierno/verano.
-  if (imei === '865622072039477') {
+  // Máquinas cuyo timestamp viene en UTC+8 (hora china).
+  // Las convertimos a UTC restando 8 horas y formateamos en Europe/Madrid
+  // para aplicar automáticamente horario de invierno/verano.
+  if (CHINA_TIME_IMEIS.has(imei)) {
     const utcMs = Date.UTC(year, month - 1, day, hour - 8, minute, second);
     const utcDate = new Date(utcMs);
     return utcDate.toLocaleTimeString('es-ES', {
