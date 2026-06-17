@@ -6,6 +6,21 @@ const normalizeTemperatureDateParam = (value: string | undefined, fallback: stri
   return match?.[0] || fallback;
 };
 
+// In-flight dedupe + short circuit breaker for the flaky upstream "ventas" endpoint.
+// If the upstream fails, we cache an empty result briefly so we don't hammer it
+// (the manufacturer API returns 500/Nginx HTML when overloaded).
+const ventasInflight = new Map<string, Promise<any>>();
+const ventasFailureUntil = new Map<string, number>();
+const VENTAS_FAILURE_TTL_MS = 15000;
+
+const emptyVentas = (imei: string, dateStr: string) => ({
+  mac_addr: imei,
+  fecha: dateStr,
+  total_ventas: 0,
+  ventas: [] as any[],
+});
+
+
 // Información general de la máquina
 export const fetchMiMaquina = async (imei: string) => {
   const response = await fetch(`${API_CONFIG.endpoints.estado}?imei=${imei}`, { headers: API_CONFIG.headers });
@@ -42,90 +57,85 @@ export const fetchVentasResumen = async (imei: string) => {
   }
 };
 
+const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' | 'ordenes') => {
+  const key = `${tag}|${imei}|${dateStr}`;
+
+  // Circuit breaker: upstream recently failed → return empty immediately.
+  const failUntil = ventasFailureUntil.get(key);
+  if (failUntil && Date.now() < failUntil) {
+    return emptyVentas(imei, dateStr);
+  }
+
+  // Dedupe concurrent identical requests.
+  const inflight = ventasInflight.get(key);
+  if (inflight) return inflight;
+
+  const promise = (async () => {
+    try {
+      const response = await fetch(
+        `${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`,
+        { headers: API_CONFIG.headers }
+      );
+      if (!response.ok) {
+        ventasFailureUntil.set(key, Date.now() + VENTAS_FAILURE_TTL_MS);
+        console.warn(`[fetchVentas/${tag}] HTTP ${response.status} for ${imei} ${dateStr}`);
+        return emptyVentas(imei, dateStr);
+      }
+      const text = await response.text();
+      if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+        ventasFailureUntil.set(key, Date.now() + VENTAS_FAILURE_TTL_MS);
+        console.warn(`[fetchVentas/${tag}] Server returned HTML for ${imei} ${dateStr}`);
+        return emptyVentas(imei, dateStr);
+      }
+      const data = JSON.parse(text);
+      const ventas = (data.ventas || []).map((v: any) => ({
+        ...v,
+        id: v.id || v.numero_orden || `${v.fecha_hora_china}-${v.precio}`,
+        fecha_hora_china: v.fecha_hora_china || '',
+        fecha: dateStr,
+        producto: v.producto || '',
+        precio: Number(v.precio || 0),
+        cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+        metodo_pago: v.metodo_pago || '',
+        estado: v.estado || 'exitoso',
+        toppings: v.toppings || [],
+      }));
+      return {
+        mac_addr: data.imei || imei,
+        fecha: data.fecha || dateStr,
+        total_ventas: data.total || ventas.length,
+        ventas,
+        fuente: data.fuente,
+      };
+    } catch (err) {
+      ventasFailureUntil.set(key, Date.now() + VENTAS_FAILURE_TTL_MS);
+      console.warn(`[fetchVentas/${tag}] Error for ${imei} ${dateStr}:`, err);
+      return emptyVentas(imei, dateStr);
+    } finally {
+      ventasInflight.delete(key);
+    }
+  })();
+
+  ventasInflight.set(key, promise);
+  return promise;
+};
+
 /**
  * Fetch sales for a specific date.
- * Backend now sends fecha_hora_china field for each sale.
  */
 export const fetchVentasDetalle = async (imei: string, fecha?: string) => {
   const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  try {
-    const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_CONFIG.headers });
-    if (!response.ok) {
-      console.warn(`[fetchVentasDetalle] HTTP ${response.status} for ${imei} ${dateStr}`);
-      return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
-    }
-    const text = await response.text();
-    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-      console.warn(`[fetchVentasDetalle] Server returned HTML for ${imei} ${dateStr}`);
-      return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
-    }
-    const data = JSON.parse(text);
-    const ventas = (data.ventas || []).map((v: any) => ({
-      ...v,
-      fecha_hora_china: v.fecha_hora_china || '',
-      fecha: dateStr,
-      producto: v.producto || '',
-      precio: Number(v.precio || 0),
-      cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-      metodo_pago: v.metodo_pago || '',
-      estado: v.estado || 'exitoso',
-      toppings: v.toppings || [],
-    }));
-    return {
-      mac_addr: data.imei || imei,
-      fecha: data.fecha || dateStr,
-      total_ventas: data.total || ventas.length,
-      ventas,
-      fuente: data.fuente,
-    };
-  } catch (err) {
-    console.warn(`[fetchVentasDetalle] Error for ${imei} ${dateStr}:`, err);
-    return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
-  }
+  return performVentasFetch(imei, dateStr, 'detalle');
 };
 
 /**
  * Fetch orders for a specific date.
- * Backend now sends fecha_hora_china field.
  */
 export const fetchOrdenes = async (imei: string, fecha?: string) => {
   const dateStr = fecha || new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-  try {
-    const response = await fetch(`${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`, { headers: API_CONFIG.headers });
-    if (!response.ok) {
-      console.warn(`[fetchOrdenes] HTTP ${response.status} for ${imei} ${dateStr}`);
-      return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
-    }
-    const text = await response.text();
-    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-      console.warn(`[fetchOrdenes] Server returned HTML for ${imei} ${dateStr}`);
-      return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
-    }
-    const data = JSON.parse(text);
-    const ventas = (data.ventas || []).map((v: any) => ({
-      ...v,
-      id: v.id || v.numero_orden || `${v.fecha_hora_china}-${v.precio}`,
-      fecha_hora_china: v.fecha_hora_china || '',
-      fecha: dateStr,
-      producto: v.producto || '',
-      precio: Number(v.precio || 0),
-      cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-      metodo_pago: v.metodo_pago || '',
-      estado: v.estado || 'exitoso',
-      toppings: v.toppings || [],
-    }));
-    return {
-      mac_addr: data.imei || imei,
-      fecha: data.fecha || dateStr,
-      total_ventas: data.total || ventas.length,
-      ventas,
-      fuente: data.fuente,
-    };
-  } catch (err) {
-    console.warn(`[fetchOrdenes] Error for ${imei} ${dateStr}:`, err);
-    return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [] };
-  }
+  return performVentasFetch(imei, dateStr, 'ordenes');
 };
+
 
 // Stock de toppings — merges manufacturer API with stock_config capacities
 export const fetchToppings = async (imei: string) => {
