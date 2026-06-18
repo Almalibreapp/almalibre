@@ -9,7 +9,7 @@
 const CHINA_TIME_IMEIS = new Set<string>([
   '865622072039477',
   '865622073018769',
-  // '865622072055218' reporta ya en hora española, no aplicar conversión.
+  '865622072055218',
 ]);
 
 /**
