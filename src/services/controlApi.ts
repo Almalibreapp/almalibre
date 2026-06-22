@@ -77,7 +77,7 @@ export const fetchProductos = async (imei: string): Promise<ProductosResponse> =
 };
 
 export const updateProductoPrecio = async (imei: string, position: number, precio: string) => {
-  const response = await fetch(API_CONFIG.endpoints.productos, {
+  const response = await fetch(`${API_CONFIG.endpoints.productos}?imei=${encodeURIComponent(imei)}`, {
     method: 'POST',
     headers: API_CONFIG.postHeaders,
     body: JSON.stringify({ imei, position, precio: Number(precio) }),
@@ -90,7 +90,7 @@ export const updateProductoPrecio = async (imei: string, position: number, preci
 };
 
 export const updateProductoNombre = async (imei: string, position: number, nombre: string) => {
-  const response = await fetch(API_CONFIG.endpoints.productos, {
+  const response = await fetch(`${API_CONFIG.endpoints.productos}?imei=${encodeURIComponent(imei)}`, {
     method: 'POST',
     headers: API_CONFIG.postHeaders,
     body: JSON.stringify({ imei, position, nombre }),
@@ -106,7 +106,7 @@ export const updateProductoNombre = async (imei: string, position: number, nombr
 };
 
 export const updateProductoImagen = async (imei: string, position: number, imageUrl: string) => {
-  const response = await fetch(API_CONFIG.endpoints.productos, {
+  const response = await fetch(`${API_CONFIG.endpoints.productos}?imei=${encodeURIComponent(imei)}`, {
     method: 'POST',
     headers: API_CONFIG.postHeaders,
     body: JSON.stringify({ imei, position, imagen: imageUrl }),
