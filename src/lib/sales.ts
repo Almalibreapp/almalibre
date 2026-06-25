@@ -209,7 +209,12 @@ export const fetchSpanishDayOrders = async (
   // Para máquinas con desfase horario China (UTC+8) la API devuelve ventas por
   // fecha china. Una venta del día siguiente en hora china puede caer en el
   // día anterior en hora española, así que hay que ampliar el rango de fetch.
-  const isChinaMachine = imei === '865622072039477';
+  const CHINA_TIME_IMEIS = new Set<string>([
+    '865622072039477',
+    '865622073018769',
+    '865622072055218',
+  ]);
+  const isChinaMachine = CHINA_TIME_IMEIS.has(imei);
   const datesToFetch = isChinaMachine
     ? [prevDate, spainDate, nextDate]
     : [prevDate, spainDate];
