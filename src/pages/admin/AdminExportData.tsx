@@ -11,7 +11,9 @@ import { format, differenceInDays, isFuture } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { API_CONFIG } from '@/config/api';
+import * as XLSX from 'xlsx';
+import { fetchTemperatura, fetchOrdenes } from '@/services/api';
+import { convertirVentaAEspana } from '@/lib/timezone-utils';
 
 interface Maquina {
   id: string;
@@ -20,6 +22,25 @@ interface Maquina {
   ubicacion: string | null;
   usuario_id: string;
 }
+
+const PASTEURIZATION_MIN = 66;
+
+const addDaysISO = (iso: string, days: number) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+};
+
+const enumerateDates = (fromISO: string, toISO: string) => {
+  const out: string[] = [];
+  let cur = fromISO;
+  while (cur <= toISO) {
+    out.push(cur);
+    cur = addDaysISO(cur, 1);
+  }
+  return out;
+};
 
 export const AdminExportData = () => {
   const [tipo, setTipo] = useState<'ventas' | 'temperatura' | null>(null);
@@ -51,27 +72,166 @@ export const AdminExportData = () => {
     try {
       const desdeStr = format(desde!, 'yyyy-MM-dd');
       const hastaStr = format(hasta!, 'yyyy-MM-dd');
-      const url = `${API_CONFIG.endpoints.ventas.replace('/ventas', '/exportar-datos')}?tipo=${tipo}&imei=${imei}&desde=${desdeStr}&hasta=${hastaStr}`;
+      const dias = enumerateDates(desdeStr, hastaStr);
 
-      const response = await fetch(url, { headers: API_CONFIG.headers });
+      const wb = XLSX.utils.book_new();
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = `${tipo}_${imei}_${desdeStr}_${hastaStr}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(blobUrl);
-        document.body.removeChild(a);
-        toast.success('Archivo descargado correctamente');
+      if (tipo === 'temperatura') {
+        const rows: Array<Record<string, unknown>> = [];
+        for (const dia of dias) {
+          const data = await fetchTemperatura(imei, dia, dia);
+          const datos = Array.isArray(data?.datos) ? data.datos : [];
+          for (const d of datos) {
+            const tsRaw = String(d.timestamp || '').trim();
+            let fecha = dia;
+            let hora = tsRaw;
+            const m = tsRaw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)/);
+            if (m) {
+              fecha = m[1];
+              hora = m[2];
+            } else if (/^\d{2}:\d{2}/.test(tsRaw)) {
+              hora = tsRaw;
+            }
+            const temp = Number(d.temperatura);
+            const esPico = Number.isFinite(temp) && temp >= PASTEURIZATION_MIN;
+            rows.push({
+              Fecha: fecha,
+              Hora: hora,
+              'Temperatura (°C)': Number.isFinite(temp) ? temp : '',
+              Estado: d.estado || '',
+              Sensor: d.sensor || '',
+              Pasteurización: esPico ? `SÍ (≥${PASTEURIZATION_MIN}°C)` : '',
+            });
+          }
+        }
+
+        if (rows.length === 0) {
+          toast.error('No hay datos de temperatura en el rango seleccionado');
+          setDownloading(false);
+          return;
+        }
+
+        rows.sort((a, b) => {
+          const ka = `${a.Fecha} ${a.Hora}`;
+          const kb = `${b.Fecha} ${b.Hora}`;
+          return ka < kb ? -1 : ka > kb ? 1 : 0;
+        });
+
+        // HOJA 1: Resumen diario
+        const porDia = new Map<string, { max: number; horaMax: string; count: number; picos: number }>();
+        for (const dia of dias) porDia.set(dia, { max: -Infinity, horaMax: '', count: 0, picos: 0 });
+        for (const r of rows) {
+          const f = String(r.Fecha);
+          const t = Number(r['Temperatura (°C)']);
+          const agg = porDia.get(f) ?? { max: -Infinity, horaMax: '', count: 0, picos: 0 };
+          agg.count++;
+          if (Number.isFinite(t)) {
+            if (t > agg.max) { agg.max = t; agg.horaMax = String(r.Hora); }
+            if (t >= PASTEURIZATION_MIN) agg.picos++;
+          }
+          porDia.set(f, agg);
+        }
+        const resumenRows = dias.map((dia) => {
+          const a = porDia.get(dia)!;
+          const tuvo = a.picos > 0;
+          return {
+            Fecha: dia,
+            'Lecturas': a.count,
+            'Temp. Máxima (°C)': a.max === -Infinity ? '' : a.max,
+            'Hora del Máximo': a.horaMax,
+            'Picos ≥66°C': a.picos,
+            'Pasteurización': tuvo ? `SÍ (${a.picos} picos)` : (a.count === 0 ? 'Sin datos' : 'NO'),
+          };
+        });
+        const wsResumen = XLSX.utils.json_to_sheet(resumenRows);
+        wsResumen['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 22 }];
+        const rgResumen = XLSX.utils.decode_range(wsResumen['!ref']!);
+        for (let R = 1; R <= rgResumen.e.r; R++) {
+          const picoCell = wsResumen[XLSX.utils.encode_cell({ r: R, c: 4 })];
+          if (picoCell && typeof picoCell.v === 'number' && picoCell.v > 0) {
+            for (let C = 0; C <= 5; C++) {
+              const ref = XLSX.utils.encode_cell({ r: R, c: C });
+              if (!wsResumen[ref]) wsResumen[ref] = { t: 's', v: '' };
+              wsResumen[ref].s = {
+                fill: { fgColor: { rgb: 'FFF4CCCC' } },
+                font: { bold: true, color: { rgb: 'FF9C0006' } },
+              };
+            }
+          }
+        }
+        XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen Diario');
+
+        // HOJA 2: Picos
+        const picosRows = rows.filter((r: any) => typeof r['Temperatura (°C)'] === 'number' && r['Temperatura (°C)'] >= PASTEURIZATION_MIN);
+        const totalPicos = picosRows.length;
+        const wsPicos = XLSX.utils.json_to_sheet(picosRows.length ? picosRows : [{ Aviso: `Sin picos ≥${PASTEURIZATION_MIN}°C en el rango seleccionado` }]);
+        wsPicos['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 22 }];
+        XLSX.utils.book_append_sheet(wb, wsPicos, `Picos Pasteurización (${totalPicos})`);
+
+        // HOJA 3: Log completo
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 22 }];
+        const range = XLSX.utils.decode_range(ws['!ref']!);
+        for (let R = 1; R <= range.e.r; R++) {
+          const cell = ws[XLSX.utils.encode_cell({ r: R, c: 2 })];
+          if (cell && typeof cell.v === 'number' && cell.v >= PASTEURIZATION_MIN) {
+            for (let C = 0; C <= 5; C++) {
+              const ref = XLSX.utils.encode_cell({ r: R, c: C });
+              if (!ws[ref]) ws[ref] = { t: 's', v: '' };
+              ws[ref].s = {
+                fill: { fgColor: { rgb: 'FFF4CCCC' } },
+                font: { bold: true, color: { rgb: 'FF9C0006' } },
+              };
+            }
+          }
+        }
+        XLSX.utils.book_append_sheet(wb, ws, 'Temperatura Completa');
       } else {
-        const error = await response.json().catch(() => ({ message: 'Error desconocido' }));
-        toast.error(error.message || 'Error al descargar el archivo');
+        // Ventas
+        const rows: Array<Record<string, unknown>> = [];
+        for (const dia of dias) {
+          const data = await fetchOrdenes(imei, dia);
+          const ventas = Array.isArray(data?.ventas) ? data.ventas : [];
+          for (const v of ventas) {
+            const estado = String(v.estado || '').toLowerCase();
+            if (estado === 'fallido' || estado === 'cancelado' || estado === 'failed' || estado === 'cancelled') continue;
+            const { fecha, hora } = convertirVentaAEspana(v.fecha_hora_china || `${dia} 00:00:00`, imei);
+            rows.push({
+              Fecha: fecha || dia,
+              Hora: hora,
+              Producto: v.producto || '',
+              'Precio (€)': Number(v.precio || 0),
+              Unidades: v.cantidad_unidades || 1,
+              'Método Pago': v.metodo_pago || '',
+              'Nº Orden': v.numero_orden || v.id || '',
+              Estado: v.estado || '',
+              Toppings: Array.isArray(v.toppings) ? v.toppings.map((t: any) => `${t.nombre}${t.cantidad ? ` x${t.cantidad}` : ''}`).join(', ') : '',
+            });
+          }
+        }
+
+        if (rows.length === 0) {
+          toast.error('No hay ventas en el rango seleccionado');
+          setDownloading(false);
+          return;
+        }
+
+        rows.sort((a, b) => {
+          const ka = `${a.Fecha} ${a.Hora}`;
+          const kb = `${b.Fecha} ${b.Hora}`;
+          return ka < kb ? -1 : ka > kb ? 1 : 0;
+        });
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 24 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 18 }, { wch: 12 }, { wch: 30 }];
+        XLSX.utils.book_append_sheet(wb, ws, 'Ventas');
       }
-    } catch {
-      toast.error('Error de conexión al descargar');
+
+      XLSX.writeFile(wb, `${tipo}_${imei}_${desdeStr}_${hastaStr}.xlsx`);
+      toast.success('Archivo descargado correctamente');
+    } catch (err) {
+      console.error('[AdminExportData] Error:', err);
+      toast.error('Error al generar el archivo');
     } finally {
       setDownloading(false);
     }
@@ -87,7 +247,6 @@ export const AdminExportData = () => {
       </div>
 
       <div className="grid md:grid-cols-2 gap-5 max-w-3xl">
-        {/* Tipo de datos */}
         <Card className="md:col-span-2">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -123,7 +282,6 @@ export const AdminExportData = () => {
           </CardContent>
         </Card>
 
-        {/* Fecha Desde */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -146,7 +304,6 @@ export const AdminExportData = () => {
           </CardContent>
         </Card>
 
-        {/* Fecha Hasta */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -169,7 +326,6 @@ export const AdminExportData = () => {
           </CardContent>
         </Card>
 
-        {/* Validaciones de rango */}
         {desde && hasta && desde > hasta && (
           <p className="text-xs text-destructive flex items-center gap-1 md:col-span-2">
             <AlertCircle className="h-3 w-3" /> La fecha "Desde" debe ser anterior o igual a "Hasta"
@@ -186,7 +342,6 @@ export const AdminExportData = () => {
           </p>
         )}
 
-        {/* Máquina */}
         <Card className="md:col-span-2">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -211,7 +366,6 @@ export const AdminExportData = () => {
           </CardContent>
         </Card>
 
-        {/* Resumen + Descarga */}
         <Card className="md:col-span-2">
           <CardContent className="pt-6 space-y-4">
             {formCompleto && (
