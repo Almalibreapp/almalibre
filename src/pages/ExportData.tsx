@@ -66,7 +66,6 @@ export const ExportData = () => {
 
       if (tipo === 'temperatura') {
         const rows: Array<Record<string, unknown>> = [];
-        let picos = 0;
         // Fetch day-by-day to guarantee deterministic, complete data
         for (const dia of dias) {
           const data = await fetchTemperatura(imei, dia, dia);
@@ -84,7 +83,6 @@ export const ExportData = () => {
             }
             const temp = Number(d.temperatura);
             const esPico = Number.isFinite(temp) && temp >= PASTEURIZATION_MIN;
-            if (esPico) picos++;
             rows.push({
               Fecha: fecha,
               Hora: hora,
@@ -102,17 +100,69 @@ export const ExportData = () => {
           return;
         }
 
-        // Sort chronologically so identical ranges produce identical files
         rows.sort((a, b) => {
           const ka = `${a.Fecha} ${a.Hora}`;
           const kb = `${b.Fecha} ${b.Hora}`;
           return ka < kb ? -1 : ka > kb ? 1 : 0;
         });
 
+        // ============ HOJA 1: Resumen diario de pasteurización ============
+        // Un registro por CADA día del rango — así siempre se ven los días
+        // con y sin pasteurización.
+        const porDia = new Map<string, { max: number; horaMax: string; count: number; picos: number }>();
+        for (const dia of dias) porDia.set(dia, { max: -Infinity, horaMax: '', count: 0, picos: 0 });
+        for (const r of rows) {
+          const f = String(r.Fecha);
+          const t = Number(r['Temperatura (°C)']);
+          const agg = porDia.get(f) ?? { max: -Infinity, horaMax: '', count: 0, picos: 0 };
+          agg.count++;
+          if (Number.isFinite(t)) {
+            if (t > agg.max) { agg.max = t; agg.horaMax = String(r.Hora); }
+            if (t >= PASTEURIZATION_MIN) agg.picos++;
+          }
+          porDia.set(f, agg);
+        }
+        const resumenRows = dias.map((dia) => {
+          const a = porDia.get(dia)!;
+          const tuvo = a.picos > 0;
+          return {
+            Fecha: dia,
+            'Lecturas': a.count,
+            'Temp. Máxima (°C)': a.max === -Infinity ? '' : a.max,
+            'Hora del Máximo': a.horaMax,
+            'Picos ≥66°C': a.picos,
+            'Pasteurización': tuvo ? `SÍ (${a.picos} picos)` : (a.count === 0 ? 'Sin datos' : 'NO'),
+          };
+        });
+        const wsResumen = XLSX.utils.json_to_sheet(resumenRows);
+        wsResumen['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 22 }];
+        // Resaltar días con pasteurización
+        const rgResumen = XLSX.utils.decode_range(wsResumen['!ref']!);
+        for (let R = 1; R <= rgResumen.e.r; R++) {
+          const picoCell = wsResumen[XLSX.utils.encode_cell({ r: R, c: 4 })];
+          if (picoCell && typeof picoCell.v === 'number' && picoCell.v > 0) {
+            for (let C = 0; C <= 5; C++) {
+              const ref = XLSX.utils.encode_cell({ r: R, c: C });
+              if (!wsResumen[ref]) wsResumen[ref] = { t: 's', v: '' };
+              wsResumen[ref].s = {
+                fill: { fgColor: { rgb: 'FFF4CCCC' } },
+                font: { bold: true, color: { rgb: 'FF9C0006' } },
+              };
+            }
+          }
+        }
+        XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen Diario');
+
+        // ============ HOJA 2: Picos de pasteurización ============
+        const picosRows = rows.filter((r: any) => typeof r['Temperatura (°C)'] === 'number' && r['Temperatura (°C)'] >= PASTEURIZATION_MIN);
+        const totalPicos = picosRows.length;
+        const wsPicos = XLSX.utils.json_to_sheet(picosRows.length ? picosRows : [{ Aviso: `Sin picos ≥${PASTEURIZATION_MIN}°C en el rango seleccionado` }]);
+        wsPicos['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 22 }];
+        XLSX.utils.book_append_sheet(wb, wsPicos, `Picos Pasteurización (${totalPicos})`);
+
+        // ============ HOJA 3: Log completo de temperatura ============
         const ws = XLSX.utils.json_to_sheet(rows);
         ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 22 }];
-
-        // Highlight pasteurization peaks (≥66°C) in red
         const range = XLSX.utils.decode_range(ws['!ref']!);
         for (let R = 1; R <= range.e.r; R++) {
           const cell = ws[XLSX.utils.encode_cell({ r: R, c: 2 })];
@@ -127,14 +177,7 @@ export const ExportData = () => {
             }
           }
         }
-
-        XLSX.utils.book_append_sheet(wb, ws, 'Temperatura');
-
-        // Peaks-only summary sheet
-        const picosRows = rows.filter((r: any) => typeof r['Temperatura (°C)'] === 'number' && r['Temperatura (°C)'] >= PASTEURIZATION_MIN);
-        const wsPicos = XLSX.utils.json_to_sheet(picosRows.length ? picosRows : [{ Aviso: `Sin picos ≥${PASTEURIZATION_MIN}°C en el rango` }]);
-        wsPicos['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 22 }];
-        XLSX.utils.book_append_sheet(wb, wsPicos, `Picos Pasteurización (${picos})`);
+        XLSX.utils.book_append_sheet(wb, ws, 'Temperatura Completa');
       } else {
         // Ventas
         const rows: Array<Record<string, unknown>> = [];
