@@ -68,14 +68,14 @@ export const ExportData = () => {
       if (tipo === 'temperatura') {
         const rows: Array<Record<string, unknown>> = [];
 
-        // Buscar el maquina_id a partir del mac_address (imei seleccionado)
-        const { data: maqRow } = await supabase
+        // Buscar todos los maquina_id que comparten este mac_address
+        const { data: maqRows } = await supabase
           .from('maquinas')
           .select('id')
-          .eq('mac_address', imei)
-          .maybeSingle();
+          .eq('mac_address', imei);
 
-        if (!maqRow?.id) {
+        const maquinaIds = (maqRows || []).map((m) => m.id);
+        if (maquinaIds.length === 0) {
           toast.error('No se encontró la máquina seleccionada');
           setDownloading(false);
           return;
@@ -92,7 +92,7 @@ export const ExportData = () => {
           const { data: page, error } = await supabase
             .from('lecturas_temperatura')
             .select('temperatura, estado, sensor, created_at')
-            .eq('maquina_id', maqRow.id)
+            .in('maquina_id', maquinaIds)
             .gte('created_at', startISO)
             .lt('created_at', endISO)
             .order('created_at', { ascending: true })
