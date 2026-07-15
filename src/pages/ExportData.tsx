@@ -60,27 +60,127 @@ export const ExportData = () => {
     try {
       const desdeStr = format(desde!, 'yyyy-MM-dd');
       const hastaStr = format(hasta!, 'yyyy-MM-dd');
-      const url = `${API_CONFIG.endpoints.ventas.replace('/ventas', '/exportar-datos')}?tipo=${tipo}&imei=${imei}&desde=${desdeStr}&hasta=${hastaStr}`;
+      const dias = enumerateDates(desdeStr, hastaStr);
 
-      const response = await fetch(url, { headers: API_CONFIG.headers });
+      const wb = XLSX.utils.book_new();
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = `${tipo}_${imei}_${desdeStr}_${hastaStr}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(blobUrl);
-        document.body.removeChild(a);
-        toast.success('Archivo descargado correctamente');
+      if (tipo === 'temperatura') {
+        const rows: Array<Record<string, unknown>> = [];
+        let picos = 0;
+        // Fetch day-by-day to guarantee deterministic, complete data
+        for (const dia of dias) {
+          const data = await fetchTemperatura(imei, dia, dia);
+          const datos = Array.isArray(data?.datos) ? data.datos : [];
+          for (const d of datos) {
+            const tsRaw = String(d.timestamp || '').trim();
+            let fecha = dia;
+            let hora = tsRaw;
+            const m = tsRaw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)/);
+            if (m) {
+              fecha = m[1];
+              hora = m[2];
+            } else if (/^\d{2}:\d{2}/.test(tsRaw)) {
+              hora = tsRaw;
+            }
+            const temp = Number(d.temperatura);
+            const esPico = Number.isFinite(temp) && temp >= PASTEURIZATION_MIN;
+            if (esPico) picos++;
+            rows.push({
+              Fecha: fecha,
+              Hora: hora,
+              'Temperatura (°C)': Number.isFinite(temp) ? temp : '',
+              Estado: d.estado || '',
+              Sensor: d.sensor || '',
+              Pasteurización: esPico ? `SÍ (≥${PASTEURIZATION_MIN}°C)` : '',
+            });
+          }
+        }
+
+        if (rows.length === 0) {
+          toast.error('No hay datos de temperatura en el rango seleccionado');
+          setDownloading(false);
+          return;
+        }
+
+        // Sort chronologically so identical ranges produce identical files
+        rows.sort((a, b) => {
+          const ka = `${a.Fecha} ${a.Hora}`;
+          const kb = `${b.Fecha} ${b.Hora}`;
+          return ka < kb ? -1 : ka > kb ? 1 : 0;
+        });
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 22 }];
+
+        // Highlight pasteurization peaks (≥66°C) in red
+        const range = XLSX.utils.decode_range(ws['!ref']!);
+        for (let R = 1; R <= range.e.r; R++) {
+          const cell = ws[XLSX.utils.encode_cell({ r: R, c: 2 })];
+          if (cell && typeof cell.v === 'number' && cell.v >= PASTEURIZATION_MIN) {
+            for (let C = 0; C <= 5; C++) {
+              const ref = XLSX.utils.encode_cell({ r: R, c: C });
+              if (!ws[ref]) ws[ref] = { t: 's', v: '' };
+              ws[ref].s = {
+                fill: { fgColor: { rgb: 'FFF4CCCC' } },
+                font: { bold: true, color: { rgb: 'FF9C0006' } },
+              };
+            }
+          }
+        }
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Temperatura');
+
+        // Peaks-only summary sheet
+        const picosRows = rows.filter((r: any) => typeof r['Temperatura (°C)'] === 'number' && r['Temperatura (°C)'] >= PASTEURIZATION_MIN);
+        const wsPicos = XLSX.utils.json_to_sheet(picosRows.length ? picosRows : [{ Aviso: `Sin picos ≥${PASTEURIZATION_MIN}°C en el rango` }]);
+        wsPicos['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 22 }];
+        XLSX.utils.book_append_sheet(wb, wsPicos, `Picos Pasteurización (${picos})`);
       } else {
-        const error = await response.json().catch(() => ({ message: 'Error desconocido' }));
-        toast.error(error.message || 'Error al descargar el archivo');
+        // Ventas
+        const rows: Array<Record<string, unknown>> = [];
+        for (const dia of dias) {
+          const data = await fetchOrdenes(imei, dia);
+          const ventas = Array.isArray(data?.ventas) ? data.ventas : [];
+          for (const v of ventas) {
+            const estado = String(v.estado || '').toLowerCase();
+            if (estado === 'fallido' || estado === 'cancelado' || estado === 'failed' || estado === 'cancelled') continue;
+            const { fecha, hora } = convertirVentaAEspana(v.fecha_hora_china || `${dia} 00:00:00`, imei);
+            rows.push({
+              Fecha: fecha || dia,
+              Hora: hora,
+              Producto: v.producto || '',
+              'Precio (€)': Number(v.precio || 0),
+              Unidades: v.cantidad_unidades || 1,
+              'Método Pago': v.metodo_pago || '',
+              'Nº Orden': v.numero_orden || v.id || '',
+              Estado: v.estado || '',
+              Toppings: Array.isArray(v.toppings) ? v.toppings.map((t: any) => `${t.nombre}${t.cantidad ? ` x${t.cantidad}` : ''}`).join(', ') : '',
+            });
+          }
+        }
+
+        if (rows.length === 0) {
+          toast.error('No hay ventas en el rango seleccionado');
+          setDownloading(false);
+          return;
+        }
+
+        rows.sort((a, b) => {
+          const ka = `${a.Fecha} ${a.Hora}`;
+          const kb = `${b.Fecha} ${b.Hora}`;
+          return ka < kb ? -1 : ka > kb ? 1 : 0;
+        });
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 24 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 18 }, { wch: 12 }, { wch: 30 }];
+        XLSX.utils.book_append_sheet(wb, ws, 'Ventas');
       }
-    } catch {
-      toast.error('Error de conexión al descargar');
+
+      XLSX.writeFile(wb, `${tipo}_${imei}_${desdeStr}_${hastaStr}.xlsx`);
+      toast.success('Archivo descargado correctamente');
+    } catch (err) {
+      console.error('[ExportData] Error:', err);
+      toast.error('Error al generar el archivo');
     } finally {
       setDownloading(false);
     }
