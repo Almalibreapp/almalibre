@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { BottomNav } from '@/components/layout/BottomNav';
 import * as XLSX from 'xlsx';
 import { fetchTemperatura, fetchOrdenes } from '@/services/api';
-import { convertirHoraChinaAEspanola } from '@/lib/timezone-utils';
+import { convertirVentaAEspana } from '@/lib/timezone-utils';
 
 const PASTEURIZATION_MIN = 66;
 
