@@ -15,8 +15,9 @@ import { useMaquinas } from '@/hooks/useMaquinas';
 import { toast } from 'sonner';
 import { BottomNav } from '@/components/layout/BottomNav';
 import * as XLSX from 'xlsx';
-import { fetchTemperatura, fetchOrdenes } from '@/services/api';
+import { fetchOrdenes } from '@/services/api';
 import { convertirVentaAEspana } from '@/lib/timezone-utils';
+import { supabase } from '@/integrations/supabase/client';
 
 const PASTEURIZATION_MIN = 66;
 
