@@ -81,19 +81,19 @@ export const ExportData = () => {
         const pageSize = 1000;
         let from = 0;
         while (true) {
-          const query = supabase
+          let query = supabase
             .from('lecturas_temperatura')
             .select('temperatura, estado, sensor, created_at')
             .gte('created_at', startISO)
-            .lt('created_at', endISO)
-            .order('created_at', { ascending: true })
-            .range(from, from + pageSize - 1);
+            .lt('created_at', endISO);
 
-          const filteredQuery = maquinaIds.length > 0
+          query = maquinaIds.length > 0
             ? query.or(`imei.eq.${selectedImei},maquina_id.in.(${maquinaIds.join(',')})`)
             : query.eq('imei', selectedImei);
 
-          const { data: page, error } = await filteredQuery;
+          const { data: page, error } = await query
+            .order('created_at', { ascending: true })
+            .range(from, from + pageSize - 1);
           if (error) throw error;
           if (!page || page.length === 0) break;
           for (const d of page) {
