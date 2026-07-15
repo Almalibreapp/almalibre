@@ -67,21 +67,45 @@ export const ExportData = () => {
 
       if (tipo === 'temperatura') {
         const rows: Array<Record<string, unknown>> = [];
-        // Fetch day-by-day to guarantee deterministic, complete data
-        for (const dia of dias) {
-          const data = await fetchTemperatura(imei, dia, dia);
-          const datos = Array.isArray(data?.datos) ? data.datos : [];
-          for (const d of datos) {
-            const tsRaw = String(d.timestamp || '').trim();
-            let fecha = dia;
-            let hora = tsRaw;
-            const m = tsRaw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)/);
-            if (m) {
-              fecha = m[1];
-              hora = m[2];
-            } else if (/^\d{2}:\d{2}/.test(tsRaw)) {
-              hora = tsRaw;
-            }
+
+        // Buscar el maquina_id a partir del mac_address (imei seleccionado)
+        const { data: maqRow } = await supabase
+          .from('maquinas')
+          .select('id')
+          .eq('mac_address', imei)
+          .maybeSingle();
+
+        if (!maqRow?.id) {
+          toast.error('No se encontró la máquina seleccionada');
+          setDownloading(false);
+          return;
+        }
+
+        // Rango inclusivo: desde 00:00 del día "desde" hasta 23:59:59.999 del día "hasta"
+        const startISO = `${desdeStr}T00:00:00.000Z`;
+        const endISO = `${addDaysISO(hastaStr, 1)}T00:00:00.000Z`;
+
+        // Paginar para superar el límite de 1000 filas de PostgREST
+        const pageSize = 1000;
+        let from = 0;
+        while (true) {
+          const { data: page, error } = await supabase
+            .from('lecturas_temperatura')
+            .select('temperatura, estado, sensor, created_at')
+            .eq('maquina_id', maqRow.id)
+            .gte('created_at', startISO)
+            .lt('created_at', endISO)
+            .order('created_at', { ascending: true })
+            .range(from, from + pageSize - 1);
+          if (error) throw error;
+          if (!page || page.length === 0) break;
+          for (const d of page) {
+            // created_at está en UTC; mostrar fecha y hora en Europe/Madrid
+            const dt = new Date(d.created_at);
+            const fecha = dt.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+            const hora = dt.toLocaleTimeString('es-ES', {
+              timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+            });
             const temp = Number(d.temperatura);
             const esPico = Number.isFinite(temp) && temp >= PASTEURIZATION_MIN;
             rows.push({
@@ -93,6 +117,8 @@ export const ExportData = () => {
               Pasteurización: esPico ? `SÍ (≥${PASTEURIZATION_MIN}°C)` : '',
             });
           }
+          if (page.length < pageSize) break;
+          from += pageSize;
         }
 
         if (rows.length === 0) {
