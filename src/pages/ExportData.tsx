@@ -13,8 +13,29 @@ import { es } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { toast } from 'sonner';
-import { API_CONFIG } from '@/config/api';
 import { BottomNav } from '@/components/layout/BottomNav';
+import * as XLSX from 'xlsx';
+import { fetchTemperatura, fetchOrdenes } from '@/services/api';
+import { convertirHoraChinaAEspanola } from '@/lib/timezone-utils';
+
+const PASTEURIZATION_MIN = 66;
+
+const addDaysISO = (iso: string, days: number) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+};
+
+const enumerateDates = (fromISO: string, toISO: string) => {
+  const out: string[] = [];
+  let cur = fromISO;
+  while (cur <= toISO) {
+    out.push(cur);
+    cur = addDaysISO(cur, 1);
+  }
+  return out;
+};
 
 export const ExportData = () => {
   const navigate = useNavigate();
