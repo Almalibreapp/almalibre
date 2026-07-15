@@ -12,7 +12,7 @@ import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
-import { fetchTemperatura, fetchOrdenes } from '@/services/api';
+import { fetchOrdenes } from '@/services/api';
 import { convertirVentaAEspana } from '@/lib/timezone-utils';
 
 interface Maquina {
