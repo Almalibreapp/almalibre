@@ -61,6 +61,7 @@ export const ExportData = () => {
     try {
       const desdeStr = format(desde!, 'yyyy-MM-dd');
       const hastaStr = format(hasta!, 'yyyy-MM-dd');
+      const selectedImei = imei.trim();
       const dias = enumerateDates(desdeStr, hastaStr);
 
       const wb = XLSX.utils.book_new();
@@ -68,18 +69,9 @@ export const ExportData = () => {
       if (tipo === 'temperatura') {
         const rows: Array<Record<string, unknown>> = [];
 
-        // Buscar todos los maquina_id que comparten este mac_address
-        const { data: maqRows } = await supabase
-          .from('maquinas')
-          .select('id')
-          .eq('mac_address', imei);
-
-        const maquinaIds = (maqRows || []).map((m) => m.id);
-        if (maquinaIds.length === 0) {
-          toast.error('No se encontró la máquina seleccionada');
-          setDownloading(false);
-          return;
-        }
+        const maquinaIds = maquinas
+          .filter((m) => m.mac_address?.trim() === selectedImei)
+          .map((m) => m.id);
 
         // Rango inclusivo: desde 00:00 del día "desde" hasta 23:59:59.999 del día "hasta"
         const startISO = `${desdeStr}T00:00:00.000Z`;
@@ -89,14 +81,19 @@ export const ExportData = () => {
         const pageSize = 1000;
         let from = 0;
         while (true) {
-          const { data: page, error } = await supabase
+          const query = supabase
             .from('lecturas_temperatura')
             .select('temperatura, estado, sensor, created_at')
-            .in('maquina_id', maquinaIds)
             .gte('created_at', startISO)
             .lt('created_at', endISO)
             .order('created_at', { ascending: true })
             .range(from, from + pageSize - 1);
+
+          const filteredQuery = maquinaIds.length > 0
+            ? query.or(`imei.eq.${selectedImei},maquina_id.in.(${maquinaIds.join(',')})`)
+            : query.eq('imei', selectedImei);
+
+          const { data: page, error } = await filteredQuery;
           if (error) throw error;
           if (!page || page.length === 0) break;
           for (const d of page) {
@@ -209,12 +206,12 @@ export const ExportData = () => {
         // Ventas
         const rows: Array<Record<string, unknown>> = [];
         for (const dia of dias) {
-          const data = await fetchOrdenes(imei, dia);
+          const data = await fetchOrdenes(selectedImei, dia);
           const ventas = Array.isArray(data?.ventas) ? data.ventas : [];
           for (const v of ventas) {
             const estado = String(v.estado || '').toLowerCase();
             if (estado === 'fallido' || estado === 'cancelado' || estado === 'failed' || estado === 'cancelled') continue;
-            const { fecha, hora } = convertirVentaAEspana(v.fecha_hora_china || `${dia} 00:00:00`, imei);
+            const { fecha, hora } = convertirVentaAEspana(v.fecha_hora_china || `${dia} 00:00:00`, selectedImei);
             rows.push({
               Fecha: fecha || dia,
               Hora: hora,
@@ -246,7 +243,7 @@ export const ExportData = () => {
         XLSX.utils.book_append_sheet(wb, ws, 'Ventas');
       }
 
-      XLSX.writeFile(wb, `${tipo}_${imei}_${desdeStr}_${hastaStr}.xlsx`);
+      XLSX.writeFile(wb, `${tipo}_${selectedImei}_${desdeStr}_${hastaStr}.xlsx`);
       toast.success('Archivo descargado correctamente');
     } catch (err) {
       console.error('[ExportData] Error:', err);
