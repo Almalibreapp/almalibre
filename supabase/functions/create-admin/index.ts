@@ -18,12 +18,17 @@ Deno.serve(async (req) => {
     );
 
     // --- Authorization: require existing admin, unless no admins yet (bootstrap) ---
+    const bootstrapToken = req.headers.get("x-bootstrap-token");
+    const expectedBootstrap = Deno.env.get("ADMIN_BOOTSTRAP_TOKEN");
+    const isBootstrapCall = !!expectedBootstrap && bootstrapToken === expectedBootstrap;
+
     const { count: adminCount } = await supabaseAdmin
       .from("user_roles")
       .select("*", { count: "exact", head: true })
       .eq("role", "admin");
 
-    if ((adminCount ?? 0) > 0) {
+    if ((adminCount ?? 0) > 0 && !isBootstrapCall) {
+
       const authHeader = req.headers.get("Authorization");
       if (!authHeader?.startsWith("Bearer ")) {
         return new Response(
