@@ -17,6 +17,49 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // --- Authorization: require existing admin, unless no admins yet (bootstrap) ---
+    const { count: adminCount } = await supabaseAdmin
+      .from("user_roles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "admin");
+
+    if ((adminCount ?? 0) > 0) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const supabaseAuth = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const { data: claimsData, error: claimsErr } = await supabaseAuth.auth.getClaims(
+        authHeader.replace("Bearer ", "")
+      );
+      if (claimsErr || !claimsData?.claims?.sub) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const callerId = claimsData.claims.sub as string;
+      const { data: isAdminRow } = await supabaseAdmin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", callerId)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (!isAdminRow) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden: admin only" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const { email, password, nombre } = await req.json();
 
     if (!email || !password) {

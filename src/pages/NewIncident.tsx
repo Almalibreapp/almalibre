@@ -80,31 +80,29 @@ export const NewIncident = () => {
 
   const uploadPhotos = async (): Promise<string[]> => {
     if (photos.length === 0) return [];
-    
-    const uploadedUrls: string[] = [];
-    
+
+    const uploadedPaths: string[] = [];
+
     for (const photo of photos) {
       const fileExt = photo.file.name.split('.').pop();
       const fileName = `${user!.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      
+
       const { data, error } = await supabase.storage
         .from('incident-photos')
         .upload(fileName, photo.file);
-      
+
       if (error) {
         console.error('Error uploading photo:', error);
         continue;
       }
-      
-      const { data: urlData } = supabase.storage
-        .from('incident-photos')
-        .getPublicUrl(data.path);
-      
-      uploadedUrls.push(urlData.publicUrl);
+
+      // Store the storage path (not a public URL). Signed URLs are generated at read time.
+      uploadedPaths.push(data.path);
     }
-    
-    return uploadedUrls;
+
+    return uploadedPaths;
   };
+
 
   const handleSubmit = async () => {
     if (!user) return;

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,8 +12,28 @@ serve(async (req) => {
   }
 
   try {
+    // --- Auth check ---
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: claimsData, error: claimsErr } = await supabaseAuth.auth.getClaims(authHeader.replace('Bearer ', ''));
+    if (claimsErr || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { maquinaId, macAddress } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const WORDPRESS_API_TOKEN = Deno.env.get('WORDPRESS_API_TOKEN');
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
@@ -21,15 +42,11 @@ serve(async (req) => {
     // Fetch real stock data from WordPress API
     let stockData = [];
     let salesData = [];
-    
+
     try {
       const stockResponse = await fetch(
         `https://nonstopmachine.com/wp-json/helados/v1/stock?imei=${macAddress}`,
-        {
-          headers: {
-            'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE'
-          }
-        }
+        { headers: { 'Authorization': `Bearer ${WORDPRESS_API_TOKEN}` } }
       );
       if (stockResponse.ok) {
         stockData = await stockResponse.json();
@@ -37,11 +54,7 @@ serve(async (req) => {
 
       const salesResponse = await fetch(
         `https://nonstopmachine.com/wp-json/helados/v1/ventas?imei=${macAddress}&dias=30`,
-        {
-          headers: {
-            'Authorization': 'Bearer b7Jm3xZt92Qh!fRAp4wLkN8sX0cTe6VuY1oGz5rH@MiPqDaE'
-          }
-        }
+        { headers: { 'Authorization': `Bearer ${WORDPRESS_API_TOKEN}` } }
       );
       if (salesResponse.ok) {
         salesData = await salesResponse.json();
@@ -112,10 +125,9 @@ Si no hay datos suficientes, devuelve arrays vacíos. Responde SOLO con el JSON,
 
     const aiData = await response.json();
     const aiContent = aiData.choices?.[0]?.message?.content || '{}';
-    
-    // Clean up potential markdown formatting
+
     let cleanContent = aiContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
+
     let result;
     try {
       result = JSON.parse(cleanContent);
@@ -131,7 +143,7 @@ Si no hay datos suficientes, devuelve arrays vacíos. Responde SOLO con el JSON,
   } catch (error: unknown) {
     console.error('Error in ai-stock-prediction:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: errorMessage,
       predictions: [],
       suggestedOrder: []

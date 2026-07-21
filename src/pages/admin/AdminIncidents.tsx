@@ -42,6 +42,21 @@ const statusLabels: Record<string, string> = {
 
 const statusOptions = ['abierta', 'en_proceso', 'resuelta', 'cerrada'];
 
+function IncidentPhoto({ entry, index, resolve }: { entry: string; index: number; resolve: (e: string) => Promise<string> }) {
+  const [url, setUrl] = useState<string>('');
+  useEffect(() => {
+    let cancelled = false;
+    resolve(entry).then((u) => { if (!cancelled) setUrl(u); });
+    return () => { cancelled = true; };
+  }, [entry, resolve]);
+  if (!url) return <div className="w-20 h-20 rounded-lg border bg-muted animate-pulse" />;
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      <img src={url} alt={`Foto ${index + 1}`} className="w-20 h-20 object-cover rounded-lg border hover:opacity-80 transition-opacity" />
+    </a>
+  );
+}
+
 export const AdminIncidents = () => {
   const { toast } = useToast();
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -52,6 +67,24 @@ export const AdminIncidents = () => {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, any[]>>({});
   const [newMessage, setNewMessage] = useState<Record<string, string>>({});
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+
+  const resolvePhoto = async (entry: string) => {
+    if (!entry) return '';
+    if (photoUrls[entry]) return photoUrls[entry];
+    // Backward compat: legacy full URLs are still stored for old incidents
+    if (entry.startsWith('http://') || entry.startsWith('https://')) {
+      setPhotoUrls((prev) => ({ ...prev, [entry]: entry }));
+      return entry;
+    }
+    const { data } = await supabase.storage
+      .from('incident-photos')
+      .createSignedUrl(entry, 3600);
+    const url = data?.signedUrl || '';
+    if (url) setPhotoUrls((prev) => ({ ...prev, [entry]: url }));
+    return url;
+  };
+
 
   useEffect(() => {
     fetchAll();
@@ -234,14 +267,13 @@ export const AdminIncidents = () => {
                       <div>
                         <h4 className="text-sm font-semibold mb-2">Fotografías</h4>
                         <div className="flex gap-2 flex-wrap">
-                          {(incident.fotos as string[]).map((url, i) => (
-                            <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                              <img src={url} alt={`Foto ${i + 1}`} className="w-20 h-20 object-cover rounded-lg border hover:opacity-80 transition-opacity" />
-                            </a>
+                          {(incident.fotos as string[]).map((entry, i) => (
+                            <IncidentPhoto key={i} entry={entry} index={i} resolve={resolvePhoto} />
                           ))}
                         </div>
                       </div>
                     )}
+
 
                     {/* Status change */}
                     <div className="flex items-center gap-3">
