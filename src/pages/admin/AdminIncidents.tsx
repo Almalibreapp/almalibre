@@ -252,14 +252,13 @@ export const AdminIncidents = () => {
                       <div>
                         <h4 className="text-sm font-semibold mb-2">Fotografías</h4>
                         <div className="flex gap-2 flex-wrap">
-                          {(incident.fotos as string[]).map((url, i) => (
-                            <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                              <img src={url} alt={`Foto ${i + 1}`} className="w-20 h-20 object-cover rounded-lg border hover:opacity-80 transition-opacity" />
-                            </a>
+                          {(incident.fotos as string[]).map((entry, i) => (
+                            <IncidentPhoto key={i} entry={entry} index={i} resolve={resolvePhoto} />
                           ))}
                         </div>
                       </div>
                     )}
+
 
                     {/* Status change */}
                     <div className="flex items-center gap-3">
