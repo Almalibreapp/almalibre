@@ -52,6 +52,24 @@ export const AdminIncidents = () => {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, any[]>>({});
   const [newMessage, setNewMessage] = useState<Record<string, string>>({});
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+
+  const resolvePhoto = async (entry: string) => {
+    if (!entry) return '';
+    if (photoUrls[entry]) return photoUrls[entry];
+    // Backward compat: legacy full URLs are still stored for old incidents
+    if (entry.startsWith('http://') || entry.startsWith('https://')) {
+      setPhotoUrls((prev) => ({ ...prev, [entry]: entry }));
+      return entry;
+    }
+    const { data } = await supabase.storage
+      .from('incident-photos')
+      .createSignedUrl(entry, 3600);
+    const url = data?.signedUrl || '';
+    if (url) setPhotoUrls((prev) => ({ ...prev, [entry]: url }));
+    return url;
+  };
+
 
   useEffect(() => {
     fetchAll();
