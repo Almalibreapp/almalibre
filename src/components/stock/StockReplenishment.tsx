@@ -22,11 +22,11 @@ export const StockReplenishment = ({ imei, stock, stockConfig: externalConfig }:
   const [selectedToppings, setSelectedToppings] = useState<Set<string>>(new Set());
   const [isUpdating, setIsUpdating] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
-  const [lastSyncStatus, setLastSyncStatus] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const internalConfig = useStockConfig(externalConfig ? undefined : imei);
   const { items: stockConfigItems, initializeStock, refillTopping } = externalConfig || internalConfig;
+
 
   // Fetch products to include Position 1 (Açaí) which may not be in toppings API
   const { data: productosData } = useQuery({
@@ -100,29 +100,15 @@ export const StockReplenishment = ({ imei, stock, stockConfig: externalConfig }:
     }
 
     setIsUpdating(true);
-    setLastSyncStatus(null);
-    let overallSyncStatus = 'success';
     try {
       for (const position of Array.from(selectedToppings)) {
-        const result = await refillTopping(position);
-        if (result?.sync_status === 'failed') {
-          overallSyncStatus = 'failed';
-        }
+        await refillTopping(position);
       }
 
-      setLastSyncStatus(overallSyncStatus);
-
-      if (overallSyncStatus === 'success') {
-        toast({
-          title: '✅ Stock actualizado y sincronizado',
-          description: `Se han repuesto ${selectedToppings.size} topping(s) y sincronizado con la máquina`,
-        });
-      } else {
-        toast({
-          title: '⚠️ Stock actualizado parcialmente',
-          description: 'Algunos toppings no se sincronizaron con la máquina',
-        });
-      }
+      toast({
+        title: '✅ Stock repuesto',
+        description: `Se han repuesto ${selectedToppings.size} topping(s) en el sistema`,
+      });
 
       setSelectedToppings(new Set());
       setSelectionMode(false);
@@ -139,6 +125,7 @@ export const StockReplenishment = ({ imei, stock, stockConfig: externalConfig }:
       setIsUpdating(false);
     }
   };
+
 
   const toggleSelectionMode = () => {
     if (selectionMode) {
