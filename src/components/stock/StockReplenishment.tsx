@@ -163,33 +163,8 @@ export const StockReplenishment = ({ imei, stock, stockConfig: externalConfig }:
               />
             ))}
 
-            {lastSyncStatus && (
-              <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-md ${
-                lastSyncStatus === 'success' 
-                  ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300' 
-                  : 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
-              }`}>
-                {lastSyncStatus === 'success' ? (
-                  <>
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Sincronizado con la máquina</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle className="h-4 w-4" />
-                    <span>Pendiente sincronización</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="ml-auto h-6 text-xs"
-                      onClick={() => setLastSyncStatus(null)}
-                    >
-                      Cerrar
-                    </Button>
-                  </>
-                )}
-              </div>
-            )}
+
+
 
             <div className="pt-4 border-t space-y-3">
               {selectionMode ? (
