@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
-import { actualizarStockConSync } from '@/services/controlApi';
+// NOTA: el stock del sistema es autónomo. NO se sincroniza con la máquina física.
+// El desconteo por venta se hace mediante trigger en ventas_historico.
+
 
 export interface StockConfigItem {
   id: string;
@@ -151,30 +153,17 @@ export const useStockConfig = (imei: string | undefined) => {
       return { sync_status: 'failed' };
     }
 
-    // Position is already a pure numeric string (e.g. "1", "2", "5") — no conversion needed
-    console.log('[refillTopping] ✅ Supabase updated, syncing position:', position, 'cantidad:', item.capacidad_maxima);
-    
-    let syncStatus: string = 'skipped';
-    try {
-      const syncResult = await actualizarStockConSync(imei, position, item.capacidad_maxima);
-      console.log('[refillTopping] 📡 Sync result:', JSON.stringify(syncResult));
-      syncStatus = syncResult.sync_status || 'unknown';
-      
-      if (syncResult.success && syncResult.sync_status === 'success') {
-        toast({ title: `✅ ${item.topping_name} rellenado y sincronizado`, description: `Rellenado a ${item.capacidad_maxima} unidades` });
-      } else {
-        toast({ title: `⚠️ ${item.topping_name} rellenado`, description: 'Stock actualizado pero no sincronizado con la máquina' });
-      }
-    } catch (syncError) {
-      console.error('[refillTopping] ❌ Sync exception:', syncError);
-      toast({ title: `⚠️ ${item.topping_name} rellenado`, description: 'Stock actualizado en el sistema pero falló la sincronización' });
-      syncStatus = 'failed';
-    }
+    // Sistema autónomo: no se sincroniza con la máquina física.
+    console.log('[refillTopping] ✅ Sistema actualizado (autónomo, sin sync con máquina)');
+    toast({
+      title: `✅ ${item.topping_name} rellenado`,
+      description: `Repuesto a ${item.capacidad_maxima} unidades en el sistema`,
+    });
 
-    console.log('[refillTopping] Final sync_status:', syncStatus);
     await fetchStock();
-    return { sync_status: syncStatus };
+    return { sync_status: 'success' };
   };
+
 
   const updateToppingCapacity = async (position: string, nuevaCapacidad: number) => {
     if (!imei) return;
@@ -197,21 +186,15 @@ export const useStockConfig = (imei: string | undefined) => {
       return;
     }
 
-    // Position is already a pure numeric string — no conversion needed
-    try {
-      const syncResult = await actualizarStockConSync(imei, position, newCurrentStock);
-      if (syncResult.sync_status === 'failed') {
-        toast({ title: '⚠️ Capacidad actualizada', description: `Nuevo máximo: ${capacidad}. No se pudo sincronizar con la máquina.` });
-      } else {
-        toast({ title: '✅ Capacidad actualizada y sincronizada', description: `Nuevo máximo: ${capacidad} unidades` });
-      }
-    } catch (syncError) {
-      console.error('Error syncing capacity change:', syncError);
-      toast({ title: '⚠️ Capacidad actualizada', description: `Nuevo máximo: ${capacidad}. Falló la sincronización.` });
-    }
+    // Sistema autónomo: no se sincroniza la capacidad con la máquina física.
+    toast({
+      title: '✅ Capacidad actualizada',
+      description: `Nuevo máximo: ${capacidad} unidades`,
+    });
 
     await fetchStock();
   };
+
 
   return {
     items,

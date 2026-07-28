@@ -11,8 +11,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { TemperatureChart } from '@/components/dashboard/TemperatureChart';
 import { StockReplenishment } from '@/components/stock/StockReplenishment';
 import { SalesChart } from '@/components/dashboard/SalesChart';
-import { useStockSync } from '@/hooks/useStockSync';
-import { useStockPolling } from '@/hooks/useStockPolling';
+// Stock system: autónomo. El desconteo por venta lo hace un trigger en Supabase.
+
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
@@ -70,11 +70,8 @@ export const MachineDetail = () => {
   
   const { temperatura, ventas, stock, isLoading, hasError, error, refetchAll, isRefetching } = useMaquinaData(imei);
   const { data: ventasDetalle, dataUpdatedAt: ventasDetalleUpdatedAt } = useVentasDetalle(imei);
-  
-  // Auto-sync stock from sales
-  useStockSync(imei);
   useVentasRealtime(imei);
-  const { ultimaActualizacion: stockLastUpdate, polling: stockPolling, refrescarAhora: refrescarStock } = useStockPolling(imei, 1);
+
   useLocalNotifications(
     ventasDetalle?.ventas,
     temperatura?.temperatura,

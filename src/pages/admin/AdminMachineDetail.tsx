@@ -11,14 +11,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { SalesChart } from '@/components/dashboard/SalesChart';
 import { StockReplenishment } from '@/components/stock/StockReplenishment';
 import { StockCapacitySettings } from '@/components/stock/StockCapacitySettings';
+import { StockComparisonPanel } from '@/components/stock/StockComparisonPanel';
 import { useStockConfig } from '@/hooks/useStockConfig';
-import { useStockSync } from '@/hooks/useStockSync';
 import { ControlTab } from '@/components/control/ControlTab';
 import { TemperatureTraceability } from '@/components/temperature/TemperatureTraceability';
 import { supabase } from '@/integrations/supabase/client';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
-import { useStockPolling } from '@/hooks/useStockPolling';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
+
 import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
 import type { Venta } from '@/types';
 import { cn } from '@/lib/utils';
@@ -153,9 +153,8 @@ export const AdminMachineDetail = () => {
   const { temperatura, ventas, stock, isLoading, hasError, error } = useMaquinaData(imei);
   const { data: ventasDetalle } = useVentasDetalle(imei);
   const stockConfig = useStockConfig(imei);
-  useStockSync(imei);
   useVentasRealtime(imei);
-  const { ultimaActualizacion: stockLastUpdate, polling: stockPolling, refrescarAhora: refrescarStock } = useStockPolling(imei, 1);
+
 
   const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
 
@@ -488,6 +487,8 @@ export const AdminMachineDetail = () => {
           <TabsContent value="stock" className="space-y-4">
             <StockCapacitySettings imei={imei!} stock={stock} stockConfig={stockConfig} />
             <StockReplenishment imei={imei!} stock={stock} stockConfig={stockConfig} />
+            <StockComparisonPanel imei={imei!} />
+
           </TabsContent>
 
           {/* Control */}
