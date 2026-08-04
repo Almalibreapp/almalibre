@@ -123,11 +123,8 @@ const GlobalPrefetch = () => {
       // CRITICAL: Use setTimeout to avoid Supabase deadlock when calling DB inside onAuthStateChange
       setTimeout(() => {
         // 1. Prefetch store products (background, fire-and-forget)
-        queryClientRef.prefetchQuery({
-          queryKey: ['store-products-v2'],
-          queryFn: prefetchStoreProducts,
-          staleTime: 15 * 60 * 1000,
-        });
+        void prefetchStoreProducts(queryClientRef);
+
 
         // 2. Fetch user's machines, then prefetch ventas + temperatura + today's sales for each
         const fetchAndPrefetch = async () => {
