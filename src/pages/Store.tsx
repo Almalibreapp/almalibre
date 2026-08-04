@@ -14,7 +14,7 @@ import type { CartItem } from '@/types/cart';
 
 export const Store = () => {
   const { toast } = useToast();
-  const { data: products = [], isLoading, isError } = useStoreProducts();
+  const { data: products = [], isLoading, isError, refetch, isFetching } = useStoreProducts();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
