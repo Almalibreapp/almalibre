@@ -14,7 +14,7 @@ import type { CartItem } from '@/types/cart';
 
 export const Store = () => {
   const { toast } = useToast();
-  const { data: products = [], isLoading, isError } = useStoreProducts();
+  const { data: products = [], isLoading, isError, refetch, isFetching } = useStoreProducts();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -114,7 +114,11 @@ export const Store = () => {
             <p className="text-muted-foreground text-center">
               No se pudo cargar la tienda.<br />Comprueba tu conexión e inténtalo de nuevo.
             </p>
+            <Button onClick={() => refetch()} disabled={isFetching}>
+              {isFetching ? 'Cargando...' : 'Reintentar'}
+            </Button>
           </div>
+
         ) : filteredProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Package className="h-16 w-16 text-muted-foreground mb-4" />

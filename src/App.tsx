@@ -67,16 +67,22 @@ const queryClient = new QueryClient({
   },
 });
 
-// Prefetch store products via edge function
-async function prefetchStoreProducts() {
-  const { data, error } = await supabase.functions.invoke('woocommerce-products', { body: {} });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
-  const products = data?.products ?? [];
-  // Never cache an empty result — it would leave the store blank for 15 min
-  if (products.length === 0) throw new Error('Empty product list');
-  return products;
+// Prefetch store products via edge function.
+// Writes into the cache ONLY on success, so a failure can never leave the
+// store query in an errored/empty state.
+async function prefetchStoreProducts(qc: QueryClient) {
+  try {
+    const { data, error } = await supabase.functions.invoke('woocommerce-products', { body: {} });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    const products = data?.products ?? [];
+    if (products.length === 0) return;
+    qc.setQueryData(['store-products-v2'], products);
+  } catch (e) {
+    console.warn('[prefetch] store products failed, store will fetch on demand:', e);
+  }
 }
+
 
 
 // Helper to prefetch sales for a machine via API for a given date
@@ -117,11 +123,8 @@ const GlobalPrefetch = () => {
       // CRITICAL: Use setTimeout to avoid Supabase deadlock when calling DB inside onAuthStateChange
       setTimeout(() => {
         // 1. Prefetch store products (background, fire-and-forget)
-        queryClientRef.prefetchQuery({
-          queryKey: ['store-products-v2'],
-          queryFn: prefetchStoreProducts,
-          staleTime: 15 * 60 * 1000,
-        });
+        void prefetchStoreProducts(queryClientRef);
+
 
         // 2. Fetch user's machines, then prefetch ventas + temperatura + today's sales for each
         const fetchAndPrefetch = async () => {
