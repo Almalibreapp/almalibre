@@ -70,9 +70,14 @@ const queryClient = new QueryClient({
 // Prefetch store products via edge function
 async function prefetchStoreProducts() {
   const { data, error } = await supabase.functions.invoke('woocommerce-products', { body: {} });
-  if (error || data?.error) return [];
-  return data?.products ?? [];
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  const products = data?.products ?? [];
+  // Never cache an empty result — it would leave the store blank for 15 min
+  if (products.length === 0) throw new Error('Empty product list');
+  return products;
 }
+
 
 // Helper to prefetch sales for a machine via API for a given date
 async function prefetchSalesForDate(imei: string, dateStr: string) {
