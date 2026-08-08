@@ -200,8 +200,12 @@ export const SoporteAlma = () => {
 
   return (
     <div
-      className="fixed inset-x-0 top-0 flex flex-col overflow-hidden bg-secondary"
-      style={{ height: height ? `${height}px` : '100dvh' }}
+      className="fixed inset-x-0 flex flex-col overflow-hidden bg-secondary touch-pan-y overscroll-none"
+      style={{
+        top: `${offsetTop}px`,
+        height: height ? `${height}px` : '100dvh',
+        maxWidth: '100vw',
+      }}
     >
       {/* Header estilo WhatsApp — siempre visible */}
       <header className="shrink-0 bg-primary text-primary-foreground shadow-lg safe-area-top">
