@@ -70,9 +70,9 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: Discoun
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Cupones de Descuento</h3>
-        <Button onClick={() => setIsCreateOpen(true)}>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h3 className="text-base sm:text-lg font-semibold">Cupones de Descuento</h3>
+        <Button onClick={() => setIsCreateOpen(true)} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           Crear Nuevo Cupón
         </Button>
@@ -81,7 +81,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: Discoun
       {error ? (
         <Card className="border-warning/50">
           <CardContent className="py-6 text-center">
-            <p className="text-warning">Error al cargar cupones: {(error as Error).message}</p>
+            <p className="text-warning text-sm break-words">Error al cargar cupones: {(error as Error).message}</p>
           </CardContent>
         </Card>
       ) : cuponesList.length === 0 ? (
@@ -93,32 +93,33 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: Discoun
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-3 sm:gap-4">
           {cuponesList.map((cupon) => (
-            <Card key={cupon.id}>
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <h4 className="font-semibold">{cupon.nombre}</h4>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Card key={cupon.id} className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="space-y-1 min-w-0">
+                    <h4 className="font-semibold break-words">{cupon.nombre}</h4>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                       <Badge variant="secondary" className="text-primary font-bold">
                         {cupon.tipo === 'una_copa' ? '🍦 Copa gratis' : `-${cupon.contenido?.money ?? cupon.descuento}€`}
                       </Badge>
                       {cupon.dias_validez > 0 && (
-                        <><span>•</span><span>{cupon.dias_validez} días</span></>
+                        <span>{cupon.dias_validez} días</span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground break-words">
                       Válido: {cupon.fecha_inicio?.split(' ')[0] ?? '—'} - {cupon.fecha_fin?.split(' ')[0] ?? '—'}
                     </p>
                     {cupon.ubicacion && (
-                      <p className="text-xs text-muted-foreground">📍 {cupon.ubicacion}</p>
+                      <p className="text-xs text-muted-foreground break-words">📍 {cupon.ubicacion}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
+                      className="flex-1 sm:flex-none"
                       onClick={() => {
                         setSelectedCupon(cupon);
                         setIsCodesOpen(true);
@@ -130,7 +131,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: Discoun
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive flex-shrink-0"
                       onClick={() => {
                         if (confirm('¿Eliminar este cupón?')) {
                           deleteMutation.mutate(cupon.id);
@@ -148,7 +149,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: Discoun
       )}
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md max-h-[85vh] overflow-y-auto rounded-2xl">
           <DialogHeader>
             <DialogTitle>Crear Nuevo Cupón</DialogTitle>
           </DialogHeader>
@@ -165,9 +166,9 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: Discoun
       </Dialog>
 
       <Dialog open={isCodesOpen} onOpenChange={setIsCodesOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Códigos: {selectedCupon?.nombre}</DialogTitle>
+            <DialogTitle className="break-words pr-6">Códigos: {selectedCupon?.nombre}</DialogTitle>
           </DialogHeader>
           {selectedCupon && (
             <CouponCodes cuponId={selectedCupon.id} />
