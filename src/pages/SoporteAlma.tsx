@@ -168,8 +168,9 @@ export const SoporteAlma = () => {
         )}
       </header>
 
-      <main className="flex-1 overflow-y-auto pb-40">
-        <div className="container px-3 sm:px-4 py-4 space-y-3">
+      <main className="flex-1 overflow-y-auto pb-44">
+        <div className="container max-w-2xl px-3 sm:px-4 py-4 space-y-3">
+
           {loadingMaquinas ? (
             <div className="space-y-3">
               <Skeleton className="h-20 w-3/4 rounded-2xl" />
