@@ -585,40 +585,30 @@ const Conversaciones = ({
     setCambiandoEstado(true);
     const id = String(abierta.id);
     try {
-      await llamarIntervenir({
-        conversationId: id,
-        autor: nombreAdmin,
-        cargo: cargoAdmin,
-        mensaje: '',
-        soloEstado: true,
-        pausarIA: pausar,
+      const { data: res, error } = await supabase.functions.invoke('alma-toggle-ia', {
+        body: { conversationId: id, pausarIA: pausar },
+      });
+      if (error || (res as any)?.error) throw new Error('toggle_fallido');
+      const nuevoEstado = String((res as any)?.status ?? (pausar ? 'paused' : 'active')).toLowerCase();
+      setEstadoLocal((prev) => ({ ...prev, [id]: nuevoEstado }));
+      toast({
+        title: nuevoEstado === 'paused' ? 'Alma pausada' : 'Alma reactivada',
+        description:
+          nuevoEstado === 'paused'
+            ? 'El franquiciado solo verá los mensajes que escribas tú.'
+            : 'Alma vuelve a responder con normalidad.',
       });
     } catch {
-      // Fallback: cambiar el estado directamente en la base de Alma
-      const { error } = await almaClient
-        .from('conversations')
-        .update({ status: pausar ? 'paused' : 'active' })
-        .eq('id', id);
-      if (error) {
-        toast({
-          title: 'No se pudo cambiar el estado de Alma',
-          description: 'Inténtalo de nuevo en unos segundos.',
-          variant: 'destructive',
-        });
-        setCambiandoEstado(false);
-        return;
-      }
+      toast({
+        title: 'No se pudo cambiar el estado de Alma',
+        description: 'Inténtalo de nuevo en unos segundos.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCambiandoEstado(false);
     }
-    setEstadoLocal((prev) => ({ ...prev, [id]: pausar ? 'paused' : 'active' }));
-    toast({
-      title: pausar ? 'Alma pausada' : 'Alma reactivada',
-      description: pausar
-        ? 'El franquiciado solo verá los mensajes que escribas tú.'
-        : 'Alma vuelve a responder con normalidad.',
-    });
-    setCambiandoEstado(false);
-    onRefresh();
   };
+
 
   const enviarMensaje = async () => {
     const mensaje = texto.trim();
