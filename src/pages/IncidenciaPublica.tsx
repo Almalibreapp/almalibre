@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { MarkdownTexto } from '@/components/ui/MarkdownTexto';
 import { toast } from '@/hooks/use-toast';
 import {
   ArrowRight,
