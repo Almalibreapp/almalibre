@@ -198,16 +198,23 @@ export const IncidenciaPublica = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Alto real disponible (se ajusta cuando aparece el teclado en móvil)
-  const [altoVisible, setAltoVisible] = useState<number | null>(null);
+  // Área visual real: iOS desplaza el viewport además de reducirlo al abrir el teclado.
+  const [viewportVisible, setViewportVisible] = useState<{ alto: number; offset: number } | null>(null);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const actualizar = () => setAltoVisible(vv.height);
+    let frame = 0;
+    const actualizar = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        setViewportVisible({ alto: Math.round(vv.height), offset: Math.round(vv.offsetTop) });
+      });
+    };
     actualizar();
     vv.addEventListener('resize', actualizar);
     vv.addEventListener('scroll', actualizar);
     return () => {
+      cancelAnimationFrame(frame);
       vv.removeEventListener('resize', actualizar);
       vv.removeEventListener('scroll', actualizar);
     };
@@ -398,7 +405,13 @@ export const IncidenciaPublica = () => {
   }
 
   return (
-    <main className="relative overflow-hidden" style={{ height: altoVisible ? `${altoVisible}px` : '100dvh' }}>
+    <main
+      className="fixed inset-x-0 overflow-hidden bg-primary"
+      style={{
+        height: viewportVisible ? `${viewportVisible.alto}px` : '100dvh',
+        top: viewportVisible ? `${viewportVisible.offset}px` : 0,
+      }}
+    >
       <Fondo />
       <div
         className={cn('relative z-10 flex flex-col h-full', paso !== 'chat' && 'safe-area-top')}
@@ -434,7 +447,7 @@ export const IncidenciaPublica = () => {
 
         {/* PASO 2 — contacto */}
         {paso === 'contacto' && (
-          <section className="flex-1 flex flex-col justify-end sm:justify-center px-4 pb-4 animate-fade-in">
+          <section className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-end sm:justify-center px-4 pb-4 animate-fade-in [-webkit-overflow-scrolling:touch]">
             <div className="w-full max-w-md mx-auto rounded-3xl bg-card p-6 shadow-2xl animate-slide-up">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <h2 className="font-display text-xl font-bold text-foreground">{t.contactoTitulo}</h2>
