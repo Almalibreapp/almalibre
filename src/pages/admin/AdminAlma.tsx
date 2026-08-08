@@ -833,7 +833,16 @@ const Conversaciones = ({
         </DialogContent>
 
       </Dialog>
+
+      <PerfilSoporteDialog
+        open={perfilAbierto}
+        onOpenChange={setPerfilAbierto}
+        profile={profile as any}
+        userId={user?.id}
+        onSaved={(p) => updateProfile?.(p as any)}
+      />
     </>
+
   );
 };
 
