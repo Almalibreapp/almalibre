@@ -99,6 +99,7 @@ export const SoporteAlma = () => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [cargandoHistorial, setCargandoHistorial] = useState(true);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [soporte, setSoporte] = useState<Record<string, { foto: string | null; cargo: string | null }>>({});
   const endRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -106,6 +107,26 @@ export const SoporteAlma = () => {
   useEffect(() => {
     if (!imei && maquinas.length > 0) setImei(maquinas[0].mac_address);
   }, [maquinas, imei]);
+
+  // Perfiles del equipo de soporte (nombre -> foto y cargo)
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      const { data } = await (supabase as any).rpc('get_soporte_perfiles');
+      if (cancelado || !Array.isArray(data)) return;
+      const mapa: Record<string, { foto: string | null; cargo: string | null }> = {};
+      for (const p of data as any[]) {
+        const completo = [p.nombre, p.apellidos].filter(Boolean).join(' ').trim();
+        const valor = { foto: p.foto_url ?? null, cargo: p.cargo ?? null };
+        if (completo) mapa[completo.toLowerCase()] = valor;
+        if (p.nombre) mapa[String(p.nombre).trim().toLowerCase()] = valor;
+      }
+      setSoporte(mapa);
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   // Historial persistente: se reconstruye siempre desde la base de datos
   useEffect(() => {
@@ -419,7 +440,9 @@ export const SoporteAlma = () => {
                 </div>
               )}
 
-              {mensajes.map((m) => (
+              {mensajes.map((m) => {
+                const perfil = m.nombreAutor ? soporte[m.nombreAutor.trim().toLowerCase()] : undefined;
+                return (
                 <div
                   key={m.id}
                   className={cn(
@@ -430,12 +453,21 @@ export const SoporteAlma = () => {
                   {m.autor !== 'usuario' && (
                     <div
                       className={cn(
-                        'w-7 h-7 rounded-full flex items-center justify-center shrink-0 shadow',
-                        m.autor === 'error' ? 'bg-destructive' : 'bg-primary'
+                        'w-7 h-7 rounded-full flex items-center justify-center shrink-0 shadow overflow-hidden',
+                        m.autor === 'error' ? 'bg-destructive' : m.nombreAutor ? 'bg-warning' : 'bg-primary'
                       )}
                     >
                       {m.autor === 'error' ? (
                         <AlertTriangle className="h-3.5 w-3.5 text-destructive-foreground" />
+                      ) : perfil?.foto ? (
+                        <img
+                          src={perfil.foto}
+                          alt={`Foto de ${m.nombreAutor}`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : m.nombreAutor ? (
+                        <User className="h-3.5 w-3.5 text-warning-foreground" />
                       ) : (
                         <Leaf className="h-3.5 w-3.5 text-primary-foreground" />
                       )}
@@ -455,7 +487,7 @@ export const SoporteAlma = () => {
                   >
                     {m.nombreAutor && (
                       <p className="text-[11px] font-semibold text-primary mb-0.5">
-                        {m.nombreAutor} (Soporte Almalibre)
+                        {m.nombreAutor} ({perfil?.cargo || 'Soporte Almalibre'})
                       </p>
                     )}
                     <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
@@ -478,7 +510,9 @@ export const SoporteAlma = () => {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
+
 
               {enviando && (
                 <div className="flex gap-2 items-end animate-fade-in">

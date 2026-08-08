@@ -1177,6 +1177,15 @@ export type Database = {
     Functions: {
       generate_order_number: { Args: never; Returns: string }
       generate_ticket_number: { Args: never; Returns: string }
+      get_soporte_perfiles: {
+        Args: never
+        Returns: {
+          apellidos: string
+          cargo: string
+          foto_url: string
+          nombre: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
