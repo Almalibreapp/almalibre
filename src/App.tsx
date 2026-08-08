@@ -56,6 +56,8 @@ import { AdminEmailNotifications } from "./pages/admin/AdminEmailNotifications";
 import { AdminCupones } from "./pages/admin/AdminCupones";
 import { AdminExportData } from "./pages/admin/AdminExportData";
 import { AdminAlma } from "./pages/admin/AdminAlma";
+import { AdminIncidenciasVentas } from "./pages/admin/AdminIncidenciasVentas";
+
 
 import { AdminPushNotifications } from "./pages/admin/AdminPushNotifications";
 import { ExportData } from "./pages/ExportData";
@@ -252,6 +254,8 @@ const AppContent = () => {
           <Route path="incidents" element={<AdminIncidents />} />
           <Route path="notifications" element={<AdminEmailNotifications />} />
           <Route path="alma" element={<AdminAlma />} />
+          <Route path="incidencias-ventas" element={<AdminIncidenciasVentas />} />
+
 
         </Route>
 
