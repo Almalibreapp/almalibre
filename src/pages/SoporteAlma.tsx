@@ -510,7 +510,9 @@ export const SoporteAlma = () => {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
+
 
               {enviando && (
                 <div className="flex gap-2 items-end animate-fade-in">
