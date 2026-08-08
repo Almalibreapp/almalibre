@@ -58,6 +58,8 @@ import { formatDistanceToNow, format, parseISO, subDays, startOfDay } from 'date
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { applyOverrides, setOverride } from './almaOverrides';
+
 
 type Row = Record<string, any>;
 
@@ -84,11 +86,12 @@ const useAlmaData = (refreshKey: number) => {
       if (!active) return;
       setConversations((c.data as Row[]) ?? []);
       setMessages((m.data as Row[]) ?? []);
-      setIncidents((i.data as Row[]) ?? []);
-      setTickets((t.data as Row[]) ?? []);
+      setIncidents(applyOverrides('incidents', (i.data as Row[]) ?? []));
+      setTickets(applyOverrides('tickets', (t.data as Row[]) ?? []));
       setMaquinas((mq.data as Row[]) ?? []);
       setLoading(false);
     });
+
     return () => {
       active = false;
     };
@@ -142,6 +145,82 @@ const STATUS_CONV: Record<string, { label: string; className: string }> = {
 };
 
 const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--warning))', 'hsl(var(--success))', 'hsl(var(--primary-glow))'];
+
+/* ----------------------------- tickets unificados ---------------------------- */
+
+export type UTicket = {
+  id: string;
+  tabla: 'tickets' | 'incidents';
+  conversation_id: string | null;
+  descripcion: string;
+  categoria: string | null;
+  status: string;
+  resuelto: boolean;
+  escalado: boolean;
+  resueltoPorAlma: boolean;
+  created_at: string | null;
+  resolved_at: string | null;
+};
+
+const esEstadoResuelto = (s?: string | null) =>
+  ['resolved', 'closed', 'resuelto', 'resuelta', 'cerrado'].includes(String(s ?? '').toLowerCase());
+
+const esEstadoEscalado = (s?: string | null) =>
+  ['escalated', 'escalada', 'escalado', 'human', 'pending_human'].includes(String(s ?? '').toLowerCase());
+
+const toUTicket = (r: Row, tabla: 'tickets' | 'incidents'): UTicket => {
+  const resuelto = esEstadoResuelto(r.status);
+  const escaladoEstado = esEstadoEscalado(r.status);
+  // "Resuelto por Alma sola" = se creó ya resuelto (sin pasar por escalada humana)
+  const creado = r.created_at ? new Date(r.created_at).getTime() : 0;
+  const cerrado = r.resolved_at ? new Date(r.resolved_at).getTime() : 0;
+  const nacidoResuelto = resuelto && !!cerrado && !!creado && Math.abs(cerrado - creado) < 60_000;
+  return {
+    id: String(r.id),
+    tabla,
+    conversation_id: r.conversation_id ?? null,
+    descripcion: r.description || r.descripcion || 'Sin descripción',
+    categoria: r.category ?? r.categoria ?? null,
+    status: String(r.status ?? ''),
+    resuelto,
+    escalado: escaladoEstado || (resuelto && !nacidoResuelto),
+    resueltoPorAlma: nacidoResuelto,
+    created_at: r.created_at ?? null,
+    resolved_at: r.resolved_at ?? null,
+  };
+};
+
+/** Usa la tabla `tickets`; si está vacía, deriva los tickets de `incidents`. */
+const buildTickets = (tickets: Row[], incidents: Row[]): UTicket[] => {
+  const base = tickets.length
+    ? tickets.map((t) => toUTicket(t, 'tickets'))
+    : incidents.map((i) => toUTicket(i, 'incidents'));
+  return base.sort(
+    (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+  );
+};
+
+/** Actualiza estado en el sistema de Alma; si es de solo lectura, guarda el cambio en el panel. */
+const guardarEstado = async (
+  tabla: 'tickets' | 'incidents',
+  id: string,
+  status: string,
+  resolved_at: string | null
+) => {
+  const { data, error } = await almaClient
+    .from(tabla)
+    .update({ status, resolved_at })
+    .eq('id', id)
+    .select();
+  if (error) return { ok: false as const, local: false, error };
+  if (!data || data.length === 0) {
+    setOverride(tabla, id, { status, resolved_at });
+    return { ok: true as const, local: true, error: null };
+  }
+  setOverride(tabla, id, { status, resolved_at });
+  return { ok: true as const, local: false, error: null };
+};
+
 
 /* ------------------------------- components ------------------------------ */
 
@@ -201,16 +280,19 @@ const Reportes = ({ data }: { data: ReturnType<typeof useAlmaData> }) => {
   const { conversations, incidents, tickets, loading } = data;
   const [rango, setRango] = useState('7');
 
-  const resueltas = incidents.filter((i) => ['resolved', 'closed', 'resuelta'].includes(String(i.status).toLowerCase())).length;
-  const escaladas = incidents.filter((i) => ['escalated', 'escalada'].includes(String(i.status).toLowerCase())).length;
+  const uTickets = useMemo(() => buildTickets(tickets, incidents), [tickets, incidents]);
+
   const activas = conversations.filter((c) => String(c.status).toLowerCase() === 'active').length;
-  const ticketsAbiertos = tickets.filter((t) => !['resolved', 'closed'].includes(String(t.status).toLowerCase())).length;
-  const ticketsResueltos = tickets.length - ticketsAbiertos;
+  const ticketsAbiertos = uTickets.filter((t) => !t.resuelto).length;
+  const ticketsResueltos = uTickets.filter((t) => t.resuelto).length;
+  const resueltas = uTickets.filter((t) => t.resueltoPorAlma).length;
+  const escaladas = uTickets.filter((t) => t.escalado).length;
 
   const donut = [
-    { name: 'Resueltas por Alma', value: resueltas },
-    { name: 'Escaladas a humano', value: escaladas },
+    { name: 'Resueltos por Alma', value: resueltas },
+    { name: 'Escalados a una persona', value: escaladas },
   ].filter((d) => d.value > 0);
+
 
   const categorias = useMemo(() => {
     const map = new Map<string, number>();
@@ -248,21 +330,23 @@ const Reportes = ({ data }: { data: ReturnType<typeof useAlmaData> }) => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <StatTile label="Conversaciones activas" value={activas} icon={MessageSquare} />
-        <StatTile label="Resueltas por Alma" value={resueltas} icon={CheckCircle2} tone="success" />
-        <StatTile label="Escaladas a una persona" value={escaladas} icon={UserCog} tone="warning" />
         <StatTile label="Tickets abiertos" value={ticketsAbiertos} icon={TicketIcon} tone="destructive" />
         <StatTile label="Tickets resueltos" value={ticketsResueltos} icon={CheckCircle2} tone="success" />
+        <StatTile label="Resueltos por Alma sola" value={resueltas} icon={Leaf} tone="success" />
+        <StatTile label="Escalados a una persona" value={escaladas} icon={UserCog} tone="warning" />
+        <StatTile label="Conversaciones activas" value={activas} icon={MessageSquare} />
       </div>
+
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Card className="rounded-2xl shadow-sm">
           <CardHeader className="pb-1">
-            <CardTitle className="text-base">Resolución de incidencias</CardTitle>
+            <CardTitle className="text-base">Resolución de tickets</CardTitle>
           </CardHeader>
           <CardContent>
             {donut.length === 0 ? (
-              <EmptyBox icon={LifeBuoy} title="Todavía no hay incidencias registradas" />
+              <EmptyBox icon={LifeBuoy} title="Todavía no hay tickets registrados" />
+
             ) : (
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
@@ -287,11 +371,12 @@ const Reportes = ({ data }: { data: ReturnType<typeof useAlmaData> }) => {
             {donut.length > 0 && (
               <div className="flex justify-center gap-4 text-xs">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-success" /> Resueltas por Alma ({resueltas})
+                  <span className="w-2.5 h-2.5 rounded-full bg-success" /> Resueltos por Alma ({resueltas})
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-warning" /> Escaladas ({escaladas})
+                  <span className="w-2.5 h-2.5 rounded-full bg-warning" /> Escalados ({escaladas})
                 </span>
+
               </div>
             )}
           </CardContent>
@@ -528,24 +613,31 @@ const Incidencias = ({
     .filter((i) => nombreDeConversacion(i.conversation_id).toLowerCase().includes(busqueda.toLowerCase()));
 
   const cambiarEstado = async (inc: Row) => {
-    const nuevo = esResuelta(inc.status) ? 'escalated' : 'resolved';
+    const resuelta = esResuelta(inc.status);
+    const nuevo = resuelta ? 'escalated' : 'resolved';
     setGuardando(inc.id);
-    const { error } = await almaClient
-      .from('incidents')
-      .update({ status: nuevo, resolved_at: nuevo === 'resolved' ? new Date().toISOString() : null })
-      .eq('id', inc.id);
+    const res = await guardarEstado(
+      'incidents',
+      String(inc.id),
+      nuevo,
+      nuevo === 'resolved' ? new Date().toISOString() : null
+    );
     setGuardando(null);
-    if (error) {
+    if (!res.ok) {
       toast({
         title: 'No se pudo actualizar',
-        description: 'El sistema de Alma no permite cambiar el estado desde aquí.',
+        description: 'El sistema de Alma rechazó el cambio de estado.',
         variant: 'destructive',
       });
       return;
     }
-    toast({ title: nuevo === 'resolved' ? 'Incidencia marcada como resuelta' : 'Incidencia reabierta' });
+    toast({
+      title: nuevo === 'resolved' ? 'Incidencia marcada como resuelta' : 'Incidencia reabierta',
+      description: res.local ? 'Guardado en el panel (el sistema de Alma es de solo lectura).' : undefined,
+    });
     onRefresh();
   };
+
 
   if (loading) return <LoadingList />;
 
@@ -633,86 +725,285 @@ const Incidencias = ({
 
 /* --------------------------------- tickets -------------------------------- */
 
-const Tickets = ({ data, onRefresh }: { data: ReturnType<typeof useAlmaData>; onRefresh: () => void }) => {
-  const { tickets, loading } = data;
+const Tickets = ({
+  data,
+  nombreDeConversacion,
+  onRefresh,
+}: {
+  data: ReturnType<typeof useAlmaData>;
+  nombreDeConversacion: (id: string | null) => string;
+  onRefresh: () => void;
+}) => {
+  const { tickets, incidents, messages, loading } = data;
   const [guardando, setGuardando] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<'todos' | 'abiertos' | 'resueltos'>('todos');
+  const [busqueda, setBusqueda] = useState('');
+  const [abierto, setAbierto] = useState<UTicket | null>(null);
 
-  const esResuelto = (s: string) => ['resolved', 'closed', 'resuelto'].includes(String(s).toLowerCase());
+  const lista = useMemo(() => buildTickets(tickets, incidents), [tickets, incidents]);
 
-  const cambiarEstado = async (t: Row) => {
-    const nuevo = esResuelto(t.status) ? 'open' : 'resolved';
+  const filtrados = lista
+    .filter((t) => (filtro === 'todos' ? true : filtro === 'resueltos' ? t.resuelto : !t.resuelto))
+    .filter((t) => nombreDeConversacion(t.conversation_id).toLowerCase().includes(busqueda.toLowerCase()));
+
+  const hilo = abierto ? messages.filter((m) => m.conversation_id === abierto.conversation_id) : [];
+
+  const cambiarEstado = async (t: UTicket) => {
+    const nuevo = t.resuelto ? 'abierto' : 'resuelto';
+    const statusRemoto = t.resuelto ? (t.tabla === 'tickets' ? 'open' : 'escalated') : 'resolved';
     setGuardando(t.id);
-    const { error } = await almaClient.from('tickets').update({ status: nuevo }).eq('id', t.id);
+    const res = await guardarEstado(
+      t.tabla,
+      t.id,
+      statusRemoto,
+      nuevo === 'resuelto' ? new Date().toISOString() : null
+    );
     setGuardando(null);
-    if (error) {
+    if (!res.ok) {
       toast({
         title: 'No se pudo actualizar',
-        description: 'El sistema de Alma no permite cambiar el estado desde aquí.',
+        description: 'El sistema de Alma rechazó el cambio de estado.',
         variant: 'destructive',
       });
       return;
     }
-    toast({ title: nuevo === 'resolved' ? 'Ticket resuelto' : 'Ticket reabierto' });
+    toast({
+      title: nuevo === 'resuelto' ? 'Ticket resuelto' : 'Ticket reabierto',
+      description: res.local ? 'Guardado en el panel (el sistema de Alma es de solo lectura).' : undefined,
+    });
+    setAbierto(null);
     onRefresh();
   };
 
   if (loading) return <LoadingList />;
-  if (tickets.length === 0)
+  if (lista.length === 0)
     return (
       <EmptyBox
         icon={TicketIcon}
-        title="Aún no hay tickets de clientes registrados"
-        subtitle="Cuando un cliente final abra un ticket con Alma, lo verás aquí."
+        title="Aún no hay tickets registrados"
+        subtitle="Cuando un franquiciado abra una consulta con Alma, la verás aquí."
       />
     );
 
   return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {tickets.map((t) => {
-        const resuelto = esResuelto(t.status);
-        const contacto = t.customer_name || t.nombre || t.contact_name || 'Cliente';
-        const tipo = prettyCategory(t.category || t.tipo || t.issue_type);
-        const ubicacion = t.location || t.machine_name || t.ubicacion || 'Ubicación no indicada';
-        return (
-          <Card key={t.id} className="rounded-2xl shadow-sm border-border/60">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', resuelto ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive')}>
-                  <TicketIcon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm truncate">{contacto}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {tipo} · {ubicacion}
+    <div className="space-y-3">
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex gap-1.5">
+          {(['todos', 'abiertos', 'resueltos'] as const).map((f) => (
+            <Button
+              key={f}
+              size="sm"
+              variant={filtro === f ? 'default' : 'outline'}
+              className="rounded-full capitalize"
+              onClick={() => setFiltro(f)}
+            >
+              {f}
+            </Button>
+          ))}
+        </div>
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por máquina…"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            className="pl-9 rounded-xl"
+          />
+        </div>
+      </div>
+
+      {filtrados.length === 0 ? (
+        <EmptyBox icon={TicketIcon} title="No hay tickets que mostrar" subtitle="Prueba a cambiar el filtro o la búsqueda." />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {filtrados.map((t) => {
+            const Icon = categoryIcon(t.categoria);
+            return (
+              <Card key={t.id} className="rounded-2xl shadow-sm border-border/60">
+                <CardContent className="p-4 space-y-3">
+                  <button className="w-full text-left" onClick={() => setAbierto(t)}>
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                          t.resuelto ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
+                        )}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{nombreDeConversacion(t.conversation_id)}</p>
+                        <p className="text-xs text-muted-foreground truncate">{prettyCategory(t.categoria)}</p>
+                      </div>
+                      <Badge
+                        className={cn(
+                          'shrink-0 border',
+                          t.resuelto
+                            ? 'bg-success/15 text-success border-success/30 hover:bg-success/15'
+                            : 'bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/15'
+                        )}
+                      >
+                        {t.resuelto ? 'Resuelto' : 'Abierto'}
+                      </Badge>
+                    </div>
+                  </button>
+
+                  <p className="text-sm text-foreground/80 leading-relaxed line-clamp-2">{t.descripcion}</p>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {t.resueltoPorAlma && (
+                      <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+                        <Leaf className="h-3 w-3 mr-1" /> Resuelto por Alma sola
+                      </Badge>
+                    )}
+                    {t.escalado && (
+                      <Badge variant="outline" className="text-[10px] bg-warning/15 text-warning border-warning/40">
+                        <UserCog className="h-3 w-3 mr-1" /> Escalado a una persona
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> {relative(t.created_at)}
+                    </span>
+                    <div className="flex gap-1.5">
+                      <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setAbierto(t)}>
+                        Ver detalle
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={t.resuelto ? 'outline' : 'default'}
+                        className="rounded-full"
+                        onClick={() => cambiarEstado(t)}
+                        disabled={guardando === t.id}
+                      >
+                        {t.resuelto ? 'Reabrir' : 'Marcar como resuelto'}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <Dialog open={!!abierto} onOpenChange={(o) => !o && setAbierto(null)}>
+        <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
+          <DialogHeader className="bg-primary text-primary-foreground p-4 space-y-0.5">
+            <DialogTitle className="text-base text-primary-foreground">
+              {abierto ? nombreDeConversacion(abierto.conversation_id) : ''}
+            </DialogTitle>
+            <p className="text-xs text-primary-foreground/75">
+              {abierto ? prettyCategory(abierto.categoria) : ''}
+            </p>
+          </DialogHeader>
+
+          {abierto && (
+            <div className="p-4 space-y-3 border-b border-border">
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p className="text-muted-foreground">Apertura</p>
+                  <p className="font-medium">
+                    {abierto.created_at
+                      ? format(parseISO(abierto.created_at), "d MMM yyyy · HH:mm", { locale: es })
+                      : 'Sin datos'}
                   </p>
                 </div>
+                <div>
+                  <p className="text-muted-foreground">Cierre</p>
+                  <p className="font-medium">
+                    {abierto.resolved_at
+                      ? format(parseISO(abierto.resolved_at), "d MMM yyyy · HH:mm", { locale: es })
+                      : 'Sigue abierto'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
                 <Badge
                   className={cn(
-                    'shrink-0 border',
-                    resuelto
+                    'border',
+                    abierto.resuelto
                       ? 'bg-success/15 text-success border-success/30 hover:bg-success/15'
                       : 'bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/15'
                   )}
                 >
-                  {resuelto ? 'Resuelto' : 'Abierto'}
+                  {abierto.resuelto ? 'Resuelto' : 'Abierto'}
                 </Badge>
+                {abierto.resueltoPorAlma && (
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
+                    Sin intervención humana
+                  </Badge>
+                )}
+                {abierto.escalado && (
+                  <Badge variant="outline" className="bg-warning/15 text-warning border-warning/40">
+                    Escalado a soporte humano
+                  </Badge>
+                )}
               </div>
-              {t.description && <p className="text-sm text-foreground/80 leading-relaxed">{t.description}</p>}
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3 w-3" /> {relative(t.created_at)}
-                </span>
-                <Button size="sm" variant={resuelto ? 'outline' : 'default'} className="rounded-full" onClick={() => cambiarEstado(t)} disabled={guardando === t.id}>
-                  {resuelto ? 'Reabrir' : 'Marcar como resuelto'}
-                </Button>
+              <p className="text-sm text-foreground/80 leading-relaxed">{abierto.descripcion}</p>
+            </div>
+          )}
+
+          <div
+            className="max-h-[45vh] overflow-y-auto p-3 space-y-2 bg-secondary"
+            style={{
+              backgroundImage: 'radial-gradient(hsl(var(--primary) / 0.07) 1px, transparent 1px)',
+              backgroundSize: '26px 26px',
+            }}
+          >
+            {hilo.length === 0 && <EmptyBox icon={MessageSquare} title="Sin conversación asociada" />}
+            {hilo.map((m) => (
+              <div key={m.id} className={cn('flex items-end gap-2', m.from_me ? 'justify-start' : 'justify-end')}>
+                {m.from_me && (
+                  <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0">
+                    <Leaf className="h-3.5 w-3.5 text-primary-foreground" />
+                  </div>
+                )}
+                <div
+                  className={cn(
+                    'max-w-[80%] px-3.5 py-2 rounded-2xl shadow-sm text-sm',
+                    m.from_me ? 'bg-card rounded-bl-md' : 'bg-primary text-primary-foreground rounded-br-md'
+                  )}
+                >
+                  <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
+                  <p
+                    className={cn(
+                      'text-[10px] mt-1 text-right',
+                      m.from_me ? 'text-muted-foreground' : 'text-primary-foreground/70'
+                    )}
+                  >
+                    {m.created_at ? format(parseISO(m.created_at), 'HH:mm', { locale: es }) : ''}
+                  </p>
+                </div>
+                {!m.from_me && (
+                  <div className="w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center shrink-0">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+            ))}
+          </div>
+
+          {abierto && (
+            <div className="p-3 border-t border-border">
+              <Button
+                className="w-full rounded-full"
+                variant={abierto.resuelto ? 'outline' : 'default'}
+                onClick={() => cambiarEstado(abierto)}
+                disabled={guardando === abierto.id}
+              >
+                {abierto.resuelto ? 'Reabrir ticket' : 'Marcar como resuelto'}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
 
 /* ---------------------------------- page ---------------------------------- */
 
@@ -783,7 +1074,7 @@ export const AdminAlma = () => {
           <Incidencias data={data} nombreDeConversacion={nombreDeConversacion} onRefresh={() => setRefreshKey((k) => k + 1)} />
         </TabsContent>
         <TabsContent value="tickets" className="mt-4">
-          <Tickets data={data} onRefresh={() => setRefreshKey((k) => k + 1)} />
+          <Tickets data={data} nombreDeConversacion={nombreDeConversacion} onRefresh={() => setRefreshKey((k) => k + 1)} />
         </TabsContent>
       </Tabs>
     </div>
