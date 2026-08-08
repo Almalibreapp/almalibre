@@ -21,16 +21,19 @@ Deno.serve(async (req) => {
     const pausarIA = body?.pausarIA === true;
     const cargo = typeof body?.cargo === 'string' ? body.cargo.trim() : undefined;
     const fotoUrl = typeof body?.fotoUrl === 'string' ? body.fotoUrl.trim() : undefined;
+    // Cambio de estado sin mensaje (activar / pausar a Alma)
+    const soloEstado = body?.soloEstado === true;
 
-    if (!conversationId || !autor || !mensaje || mensaje.length > 4000) {
+    if (!conversationId || !autor || mensaje.length > 4000 || (!mensaje && !soloEstado)) {
       return json({ error: 'Datos inválidos: se requiere conversationId, autor y mensaje.' }, 400);
     }
 
     const upstream = await fetch(ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conversationId, autor, mensaje, pausarIA, cargo, fotoUrl }),
+      body: JSON.stringify({ conversationId, autor, mensaje, pausarIA, cargo, fotoUrl, soloEstado }),
     });
+
 
     const text = await upstream.text();
     let data: unknown = null;

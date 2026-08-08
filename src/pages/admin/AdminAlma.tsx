@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { almaClient } from '@/integrations/alma/client';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -494,59 +494,149 @@ const Conversaciones = ({
   const [abierta, setAbierta] = useState<Row | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [texto, setTexto] = useState('');
-  const [pausarIA, setPausarIA] = useState(true);
   const [enviando, setEnviando] = useState(false);
+  const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [enviados, setEnviados] = useState<Row[]>([]);
+  const [entrantes, setEntrantes] = useState<Row[]>([]);
+  const [estadoLocal, setEstadoLocal] = useState<Record<string, string>>({});
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const nombreAdmin = [profile?.nombre?.trim(), profile?.apellidos?.trim()].filter(Boolean).join(' ') ||
     user?.email?.split('@')[0] ||
     'Soporte Almalibre';
   const cargoAdmin = profile?.cargo?.trim() || 'Soporte Almalibre';
 
+  const estadoDe = (c: Row) => String(estadoLocal[String(c.id)] ?? c.status ?? '').toLowerCase();
+  const iaPausada = abierta ? estadoDe(abierta) === 'paused' : false;
+
   const filtradas = conversations.filter((c) =>
     nombreDe(c).titulo.toLowerCase().includes(busqueda.toLowerCase())
   );
 
-  const hilo = abierta
-    ? [...messages.filter((m) => m.conversation_id === abierta.id), ...enviados.filter((m) => m.conversation_id === abierta.id)]
-    : [];
+  const hilo = useMemo(() => {
+    if (!abierta) return [] as Row[];
+    const todos = [
+      ...messages.filter((m) => m.conversation_id === abierta.id),
+      ...entrantes.filter((m) => m.conversation_id === abierta.id),
+      ...enviados.filter((m) => m.conversation_id === abierta.id),
+    ];
+    const vistos = new Set<string>();
+    return todos
+      .filter((m) => {
+        const k = String(m.id);
+        if (vistos.has(k)) return false;
+        vistos.add(k);
+        return true;
+      })
+      .sort((a, b) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')));
+  }, [abierta, messages, entrantes, enviados]);
 
-  const intervenir = async () => {
+  // Realtime del hilo abierto
+  useEffect(() => {
+    if (!abierta?.id) return;
+    const channel = almaClient
+      .channel(`admin-alma-${abierta.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${abierta.id}` },
+        (payload) => {
+          const row = payload.new as Row;
+          if (!row?.content) return;
+          setEntrantes((prev) => (prev.some((m) => String(m.id) === String(row.id)) ? prev : [...prev, row]));
+        }
+      )
+      .subscribe();
+    return () => {
+      almaClient.removeChannel(channel);
+    };
+  }, [abierta?.id]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }));
+  }, [hilo.length, abierta?.id]);
+
+  const llamarIntervenir = async (payload: Record<string, unknown>) => {
+    const { data: res, error } = await supabase.functions.invoke('alma-intervenir', { body: payload });
+    if (error || (res as any)?.error) throw new Error('intervencion_fallida');
+    return res;
+  };
+
+  const cambiarEstadoIA = async (pausar: boolean) => {
+    if (!abierta || cambiandoEstado) return;
+    setCambiandoEstado(true);
+    const id = String(abierta.id);
+    try {
+      await llamarIntervenir({
+        conversationId: id,
+        autor: nombreAdmin,
+        cargo: cargoAdmin,
+        mensaje: '',
+        soloEstado: true,
+        pausarIA: pausar,
+      });
+    } catch {
+      // Fallback: cambiar el estado directamente en la base de Alma
+      const { error } = await almaClient
+        .from('conversations')
+        .update({ status: pausar ? 'paused' : 'active' })
+        .eq('id', id);
+      if (error) {
+        toast({
+          title: 'No se pudo cambiar el estado de Alma',
+          description: 'Inténtalo de nuevo en unos segundos.',
+          variant: 'destructive',
+        });
+        setCambiandoEstado(false);
+        return;
+      }
+    }
+    setEstadoLocal((prev) => ({ ...prev, [id]: pausar ? 'paused' : 'active' }));
+    toast({
+      title: pausar ? 'Alma pausada' : 'Alma reactivada',
+      description: pausar
+        ? 'El franquiciado solo verá los mensajes que escribas tú.'
+        : 'Alma vuelve a responder con normalidad.',
+    });
+    setCambiandoEstado(false);
+    onRefresh();
+  };
+
+  const enviarMensaje = async () => {
     const mensaje = texto.trim();
     if (!mensaje || !abierta || enviando) return;
+    const id = String(abierta.id);
     setEnviando(true);
+    // Optimista
+    const localId = `local-${Date.now()}`;
+    setEnviados((prev) => [
+      ...prev,
+      {
+        id: localId,
+        conversation_id: abierta.id,
+        content: mensaje,
+        from_me: true,
+        es_intervencion: true,
+        autor: nombreAdmin,
+        cargo: cargoAdmin,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    setTexto('');
     try {
-      const { data, error } = await supabase.functions.invoke('alma-intervenir', {
-        body: {
-          conversationId: String(abierta.id),
-          autor: nombreAdmin,
-          mensaje,
-          pausarIA,
-          cargo: cargoAdmin,
-          fotoUrl: profile?.foto_url ?? undefined,
-        },
+      await llamarIntervenir({
+        conversationId: id,
+        autor: nombreAdmin,
+        mensaje,
+        pausarIA: true,
+        cargo: cargoAdmin,
+        fotoUrl: profile?.foto_url ?? undefined,
       });
-      if (error || (data as any)?.error) throw new Error('intervencion_fallida');
-      setEnviados((prev) => [
-        ...prev,
-        {
-          id: `local-${Date.now()}`,
-          conversation_id: abierta.id,
-          content: mensaje,
-          from_me: true,
-          es_intervencion: true,
-          autor: nombreAdmin,
-          cargo: cargoAdmin,
-          created_at: new Date().toISOString(),
-        },
-      ]);
-      setTexto('');
-      toast({
-        title: 'Mensaje enviado al franquiciado',
-        description: pausarIA ? 'Alma queda en pausa en esta conversación.' : 'Alma seguirá respondiendo.',
-      });
+      setEstadoLocal((prev) => ({ ...prev, [id]: 'paused' }));
       onRefresh();
     } catch {
+      setEnviados((prev) => prev.filter((m) => m.id !== localId));
+      setTexto(mensaje);
       toast({
         title: 'No se pudo enviar el mensaje',
         description: 'Inténtalo de nuevo en unos segundos.',
@@ -556,7 +646,6 @@ const Conversaciones = ({
       setEnviando(false);
     }
   };
-
 
   if (loading) return <LoadingList />;
   if (conversations.length === 0)
@@ -577,10 +666,7 @@ const Conversaciones = ({
       <div className="space-y-2">
         {filtradas.map((c) => {
           const info = nombreDe(c);
-          const est = STATUS_CONV[String(c.status).toLowerCase()] ?? {
-            label: 'Sin estado',
-            className: 'bg-muted text-muted-foreground border-border',
-          };
+          const pausada = estadoDe(c) === 'paused';
           const total = messages.filter((m) => m.conversation_id === c.id).length;
           return (
             <button
@@ -594,8 +680,16 @@ const Conversaciones = ({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-sm truncate">{info.titulo}</p>
-                  <Badge variant="outline" className={cn('text-[10px] shrink-0', est.className)}>
-                    {est.label}
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'text-[10px] shrink-0',
+                      pausada
+                        ? 'bg-warning/15 text-warning border-warning/40'
+                        : 'bg-success/15 text-success border-success/30'
+                    )}
+                  >
+                    {pausada ? 'IA pausada' : 'IA activa'}
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground truncate">
@@ -612,15 +706,49 @@ const Conversaciones = ({
       <Dialog open={!!abierta} onOpenChange={(o) => !o && setAbierta(null)}>
         <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
           <DialogHeader className="bg-primary text-primary-foreground p-4 space-y-0.5">
-            <DialogTitle className="text-base text-primary-foreground">
+            <DialogTitle className="text-base text-primary-foreground pr-8">
               {abierta ? nombreDe(abierta).titulo : ''}
             </DialogTitle>
             <p className="text-xs text-primary-foreground/75">
               {abierta ? `${nombreDe(abierta).canal} · ${relative(abierta.updated_at)}` : ''}
             </p>
           </DialogHeader>
+
+          {/* Toggle de estado de Alma */}
+          <div className="flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-2.5">
+            <div className="min-w-0">
+              <p className={cn('text-xs font-semibold', iaPausada ? 'text-warning' : 'text-success')}>
+                {iaPausada ? 'IA pausada' : 'IA activa'}
+              </p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {iaPausada
+                  ? 'Alma está en silencio: solo escribes tú.'
+                  : 'Alma responde automáticamente al franquiciado.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {cambiandoEstado && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+              <Switch
+                checked={iaPausada}
+                disabled={cambiandoEstado}
+                onCheckedChange={(v) => cambiarEstadoIA(v)}
+                aria-label="Pausar o reactivar a Alma"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-xl h-8 w-8"
+                onClick={() => setPerfilAbierto(true)}
+                aria-label="Editar mi perfil de soporte"
+              >
+                <UserCog className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
           <div
-            className="max-h-[60vh] overflow-y-auto p-3 space-y-2 bg-secondary"
+            ref={scrollRef}
+            className="max-h-[52vh] overflow-y-auto p-3 space-y-2 bg-secondary"
             style={{
               backgroundImage: 'radial-gradient(hsl(var(--primary) / 0.07) 1px, transparent 1px)',
               backgroundSize: '26px 26px',
@@ -671,45 +799,53 @@ const Conversaciones = ({
             })}
           </div>
 
-          <div className="border-t border-border p-3 space-y-2 bg-background">
-            <div className="flex items-center justify-between gap-3 rounded-xl bg-secondary px-3 py-2">
-              <div className="min-w-0">
-                <p className="text-xs font-medium">Pausar IA en esta conversación</p>
-                <p className="text-[11px] text-muted-foreground truncate">
-                  {pausarIA ? 'Alma dejará de responder' : 'Dejar que Alma siga respondiendo'}
-                </p>
-              </div>
-              <Switch checked={pausarIA} onCheckedChange={setPausarIA} />
-            </div>
+          {/* Composer tipo mensajería */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              enviarMensaje();
+            }}
+            className="border-t border-border bg-background p-3 flex items-end gap-2"
+          >
             <Textarea
-              rows={2}
+              rows={1}
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
-              placeholder="Escribe tu respuesta al franquiciado…"
-              className="resize-none rounded-xl text-sm"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  enviarMensaje();
+                }
+              }}
+              placeholder={`Escribe como ${nombreAdmin}…`}
+              className="resize-none rounded-2xl text-sm min-h-[44px] max-h-28 flex-1"
             />
-            <div className="flex gap-2">
-              <Button className="flex-1 rounded-xl" onClick={intervenir} disabled={!texto.trim() || enviando}>
-                {enviando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                Enviar como {nombreAdmin}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-xl shrink-0"
-                onClick={() => setPerfilAbierto(true)}
-                aria-label="Editar mi perfil de soporte"
-              >
-                <UserCog className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+            <Button
+              type="submit"
+              size="icon"
+              className="h-11 w-11 rounded-full shrink-0"
+              disabled={!texto.trim() || enviando}
+              aria-label="Enviar mensaje"
+            >
+              {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </form>
         </DialogContent>
 
       </Dialog>
+
+      <PerfilSoporteDialog
+        open={perfilAbierto}
+        onOpenChange={setPerfilAbierto}
+        profile={profile as any}
+        userId={user?.id}
+        onSaved={(p) => updateProfile?.(p as any)}
+      />
     </>
+
   );
 };
+
 
 /* ------------------------------- incidencias ------------------------------ */
 
