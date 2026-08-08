@@ -302,14 +302,14 @@ export const NetworkDashboard = () => {
                   <div className="space-y-3 max-h-[500px] overflow-y-auto">
                     {detailData.todasLasVentas.map((v, i) => (
                       <div key={`${v.id}-${i}`} className="py-3 border-b last:border-0">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium capitalize text-sm">{v.producto}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold text-sm">{formatProductoTitulo(v.producto)}</p>
                               <Badge 
                                 variant="outline" 
                                 className={cn(
-                                  "text-xs",
+                                  "text-[10px]",
                                   v.estado === 'exitoso' && "border-success/30 text-success",
                                   v.estado === 'fallido' && "border-critical/30 text-critical"
                                 )}
@@ -317,24 +317,25 @@ export const NetworkDashboard = () => {
                                 {v.estado}
                               </Badge>
                             </div>
-                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                              <Clock className="h-3 w-3" />
+                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
+                              <Clock className="h-3 w-3 flex-shrink-0" />
                               <span>{v.hora}h</span>
-                              <Badge variant="outline" className="text-xs">{v.maquina}</Badge>
+                              <Badge variant="outline" className="text-[10px] max-w-[140px] truncate">{v.maquina}</Badge>
                             </div>
                             {v.toppings && v.toppings.length > 0 && (
                               <div className="flex gap-1 mt-2 flex-wrap">
                                 {v.toppings.map((t, idx) => (
-                                  <Badge key={`${t.posicion}-${idx}`} variant="secondary" className="text-xs">
+                                  <Badge key={`${t.posicion}-${idx}`} variant="secondary" className="text-[10px] max-w-full truncate">
                                     {t.nombre} x{t.cantidad}
                                   </Badge>
                                 ))}
                               </div>
                             )}
                           </div>
-                          <span className="font-semibold text-primary ml-3">{v.precio.toFixed(2)}€</span>
+                          <span className="font-semibold text-primary text-sm whitespace-nowrap flex-shrink-0">{v.precio.toFixed(2)}€</span>
                         </div>
                       </div>
+
                     ))}
                   </div>
                 </CardContent>
