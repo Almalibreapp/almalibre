@@ -16,6 +16,7 @@ import { almaClient } from '@/integrations/alma/client';
 import { ArrowLeft, Send, Loader2, User, AlertTriangle, Leaf, ChevronDown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { marcarSoporteComoLeido } from '@/hooks/useAlmaSupportUnread';
 
 interface ChatMsg {
   id: string;
@@ -214,6 +215,7 @@ export const SoporteAlma = () => {
 
   useEffect(() => {
     requestAnimationFrame(() => scrollAlFinal());
+    marcarSoporteComoLeido();
   }, [mensajes, enviando, keyboardOpen]);
 
   const maquinaActual = useMemo(
