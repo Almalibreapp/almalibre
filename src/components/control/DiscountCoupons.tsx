@@ -476,12 +476,13 @@ const CouponCodes = ({ cuponId }: CouponCodesProps) => {
       </div>
 
       {/* Filter */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {['todos', 'disponible', 'usado', 'expirado'].map(estado => (
           <Button
             key={estado}
             variant={filterEstado === estado ? 'default' : 'outline'}
             size="sm"
+            className="flex-shrink-0"
             onClick={() => setFilterEstado(estado)}
           >
             {estado.charAt(0).toUpperCase() + estado.slice(1)}
