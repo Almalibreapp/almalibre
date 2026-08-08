@@ -127,10 +127,18 @@ export const AdminIncidenciasVentas = () => {
   }, []);
 
   const cargar = useCallback(async () => {
-    const { data: convs } = await almaClient
+    setErrorCarga(null);
+    const { data: convs, error: errConvs } = await almaClient
       .from('conversations')
       .select('id, phone_number, status, nombre_contacto, whatsapp_contacto, email_contacto, idioma, maquina_id')
-      .like('phone_number', 'web-%');
+      .like('phone_number', 'web-%')
+      .order('created_at', { ascending: false });
+
+    if (errConvs) {
+      setErrorCarga(errConvs.message);
+      setCargando(false);
+      return;
+    }
 
     const lista = (convs as Conversacion[]) ?? [];
     setConversaciones(lista);
@@ -142,15 +150,17 @@ export const AdminIncidenciasVentas = () => {
     }
 
     const ids = lista.map((c) => c.id);
-    const { data: tks } = await almaClient
+    const { data: tks, error: errTks } = await almaClient
       .from('tickets')
       .select('*')
       .in('conversation_id', ids)
       .order('created_at', { ascending: false });
 
+    if (errTks) setErrorCarga(errTks.message);
     setTickets((tks as Ticket[]) ?? []);
     setCargando(false);
   }, []);
+
 
   useEffect(() => {
     cargar();
