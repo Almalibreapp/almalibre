@@ -773,51 +773,54 @@ export const MachineDetail = () => {
                               .map((venta) => (
                               <div
                                 key={venta.id}
-                                className="flex items-center justify-between py-2 border-b last:border-0"
+                                className="py-3 border-b last:border-0"
                               >
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-medium capitalize">{decodeHtml(venta.producto)}</p>
-                                    <span className="text-xs text-muted-foreground">{venta._spainHora || venta.hora}</span>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-semibold text-sm truncate">{formatProductoTitulo(venta.producto)}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">{venta._spainHora || venta.hora}</p>
                                   </div>
-                                  {venta.toppings && venta.toppings.length > 0 && (
-                                    <div className="flex gap-1 mt-1 flex-wrap">
-                                      {venta.toppings.map((t, idx) => (
-                                        <Badge key={`${t.posicion}-${idx}`} variant="secondary" className="text-xs">
-                                          {decodeHtml(t.nombre)}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  )}
+                                  <span className="font-semibold text-primary text-sm whitespace-nowrap flex-shrink-0">
+                                    {venta.precio.toFixed(2)} €
+                                  </span>
                                 </div>
-                                <div className="text-right space-y-1">
-                                  <span className="font-semibold text-primary">{venta.precio.toFixed(2)} €</span>
-                                  <div className="flex items-center gap-1 justify-end">
-                                    <Badge 
-                                      variant="outline" 
-                                      className={cn(
-                                        "text-xs",
-                                        venta.metodo_pago === 'tarjeta' && "border-blue-500/30 text-blue-600",
-                                        venta.metodo_pago === 'efectivo' && "border-green-500/30 text-green-600",
-                                        venta.metodo_pago === 'cupón' && "border-purple-500/30 text-purple-600",
-                                        !['tarjeta', 'efectivo', 'cupón'].includes(venta.metodo_pago) && "border-muted-foreground/30"
-                                      )}
-                                    >
-                                      {venta.metodo_pago === 'tarjeta' ? '💳' : venta.metodo_pago === 'efectivo' ? '💵' : venta.metodo_pago === 'cupón' ? '🎟️' : '💳'} {venta.metodo_pago || 'tarjeta'}
-                                    </Badge>
-                                    <Badge 
-                                      variant="outline" 
-                                      className={cn(
-                                        "text-xs",
-                                        venta.estado === 'exitoso' && "border-success/30 text-success",
-                                        venta.estado === 'fallido' && "border-critical/30 text-critical"
-                                      )}
-                                    >
-                                      {venta.estado}
-                                    </Badge>
+
+                                {venta.toppings && venta.toppings.length > 0 && (
+                                  <div className="flex gap-1 mt-2 flex-wrap">
+                                    {venta.toppings.map((t, idx) => (
+                                      <Badge key={`${t.posicion}-${idx}`} variant="secondary" className="text-[10px] max-w-full truncate">
+                                        {decodeHtml(t.nombre)}
+                                      </Badge>
+                                    ))}
                                   </div>
+                                )}
+
+                                <div className="flex items-center gap-1 flex-wrap mt-2">
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[10px]",
+                                      venta.metodo_pago === 'tarjeta' && "border-blue-500/30 text-blue-600",
+                                      venta.metodo_pago === 'efectivo' && "border-green-500/30 text-green-600",
+                                      venta.metodo_pago === 'cupón' && "border-purple-500/30 text-purple-600",
+                                      !['tarjeta', 'efectivo', 'cupón'].includes(venta.metodo_pago) && "border-muted-foreground/30"
+                                    )}
+                                  >
+                                    {venta.metodo_pago === 'tarjeta' ? '💳' : venta.metodo_pago === 'efectivo' ? '💵' : venta.metodo_pago === 'cupón' ? '🎟️' : '💳'} {venta.metodo_pago || 'tarjeta'}
+                                  </Badge>
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[10px]",
+                                      venta.estado === 'exitoso' && "border-success/30 text-success",
+                                      venta.estado === 'fallido' && "border-critical/30 text-critical"
+                                    )}
+                                  >
+                                    {venta.estado}
+                                  </Badge>
                                 </div>
                               </div>
+
                             ))}
                           </div>
                           {(currentVentas?.ventas || []).length > 10 && (
