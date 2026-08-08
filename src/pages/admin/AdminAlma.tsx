@@ -280,16 +280,19 @@ const Reportes = ({ data }: { data: ReturnType<typeof useAlmaData> }) => {
   const { conversations, incidents, tickets, loading } = data;
   const [rango, setRango] = useState('7');
 
-  const resueltas = incidents.filter((i) => ['resolved', 'closed', 'resuelta'].includes(String(i.status).toLowerCase())).length;
-  const escaladas = incidents.filter((i) => ['escalated', 'escalada'].includes(String(i.status).toLowerCase())).length;
+  const uTickets = useMemo(() => buildTickets(tickets, incidents), [tickets, incidents]);
+
   const activas = conversations.filter((c) => String(c.status).toLowerCase() === 'active').length;
-  const ticketsAbiertos = tickets.filter((t) => !['resolved', 'closed'].includes(String(t.status).toLowerCase())).length;
-  const ticketsResueltos = tickets.length - ticketsAbiertos;
+  const ticketsAbiertos = uTickets.filter((t) => !t.resuelto).length;
+  const ticketsResueltos = uTickets.filter((t) => t.resuelto).length;
+  const resueltas = uTickets.filter((t) => t.resueltoPorAlma).length;
+  const escaladas = uTickets.filter((t) => t.escalado).length;
 
   const donut = [
-    { name: 'Resueltas por Alma', value: resueltas },
-    { name: 'Escaladas a humano', value: escaladas },
+    { name: 'Resueltos por Alma', value: resueltas },
+    { name: 'Escalados a una persona', value: escaladas },
   ].filter((d) => d.value > 0);
+
 
   const categorias = useMemo(() => {
     const map = new Map<string, number>();
