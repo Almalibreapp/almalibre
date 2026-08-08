@@ -791,6 +791,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          apellidos: string | null
+          cargo: string | null
           created_at: string | null
           direccion: string | null
           email: string
@@ -804,6 +806,8 @@ export type Database = {
           telefono: string | null
         }
         Insert: {
+          apellidos?: string | null
+          cargo?: string | null
           created_at?: string | null
           direccion?: string | null
           email: string
@@ -817,6 +821,8 @@ export type Database = {
           telefono?: string | null
         }
         Update: {
+          apellidos?: string | null
+          cargo?: string | null
           created_at?: string | null
           direccion?: string | null
           email?: string

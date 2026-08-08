@@ -7,6 +7,9 @@ export interface Profile {
   nif_cif: string | null;
   nombre_empresa: string | null;
   foto_url: string | null;
+  apellidos?: string | null;
+  cargo?: string | null;
+
   created_at: string;
 }
 

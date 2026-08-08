@@ -14,7 +14,6 @@ import { useMaquinas } from '@/hooks/useMaquinas';
 import { supabase } from '@/integrations/supabase/client';
 import { almaClient } from '@/integrations/alma/client';
 import { ArrowLeft, Send, Loader2, User, AlertTriangle, Leaf, ChevronDown } from 'lucide-react';
-import { BottomNav } from '@/components/layout/BottomNav';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -515,13 +514,6 @@ export const SoporteAlma = () => {
         </form>
       </div>
 
-      {/* La barra inferior vive dentro del contenedor: nunca queda fuera de pantalla */}
-      {!keyboardOpen && (
-        <div className="shrink-0 relative [&>nav]:!absolute [&>nav]:!inset-x-0 [&>nav]:!bottom-0">
-          <div className="h-16" style={{ marginBottom: 'env(safe-area-inset-bottom)' }} />
-          <BottomNav />
-        </div>
-      )}
     </div>
   );
 };
