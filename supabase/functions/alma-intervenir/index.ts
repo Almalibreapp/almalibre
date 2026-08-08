@@ -31,8 +31,9 @@ Deno.serve(async (req) => {
     const upstream = await fetch(ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conversationId, autor, mensaje, pausarIA, cargo, fotoUrl }),
+      body: JSON.stringify({ conversationId, autor, mensaje, pausarIA, cargo, fotoUrl, soloEstado }),
     });
+
 
     const text = await upstream.text();
     let data: unknown = null;
