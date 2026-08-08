@@ -7,6 +7,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +42,8 @@ import {
   Wrench,
   HelpCircle,
   Clock,
+  Send,
+  Loader2,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -476,19 +481,76 @@ const Reportes = ({ data }: { data: ReturnType<typeof useAlmaData> }) => {
 const Conversaciones = ({
   data,
   nombreDe,
+  onRefresh,
 }: {
   data: ReturnType<typeof useAlmaData>;
   nombreDe: (c: Row) => { titulo: string; canal: string };
+  onRefresh: () => void;
 }) => {
   const { conversations, messages, loading } = data;
+  const { profile, user } = useAuth();
   const [abierta, setAbierta] = useState<Row | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  const [texto, setTexto] = useState('');
+  const [pausarIA, setPausarIA] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [enviados, setEnviados] = useState<Row[]>([]);
+
+  const nombreAdmin = (profile?.nombre?.trim() || user?.email?.split('@')[0] || 'Soporte Almalibre');
 
   const filtradas = conversations.filter((c) =>
     nombreDe(c).titulo.toLowerCase().includes(busqueda.toLowerCase())
   );
 
-  const hilo = abierta ? messages.filter((m) => m.conversation_id === abierta.id) : [];
+  const hilo = abierta
+    ? [...messages.filter((m) => m.conversation_id === abierta.id), ...enviados.filter((m) => m.conversation_id === abierta.id)]
+    : [];
+
+  const intervenir = async () => {
+    const mensaje = texto.trim();
+    if (!mensaje || !abierta || enviando) return;
+    setEnviando(true);
+    try {
+      const res = await fetch('https://elon.alohafrozen.eu/admin/intervenir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: String(abierta.id),
+          autor: nombreAdmin,
+          mensaje,
+          pausarIA,
+        }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setEnviados((prev) => [
+        ...prev,
+        {
+          id: `local-${Date.now()}`,
+          conversation_id: abierta.id,
+          content: mensaje,
+          from_me: true,
+          es_intervencion: true,
+          autor: nombreAdmin,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      setTexto('');
+      toast({
+        title: 'Mensaje enviado al franquiciado',
+        description: pausarIA ? 'Alma queda en pausa en esta conversación.' : 'Alma seguirá respondiendo.',
+      });
+      onRefresh();
+    } catch {
+      toast({
+        title: 'No se pudo enviar el mensaje',
+        description: 'Inténtalo de nuevo en unos segundos.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEnviando(false);
+    }
+  };
+
 
   if (loading) return <LoadingList />;
   if (conversations.length === 0)
@@ -559,19 +621,35 @@ const Conversaciones = ({
             }}
           >
             {hilo.length === 0 && <EmptyBox icon={MessageSquare} title="Esta conversación aún no tiene mensajes" />}
-            {hilo.map((m) => (
+            {hilo.map((m) => {
+              const humano = m.es_intervencion === true;
+              return (
               <div key={m.id} className={cn('flex items-end gap-2', m.from_me ? 'justify-start' : 'justify-end')}>
                 {m.from_me && (
-                  <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0">
-                    <Leaf className="h-3.5 w-3.5 text-primary-foreground" />
+                  <div
+                    className={cn(
+                      'w-7 h-7 rounded-full flex items-center justify-center shrink-0',
+                      humano ? 'bg-warning text-warning-foreground' : 'bg-primary text-primary-foreground'
+                    )}
+                  >
+                    {humano ? <UserCog className="h-3.5 w-3.5" /> : <Leaf className="h-3.5 w-3.5" />}
                   </div>
                 )}
                 <div
                   className={cn(
                     'max-w-[80%] px-3.5 py-2 rounded-2xl shadow-sm text-sm',
-                    m.from_me ? 'bg-card rounded-bl-md' : 'bg-primary text-primary-foreground rounded-br-md'
+                    humano
+                      ? 'bg-warning/15 border border-warning/40 rounded-bl-md'
+                      : m.from_me
+                      ? 'bg-card rounded-bl-md'
+                      : 'bg-primary text-primary-foreground rounded-br-md'
                   )}
                 >
+                  {humano && (
+                    <p className="text-[11px] font-semibold text-warning mb-0.5">
+                      {(m.autor || m.author || 'Soporte')} (Soporte Almalibre)
+                    </p>
+                  )}
                   <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
                   <p className={cn('text-[10px] mt-1 text-right', m.from_me ? 'text-muted-foreground' : 'text-primary-foreground/70')}>
                     {m.created_at ? format(parseISO(m.created_at), 'HH:mm', { locale: es }) : ''}
@@ -583,9 +661,34 @@ const Conversaciones = ({
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
+          </div>
+
+          <div className="border-t border-border p-3 space-y-2 bg-background">
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-secondary px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium">Pausar IA en esta conversación</p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {pausarIA ? 'Alma dejará de responder' : 'Dejar que Alma siga respondiendo'}
+                </p>
+              </div>
+              <Switch checked={pausarIA} onCheckedChange={setPausarIA} />
+            </div>
+            <Textarea
+              rows={2}
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder="Escribe tu respuesta al franquiciado…"
+              className="resize-none rounded-xl text-sm"
+            />
+            <Button className="w-full rounded-xl" onClick={intervenir} disabled={!texto.trim() || enviando}>
+              {enviando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              Enviar como {nombreAdmin}
+            </Button>
           </div>
         </DialogContent>
+
       </Dialog>
     </>
   );
@@ -1071,7 +1174,7 @@ export const AdminAlma = () => {
           <Reportes data={data} />
         </TabsContent>
         <TabsContent value="conversations" className="mt-4">
-          <Conversaciones data={data} nombreDe={nombreDe} />
+          <Conversaciones data={data} nombreDe={nombreDe} onRefresh={() => setRefreshKey((k) => k + 1)} />
         </TabsContent>
         <TabsContent value="incidents" className="mt-4">
           <Incidencias data={data} nombreDeConversacion={nombreDeConversacion} onRefresh={() => setRefreshKey((k) => k + 1)} />
