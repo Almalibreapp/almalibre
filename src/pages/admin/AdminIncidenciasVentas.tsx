@@ -132,8 +132,7 @@ export const AdminIncidenciasVentas = () => {
     const { data: convs, error: errConvs } = await almaClient
       .from('conversations')
       .select('id, phone_number, status, nombre_contacto, whatsapp_contacto, email_contacto, idioma, maquina_id')
-      .like('phone_number', 'web-%')
-      .order('created_at', { ascending: false });
+      .like('phone_number', 'web-%');
 
     if (errConvs) {
       setErrorCarga(errConvs.message);
