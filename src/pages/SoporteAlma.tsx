@@ -373,7 +373,7 @@ export const SoporteAlma = () => {
         }}
       >
         <div className="mx-auto w-full max-w-2xl px-3 py-3 space-y-2">
-          {loadingMaquinas ? (
+          {loadingMaquinas || (imei && cargandoHistorial) ? (
             <div className="space-y-3">
               <Skeleton className="h-16 w-3/4 rounded-2xl" />
               <Skeleton className="h-12 w-2/3 rounded-2xl ml-auto" />
