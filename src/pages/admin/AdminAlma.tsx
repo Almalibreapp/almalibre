@@ -79,10 +79,11 @@ const useAlmaData = (refreshKey: number) => {
   const [tickets, setTickets] = useState<Row[]>([]);
   const [maquinas, setMaquinas] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const yaCargado = useRef(false);
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    if (!yaCargado.current) setLoading(true);
     Promise.all([
       almaClient.from('conversations').select('*').order('updated_at', { ascending: false }).limit(300),
       almaClient.from('messages').select('*').order('created_at', { ascending: true }).limit(1000),
@@ -96,6 +97,7 @@ const useAlmaData = (refreshKey: number) => {
       setIncidents(applyOverrides('incidents', (i.data as Row[]) ?? []));
       setTickets(applyOverrides('tickets', (t.data as Row[]) ?? []));
       setMaquinas((mq.data as Row[]) ?? []);
+      yaCargado.current = true;
       setLoading(false);
     });
 
@@ -649,7 +651,6 @@ const Conversaciones = ({
         fotoUrl: profile?.foto_url ?? undefined,
       });
       setEstadoLocal((prev) => ({ ...prev, [id]: 'paused' }));
-      onRefresh();
     } catch {
       setEnviados((prev) => prev.filter((m) => m.id !== localId));
       setTexto(mensaje);
@@ -663,8 +664,8 @@ const Conversaciones = ({
     }
   };
 
-  if (loading) return <LoadingList />;
-  if (conversations.length === 0)
+  if (loading && conversations.length === 0) return <LoadingList />;
+  if (!loading && conversations.length === 0)
     return <EmptyBox icon={Inbox} title="Aún no hay conversaciones" subtitle="Cuando alguien escriba a Alma, aparecerá aquí." />;
 
   const panelChat = abierta && (
