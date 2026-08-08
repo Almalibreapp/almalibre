@@ -616,19 +616,35 @@ const Conversaciones = ({
             }}
           >
             {hilo.length === 0 && <EmptyBox icon={MessageSquare} title="Esta conversación aún no tiene mensajes" />}
-            {hilo.map((m) => (
+            {hilo.map((m) => {
+              const humano = m.es_intervencion === true;
+              return (
               <div key={m.id} className={cn('flex items-end gap-2', m.from_me ? 'justify-start' : 'justify-end')}>
                 {m.from_me && (
-                  <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0">
-                    <Leaf className="h-3.5 w-3.5 text-primary-foreground" />
+                  <div
+                    className={cn(
+                      'w-7 h-7 rounded-full flex items-center justify-center shrink-0',
+                      humano ? 'bg-warning text-warning-foreground' : 'bg-primary text-primary-foreground'
+                    )}
+                  >
+                    {humano ? <UserCog className="h-3.5 w-3.5" /> : <Leaf className="h-3.5 w-3.5" />}
                   </div>
                 )}
                 <div
                   className={cn(
                     'max-w-[80%] px-3.5 py-2 rounded-2xl shadow-sm text-sm',
-                    m.from_me ? 'bg-card rounded-bl-md' : 'bg-primary text-primary-foreground rounded-br-md'
+                    humano
+                      ? 'bg-warning/15 border border-warning/40 rounded-bl-md'
+                      : m.from_me
+                      ? 'bg-card rounded-bl-md'
+                      : 'bg-primary text-primary-foreground rounded-br-md'
                   )}
                 >
+                  {humano && (
+                    <p className="text-[11px] font-semibold text-warning mb-0.5">
+                      {(m.autor || m.author || 'Soporte')} (Soporte Almalibre)
+                    </p>
+                  )}
                   <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
                   <p className={cn('text-[10px] mt-1 text-right', m.from_me ? 'text-muted-foreground' : 'text-primary-foreground/70')}>
                     {m.created_at ? format(parseISO(m.created_at), 'HH:mm', { locale: es }) : ''}
@@ -638,6 +654,7 @@ const Conversaciones = ({
                   <div className="w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center shrink-0">
                     <User className="h-3.5 w-3.5 text-muted-foreground" />
                   </div>
+
                 )}
               </div>
             ))}
