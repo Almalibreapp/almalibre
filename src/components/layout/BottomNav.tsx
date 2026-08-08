@@ -1,17 +1,29 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, ShoppingBag, Ticket, User } from 'lucide-react';
+import { Home, ShoppingBag, Ticket, User, MessageCircleHeart } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 
-const navItems = [
+const baseItems = [
   { path: '/', icon: Home, label: 'Inicio' },
   { path: '/store', icon: ShoppingBag, label: 'Pedidos' },
   { path: '/cupones', icon: Ticket, label: 'Cupones' },
   { path: '/settings', icon: User, label: 'Mi Perfil' },
 ];
 
+const soporteItem = { path: '/soporte-alma', icon: MessageCircleHeart, label: 'Soporte 24/7' };
+
 export const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const { isAdmin } = useUserRole(user?.id);
+
+  // Los administradores no ven el chat de soporte (tienen su panel en /admin)
+  const navItems = isAdmin
+    ? baseItems
+    : [baseItems[0], baseItems[1], soporteItem, baseItems[2], baseItems[3]];
+
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t safe-area-bottom">
@@ -25,14 +37,14 @@ export const BottomNav = () => {
               key={item.path}
               onClick={() => navigate(item.path)}
               className={cn(
-                'flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-lg transition-colors min-w-[60px]',
+                'flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-lg transition-colors min-w-[52px]',
                 isActive 
                   ? 'text-primary' 
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <item.icon className={cn('h-5 w-5', isActive && 'text-primary')} />
-              <span className={cn('text-xs', isActive && 'font-medium')}>
+              <span className={cn('text-[10px] leading-tight text-center', isActive && 'font-medium')}>
                 {item.label}
               </span>
             </button>
