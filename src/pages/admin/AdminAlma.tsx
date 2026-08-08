@@ -23,6 +23,7 @@ const useAlmaTable = (table: string, refreshKey: number) => {
     almaClient
       .from(table)
       .select('*')
+      .order('created_at', { ascending: false })
       .limit(200)
       .then(({ data, error }) => {
         if (!active) return;
