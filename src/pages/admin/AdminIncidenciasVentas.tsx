@@ -110,6 +110,7 @@ export const AdminIncidenciasVentas = () => {
   const [filtroEstado, setFiltroEstado] = useState<'todas' | 'abiertas' | 'resueltas'>('todas');
   const [filtroMaquina, setFiltroMaquina] = useState<string>('todas');
   const [busqueda, setBusqueda] = useState('');
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
   // Máquinas propias (IMEI -> ubicación) para resolver la localización del QR escaneado
   useEffect(() => {
@@ -314,6 +315,19 @@ export const AdminIncidenciasVentas = () => {
           </SelectContent>
         </Select>
       </div>
+
+      {errorCarga && (
+        <Card className="border-destructive/40">
+          <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3 py-4">
+            <p className="text-sm text-destructive flex-1">
+              No se pudieron cargar las incidencias: {errorCarga}
+            </p>
+            <Button size="sm" variant="outline" onClick={() => { setCargando(true); cargar(); }}>
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {cargando ? (
         <div className="space-y-3">
