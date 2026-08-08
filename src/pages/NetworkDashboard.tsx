@@ -8,6 +8,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { useNetworkSales, useNetworkDetail, useNetworkTemperatures } from '@/hooks/useNetworkData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { formatProductoTitulo } from '@/lib/sales';
 import {
   ArrowLeft,
   Euro,
