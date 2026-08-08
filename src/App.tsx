@@ -30,6 +30,7 @@ import { NetworkDashboard } from "./pages/NetworkDashboard";
 import { Academy } from "./pages/Academy";
 import { SoporteAlma } from "./pages/SoporteAlma";
 import { MisIncidencias } from "./pages/MisIncidencias";
+import { IncidenciaPublica } from "./pages/IncidenciaPublica";
 import { InstallBanner } from "@/components/pwa/InstallBanner";
 import { FloatingAlmaButton } from "@/components/support/FloatingAlmaButton";
 import NotFound from "./pages/NotFound";
