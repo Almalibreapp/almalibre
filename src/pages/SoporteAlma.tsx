@@ -96,6 +96,7 @@ export const SoporteAlma = () => {
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [cargandoHistorial, setCargandoHistorial] = useState(true);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -104,6 +105,66 @@ export const SoporteAlma = () => {
   useEffect(() => {
     if (!imei && maquinas.length > 0) setImei(maquinas[0].mac_address);
   }, [maquinas, imei]);
+
+  // Historial persistente: se reconstruye siempre desde la base de datos
+  useEffect(() => {
+    if (!imei) return;
+    let cancelado = false;
+
+    const cargar = async () => {
+      setCargandoHistorial(true);
+      setMensajes([]);
+      setConversationId(null);
+      try {
+        const { data: conv } = await almaClient
+          .from('conversations')
+          .select('id')
+          .eq('phone_number', `app-${imei}`)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (cancelado) return;
+        if (!conv?.id) {
+          setCargandoHistorial(false);
+          return;
+        }
+        setConversationId(String(conv.id));
+
+        const { data: msgs } = await almaClient
+          .from('messages')
+          .select('id, content, from_me, created_at, autor, es_intervencion')
+          .eq('conversation_id', conv.id)
+          .order('created_at', { ascending: true });
+
+        if (cancelado) return;
+        setMensajes(
+          (msgs ?? [])
+            .filter((m: any) => m?.content)
+            .map((m: any) => ({
+              id: String(m.id),
+              autor: m.from_me ? ('alma' as const) : ('usuario' as const),
+              texto: String(m.content),
+              hora: new Date(m.created_at).toLocaleTimeString('es-ES', {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              nombreAutor: m.es_intervencion ? m.autor || 'Soporte Almalibre' : undefined,
+            }))
+        );
+      } catch {
+        /* si falla, se muestra el chat vacío */
+      } finally {
+        if (!cancelado) setCargandoHistorial(false);
+      }
+    };
+
+    cargar();
+    return () => {
+      cancelado = true;
+    };
+  }, [imei]);
+
 
   // Intervenciones humanas en tiempo real
   useEffect(() => {
@@ -312,7 +373,7 @@ export const SoporteAlma = () => {
         }}
       >
         <div className="mx-auto w-full max-w-2xl px-3 py-3 space-y-2">
-          {loadingMaquinas ? (
+          {loadingMaquinas || (imei && cargandoHistorial) ? (
             <div className="space-y-3">
               <Skeleton className="h-16 w-3/4 rounded-2xl" />
               <Skeleton className="h-12 w-2/3 rounded-2xl ml-auto" />
