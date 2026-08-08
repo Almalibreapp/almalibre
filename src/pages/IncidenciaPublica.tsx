@@ -398,9 +398,11 @@ export const IncidenciaPublica = () => {
   }
 
   return (
-    <main className="relative min-h-[100dvh] overflow-hidden">
+    <main className="relative overflow-hidden" style={{ height: altoVisible ? `${altoVisible}px` : '100dvh' }}>
       <Fondo />
-      <div className="relative z-10 flex flex-col h-[100dvh] safe-area-top">
+      <div
+        className={cn('relative z-10 flex flex-col h-full', paso !== 'chat' && 'safe-area-top')}
+      >
         {paso !== 'chat' && cabecera}
 
         {/* PASO 1 — bienvenida */}
