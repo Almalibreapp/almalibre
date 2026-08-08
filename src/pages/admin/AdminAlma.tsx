@@ -654,12 +654,36 @@ const Conversaciones = ({
                   <div className="w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center shrink-0">
                     <User className="h-3.5 w-3.5 text-muted-foreground" />
                   </div>
-
                 )}
               </div>
-            ))}
+              );
+            })}
+          </div>
+
+          <div className="border-t border-border p-3 space-y-2 bg-background">
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-secondary px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium">Pausar IA en esta conversación</p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {pausarIA ? 'Alma dejará de responder' : 'Dejar que Alma siga respondiendo'}
+                </p>
+              </div>
+              <Switch checked={pausarIA} onCheckedChange={setPausarIA} />
+            </div>
+            <Textarea
+              rows={2}
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder="Escribe tu respuesta al franquiciado…"
+              className="resize-none rounded-xl text-sm"
+            />
+            <Button className="w-full rounded-xl" onClick={intervenir} disabled={!texto.trim() || enviando}>
+              {enviando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              Enviar como {nombreAdmin}
+            </Button>
           </div>
         </DialogContent>
+
       </Dialog>
     </>
   );
