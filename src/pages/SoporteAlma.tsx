@@ -108,8 +108,15 @@ export const SoporteAlma = () => {
     if (!imei && maquinas.length > 0) setImei(maquinas[0].mac_address);
   }, [maquinas, imei]);
 
+  // Scroll dentro del contenedor (nunca mueve la página en iOS)
+  const scrollAlFinal = (smooth = true) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  };
+
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    requestAnimationFrame(() => scrollAlFinal());
   }, [mensajes, enviando, keyboardOpen]);
 
   const maquinaActual = useMemo(
