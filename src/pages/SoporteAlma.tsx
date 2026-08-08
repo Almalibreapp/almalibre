@@ -29,12 +29,6 @@ interface ChatMsg {
 const nowTime = () =>
   new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
-const SUGERENCIAS = [
-  'La máquina no dispensa açaí',
-  'Error en pantalla',
-  'No acepta pagos con tarjeta',
-  'Temperatura fuera de rango',
-];
 
 /** Altura real disponible (descuenta el teclado en iOS/Android) */
 const useViewportHeight = () => {

@@ -41,15 +41,10 @@ import {
 
 const menuItems = [
   { path: '/notifications', icon: Bell, label: 'Notificaciones', description: 'Configura tus alertas' },
-  { path: '/subscription', icon: Crown, label: 'Mi Suscripción', description: 'Gestiona tu plan' },
   { path: '/payment-methods', icon: CreditCard, label: 'Métodos de Pago', description: 'Tarjetas y cuentas' },
   { path: '/orders', icon: Package, label: 'Mis Pedidos', description: 'Historial de compras' },
 ];
 
-const supportItems = [
-  { path: '/support', icon: Headphones, label: 'Soporte Técnico', description: 'Asistente IA 24/7' },
-  { path: '/incidents', icon: AlertTriangle, label: 'Incidencias', description: 'Historial de incidencias' },
-];
 
 const toolItems = [
   { path: '/academy', icon: GraduationCap, label: 'Almalibre Academy', description: 'Formación operativa obligatoria' },
