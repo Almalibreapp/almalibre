@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Select,
@@ -13,7 +12,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Send, Loader2, Headphones, User, AlertTriangle, Leaf } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, User, AlertTriangle, Leaf, ChevronDown } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -35,17 +34,44 @@ const SUGERENCIAS = [
   'Temperatura fuera de rango',
 ];
 
+/** Altura real disponible (descuenta el teclado en iOS/Android) */
+const useViewportHeight = () => {
+  const [height, setHeight] = useState<number | null>(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      setHeight(vv.height);
+      setKeyboardOpen(window.innerHeight - vv.height > 120);
+    };
+    onResize();
+    vv.addEventListener('resize', onResize);
+    vv.addEventListener('scroll', onResize);
+    return () => {
+      vv.removeEventListener('resize', onResize);
+      vv.removeEventListener('scroll', onResize);
+    };
+  }, []);
+
+  return { height, keyboardOpen };
+};
+
 export const SoporteAlma = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { maquinas, loading: loadingMaquinas } = useMaquinas(user?.id);
+  const { height, keyboardOpen } = useViewportHeight();
 
   const [imei, setImei] = useState<string>('');
   const [mensajes, setMensajes] = useState<ChatMsg[]>([]);
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!imei && maquinas.length > 0) setImei(maquinas[0].mac_address);
@@ -53,16 +79,25 @@ export const SoporteAlma = () => {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [mensajes, enviando]);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+  }, [mensajes, enviando, keyboardOpen]);
 
   const maquinaActual = useMemo(
     () => maquinas.find((m) => m.mac_address === imei),
     [maquinas, imei]
   );
+
+  const autoGrow = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  };
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setShowScrollDown(el.scrollHeight - el.scrollTop - el.clientHeight > 240);
+  };
 
   const enviar = async () => {
     const contenido = texto.trim();
@@ -73,6 +108,7 @@ export const SoporteAlma = () => {
       { id: crypto.randomUUID(), autor: 'usuario', texto: contenido, hora: nowTime() },
     ]);
     setTexto('');
+    requestAnimationFrame(autoGrow);
     setEnviando(true);
 
     try {
@@ -128,32 +164,46 @@ export const SoporteAlma = () => {
       ]);
     } finally {
       setEnviando(false);
-      inputRef.current?.focus();
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="container flex items-center gap-3 h-16 px-3 sm:px-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+    <div
+      className="fixed inset-x-0 top-0 flex flex-col overflow-hidden bg-secondary"
+      style={{ height: height ? `${height}px` : '100dvh' }}
+    >
+      {/* Header estilo WhatsApp — siempre visible */}
+      <header className="shrink-0 bg-primary text-primary-foreground shadow-lg safe-area-top">
+        <div className="flex items-center gap-2 h-14 px-2">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 rounded-full hover:bg-primary-foreground/10 transition-colors"
+            aria-label="Volver"
+          >
             <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shrink-0">
-            <Headphones className="h-5 w-5 text-primary-foreground" />
+          </button>
+          <div className="relative shrink-0">
+            <div className="w-9 h-9 rounded-full bg-primary-foreground/15 ring-1 ring-primary-foreground/30 flex items-center justify-center">
+              <Leaf className="h-4.5 w-4.5 text-primary-foreground" />
+            </div>
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-success ring-2 ring-primary" />
           </div>
-          <div className="min-w-0">
-            <h1 className="font-semibold text-sm sm:text-base truncate">Alma · Soporte 24/7</h1>
-            <p className="text-xs text-muted-foreground truncate">
-              {maquinaActual ? maquinaActual.nombre_personalizado : 'Almalibre Franquicias'}
+          <div className="min-w-0 flex-1">
+            <h1 className="font-semibold text-[15px] leading-tight truncate">Alma · Soporte 24/7</h1>
+            <p className="text-[11px] text-primary-foreground/75 truncate">
+              {enviando
+                ? 'escribiendo…'
+                : maquinaActual
+                ? `en línea · ${maquinaActual.nombre_personalizado}`
+                : 'en línea'}
             </p>
           </div>
         </div>
 
         {maquinas.length > 1 && (
-          <div className="container px-3 sm:px-4 pb-3">
+          <div className="px-3 pb-2">
             <Select value={imei} onValueChange={setImei}>
-              <SelectTrigger className="h-9 text-sm">
+              <SelectTrigger className="h-8 text-xs bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground">
                 <SelectValue placeholder="Selecciona una máquina" />
               </SelectTrigger>
               <SelectContent>
@@ -168,16 +218,27 @@ export const SoporteAlma = () => {
         )}
       </header>
 
-      <main className="flex-1 overflow-y-auto pb-44">
-        <div className="container max-w-2xl px-3 sm:px-4 py-4 space-y-3">
-
+      {/* Zona de mensajes con "wallpaper" de marca */}
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="relative flex-1 overflow-y-auto overscroll-contain"
+        style={{
+          backgroundImage:
+            'radial-gradient(hsl(var(--primary) / 0.07) 1px, transparent 1px), radial-gradient(hsl(var(--primary) / 0.05) 1px, transparent 1px)',
+          backgroundSize: '28px 28px, 28px 28px',
+          backgroundPosition: '0 0, 14px 14px',
+        }}
+      >
+        <div className="mx-auto w-full max-w-2xl px-3 py-3 space-y-2">
           {loadingMaquinas ? (
             <div className="space-y-3">
-              <Skeleton className="h-20 w-3/4 rounded-2xl" />
-              <Skeleton className="h-14 w-2/3 rounded-2xl ml-auto" />
+              <Skeleton className="h-16 w-3/4 rounded-2xl" />
+              <Skeleton className="h-12 w-2/3 rounded-2xl ml-auto" />
+              <Skeleton className="h-20 w-4/5 rounded-2xl" />
             </div>
           ) : maquinas.length === 0 ? (
-            <Card>
+            <Card className="mt-6">
               <CardContent className="py-10 text-center space-y-3">
                 <AlertTriangle className="h-8 w-8 text-muted-foreground mx-auto" />
                 <p className="text-sm text-muted-foreground">
@@ -190,25 +251,36 @@ export const SoporteAlma = () => {
             </Card>
           ) : (
             <>
+              <div className="flex justify-center py-1">
+                <span className="text-[10px] uppercase tracking-wide bg-card/80 backdrop-blur px-3 py-1 rounded-full text-muted-foreground shadow-sm">
+                  Hoy
+                </span>
+              </div>
+
               {mensajes.length === 0 && (
-                <div className="space-y-4 animate-fade-in">
-                  <div className="flex gap-2">
-                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-                      <Leaf className="h-4 w-4 text-primary-foreground" />
+                <div className="space-y-3 animate-fade-in">
+                  <div className="flex gap-2 items-end">
+                    <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0 shadow">
+                      <Leaf className="h-3.5 w-3.5 text-primary-foreground" />
                     </div>
-                    <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-4 py-3">
-                      <p className="text-sm">
-                        ¡Hola {profile?.nombre?.split(' ')[0] || ''}! Soy <span className="font-semibold">Alma</span>,
-                        tu asistente de soporte. Cuéntame qué le pasa a tu máquina y lo resolvemos juntos. 🍃
+                    <div className="relative max-w-[82%] rounded-2xl rounded-bl-md bg-card px-3.5 py-2.5 shadow-sm">
+                      <p className="text-[14px] leading-relaxed">
+                        ¡Hola {profile?.nombre?.split(' ')[0] || ''}! Soy{' '}
+                        <span className="font-semibold text-primary">Alma</span>, tu asistente de
+                        soporte. Cuéntame qué le pasa a tu máquina y lo resolvemos juntos. 🍃
                       </p>
+                      <p className="text-[10px] mt-1 text-muted-foreground text-right">{nowTime()}</p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2 pl-10">
+                  <div className="flex flex-wrap gap-2 pl-9">
                     {SUGERENCIAS.map((s) => (
                       <button
                         key={s}
-                        onClick={() => setTexto(s)}
-                        className="text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                        onClick={() => {
+                          setTexto(s);
+                          inputRef.current?.focus();
+                        }}
+                        className="text-xs px-3 py-1.5 rounded-full bg-card border border-primary/20 text-primary shadow-sm active:scale-95 transition-transform"
                       >
                         {s}
                       </button>
@@ -221,64 +293,65 @@ export const SoporteAlma = () => {
                 <div
                   key={m.id}
                   className={cn(
-                    'flex gap-2 animate-fade-in',
+                    'flex gap-2 items-end animate-fade-in',
                     m.autor === 'usuario' ? 'justify-end' : 'justify-start'
                   )}
                 >
                   {m.autor !== 'usuario' && (
                     <div
                       className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center shrink-0',
+                        'w-7 h-7 rounded-full flex items-center justify-center shrink-0 shadow',
                         m.autor === 'error' ? 'bg-destructive' : 'bg-primary'
                       )}
                     >
                       {m.autor === 'error' ? (
-                        <AlertTriangle className="h-4 w-4 text-destructive-foreground" />
+                        <AlertTriangle className="h-3.5 w-3.5 text-destructive-foreground" />
                       ) : (
-                        <Leaf className="h-4 w-4 text-primary-foreground" />
+                        <Leaf className="h-3.5 w-3.5 text-primary-foreground" />
                       )}
                     </div>
                   )}
                   <div
                     className={cn(
-                      'max-w-[85%] rounded-2xl px-4 py-2.5',
+                      'max-w-[82%] px-3.5 py-2.5 shadow-sm rounded-2xl',
                       m.autor === 'usuario'
-                        ? 'bg-primary text-primary-foreground rounded-br-sm'
+                        ? 'bg-primary text-primary-foreground rounded-br-md'
                         : m.autor === 'error'
-                        ? 'bg-destructive/10 text-foreground border border-destructive/30 rounded-bl-sm'
-                        : 'bg-muted rounded-bl-sm'
+                        ? 'bg-destructive/10 text-foreground border border-destructive/30 rounded-bl-md'
+                        : 'bg-card rounded-bl-md'
                     )}
                   >
-                    <p className="text-sm whitespace-pre-wrap break-words">{m.texto}</p>
+                    <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
+                      {m.texto}
+                    </p>
                     <p
                       className={cn(
-                        'text-[10px] mt-1',
-                        m.autor === 'usuario' ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                        'text-[10px] mt-1 text-right',
+                        m.autor === 'usuario'
+                          ? 'text-primary-foreground/70'
+                          : 'text-muted-foreground'
                       )}
                     >
                       {m.hora}
                     </p>
                   </div>
                   {m.autor === 'usuario' && (
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                      <User className="h-4 w-4 text-muted-foreground" />
+                    <div className="w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center shrink-0">
+                      <User className="h-3.5 w-3.5 text-muted-foreground" />
                     </div>
                   )}
                 </div>
               ))}
 
               {enviando && (
-                <div className="flex gap-2 animate-fade-in">
-                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-                    <Leaf className="h-4 w-4 text-primary-foreground" />
+                <div className="flex gap-2 items-end animate-fade-in">
+                  <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0 shadow">
+                    <Leaf className="h-3.5 w-3.5 text-primary-foreground" />
                   </div>
-                  <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
-                    <span className="flex gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:0ms]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:150ms]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:300ms]" />
-                    </span>
-                    <span className="text-xs text-muted-foreground">Alma está escribiendo…</span>
+                  <div className="bg-card rounded-2xl rounded-bl-md px-4 py-3 shadow-sm flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:0ms]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:150ms]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:300ms]" />
                   </div>
                 </div>
               )}
@@ -286,39 +359,69 @@ export const SoporteAlma = () => {
           )}
           <div ref={endRef} />
         </div>
-      </main>
 
-      <div className="fixed bottom-16 left-0 right-0 bg-background/95 backdrop-blur border-t p-3 pb-4">
-        <div className="container max-w-2xl px-1">
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              enviar();
-            }}
-            className="flex gap-2"
+        {showScrollDown && (
+          <button
+            onClick={() => endRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            className="sticky bottom-3 ml-auto mr-3 flex w-9 h-9 items-center justify-center rounded-full bg-card shadow-lg border border-border text-primary"
+            aria-label="Ir al final"
           >
-            <Input
-              ref={inputRef}
-              placeholder="Escribe tu mensaje a Alma…"
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              disabled={enviando || maquinas.length === 0}
-              className="flex-1 rounded-full"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              className="rounded-full shrink-0"
-              disabled={!texto.trim() || enviando || maquinas.length === 0}
-            >
-              {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </form>
-        </div>
+            <ChevronDown className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
-      <BottomNav />
+      {/* Composer: parte del flujo, nunca tapado por el teclado */}
+      <div className="shrink-0 bg-background/95 backdrop-blur border-t border-border px-2 py-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            enviar();
+          }}
+          className="mx-auto flex w-full max-w-2xl items-end gap-2"
+        >
+          <div className="flex-1 flex items-end rounded-3xl bg-secondary border border-border px-4 py-2">
+            <textarea
+              ref={inputRef}
+              rows={1}
+              placeholder="Escribe un mensaje…"
+              value={texto}
+              onChange={(e) => {
+                setTexto(e.target.value);
+                autoGrow();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  enviar();
+                }
+              }}
+              disabled={enviando || maquinas.length === 0}
+              className="w-full resize-none bg-transparent text-[15px] leading-6 outline-none placeholder:text-muted-foreground max-h-[120px]"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!texto.trim() || enviando || maquinas.length === 0}
+            className="h-11 w-11 shrink-0 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center disabled:opacity-40 active:scale-95 transition-transform"
+            aria-label="Enviar"
+          >
+            {enviando ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
+          </button>
+        </form>
+      </div>
+
+      {/* La barra inferior se oculta con el teclado abierto para ganar espacio */}
+      {!keyboardOpen && (
+        <div className="shrink-0 relative">
+          <div className="h-16" />
+          <BottomNav />
+        </div>
+      )}
     </div>
   );
 };
