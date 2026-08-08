@@ -492,7 +492,7 @@ export const SoporteAlma = () => {
                       </p>
                     )}
                     <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
-                      {m.texto}
+                      <MarkdownTexto>{m.texto}</MarkdownTexto>
                     </p>
                     <p
                       className={cn(
