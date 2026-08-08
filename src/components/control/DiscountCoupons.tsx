@@ -500,13 +500,13 @@ const CouponCodes = ({ cuponId }: CouponCodesProps) => {
             <div
               key={codigo.id}
               className={cn(
-                "flex items-center justify-between p-3 rounded-lg border",
+                "flex items-center justify-between gap-2 p-3 rounded-lg border",
                 codigo.usado ? "bg-muted opacity-60" : "bg-background"
               )}
             >
-              <div className="space-y-1">
-                <p className="font-mono text-lg font-bold">{codigo.codigo}</p>
-                <div className="flex items-center gap-2">
+              <div className="space-y-1 min-w-0">
+                <p className="font-mono text-base sm:text-lg font-bold break-all">{codigo.codigo}</p>
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={codigo.estado === 'disponible' ? 'default' : 'secondary'}>
                     {codigo.estado}
                   </Badge>
