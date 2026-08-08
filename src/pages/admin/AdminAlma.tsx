@@ -59,6 +59,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { applyOverrides, setOverride } from './almaOverrides';
+import { TicketUpdates } from './TicketUpdates';
 
 
 type Row = Record<string, any>;
