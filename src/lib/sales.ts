@@ -235,3 +235,10 @@ export const fetchSpainDayVentas = async (
   const sales = await fetchSpanishDayOrders(imei, spainDate, fetcher);
   return sales.map((sale) => mapSpainSaleToVenta(sale, imei));
 };
+
+/**
+ * Titulo unificado de producto para las vistas de franquiciado.
+ * El hardware devuelve nombres variables ("ACAI", "Snow Icecream",
+ * "ACAI/Cacahuete/Granola"...). Siempre mostramos "AÇAÍ".
+ */
+export const formatProductoTitulo = (_producto?: string): string => 'AÇAÍ';
