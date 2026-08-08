@@ -184,7 +184,7 @@ export const SoporteAlma = () => {
           </button>
           <div className="relative shrink-0">
             <div className="w-9 h-9 rounded-full bg-primary-foreground/15 ring-1 ring-primary-foreground/30 flex items-center justify-center">
-              <Leaf className="h-4.5 w-4.5 text-primary-foreground" />
+              <Leaf className="h-4 w-4 text-primary-foreground" />
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-success ring-2 ring-primary" />
           </div>
