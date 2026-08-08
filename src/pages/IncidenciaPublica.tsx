@@ -198,6 +198,21 @@ export const IncidenciaPublica = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Alto real disponible (se ajusta cuando aparece el teclado en móvil)
+  const [altoVisible, setAltoVisible] = useState<number | null>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const actualizar = () => setAltoVisible(vv.height);
+    actualizar();
+    vv.addEventListener('resize', actualizar);
+    vv.addEventListener('scroll', actualizar);
+    return () => {
+      vv.removeEventListener('resize', actualizar);
+      vv.removeEventListener('scroll', actualizar);
+    };
+  }, []);
+
   const whatsappCompleto = `${prefijo}${telefono.replace(/\D/g, '')}`;
 
   // Paso 1 — identificar máquina
