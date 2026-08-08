@@ -404,7 +404,7 @@ export const SoporteAlma = () => {
 
         {showScrollDown && (
           <button
-            onClick={() => endRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            onClick={() => scrollAlFinal()}
             className="sticky bottom-3 ml-auto mr-3 flex w-9 h-9 items-center justify-center rounded-full bg-card shadow-lg border border-border text-primary"
             aria-label="Ir al final"
           >
