@@ -23,6 +23,7 @@ Deno.serve(async (req) => {
     const email = str(body?.email, 200);
     const mensaje = str(body?.mensaje, 4000);
     const imagenUrl = str(body?.imagenUrl, 2000) || null;
+    const idioma = str(body?.idioma, 5).toLowerCase() === 'en' ? 'en' : 'es';
 
     if (!imei || !/^[A-Za-z0-9._:-]+$/.test(imei)) return json({ error: 'imei_invalido' }, 400);
     if (!nombre || !whatsapp) return json({ error: 'datos_incompletos' }, 400);
@@ -32,8 +33,9 @@ Deno.serve(async (req) => {
     const upstream = await fetch(ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imei, nombre, whatsapp, email, mensaje, imagenUrl }),
+      body: JSON.stringify({ imei, nombre, whatsapp, email, mensaje, imagenUrl, idioma }),
     });
+
 
     const text = await upstream.text();
     let data: unknown = null;
