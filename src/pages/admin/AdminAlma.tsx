@@ -209,23 +209,18 @@ const buildTickets = (tickets: Row[], incidents: Row[]): UTicket[] => {
   );
 };
 
-/** Actualiza estado en el sistema de Alma; si es de solo lectura, guarda el cambio en el panel. */
+/** Actualiza el estado del ticket a través del backend (nunca escribe directo en Supabase). */
 const guardarEstado = async (
   tabla: 'tickets' | 'incidents',
   id: string,
   status: string,
   resolved_at: string | null
 ) => {
-  const { data, error } = await almaClient
-    .from(tabla)
-    .update({ status, resolved_at })
-    .eq('id', id)
-    .select();
-  if (error) return { ok: false as const, local: false, error };
-  if (!data || data.length === 0) {
-    setOverride(tabla, id, { status, resolved_at });
-    return { ok: true as const, local: true, error: null };
-  }
+  const nuevoEstado = resolved_at ? 'resuelto' : 'abierto';
+  const { data, error } = await supabase.functions.invoke('alma-cambiar-estado-ticket', {
+    body: { ticketId: id, nuevoEstado },
+  });
+  if (error || (data as any)?.error) return { ok: false as const, local: false, error: error ?? data };
   setOverride(tabla, id, { status, resolved_at });
   return { ok: true as const, local: false, error: null };
 };
