@@ -528,13 +528,15 @@ export const IncidenciaPublica = () => {
         {paso === 'chat' && (
           <section className="flex-1 min-h-0 flex flex-col sm:px-2 sm:pb-2 animate-fade-in-up">
             <div className="flex-1 min-h-0 flex flex-col w-full sm:max-w-md sm:mx-auto sm:rounded-3xl bg-card overflow-hidden shadow-2xl">
-              <div className="flex items-center gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-3 border-b border-border shrink-0 bg-card">
-                <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shrink-0">
-                  <LogoBlanco className="h-6 w-6" />
-                </div>
+              <div className="flex items-center gap-3 px-4 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)] sm:pt-2.5 border-b border-border shrink-0 bg-card">
+                <img
+                  src={almaAvatar}
+                  alt="Alma"
+                  className="h-10 w-10 rounded-full object-cover shrink-0 border border-border"
+                />
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Alma</p>
-                  <p className="text-[11px] text-muted-foreground truncate">
+                  <p className="text-sm font-semibold text-foreground leading-tight">Alma</p>
+                  <p className="text-[11px] text-muted-foreground truncate leading-tight">
                     {ubicacion ? t.maquinaDe(ubicacion) : t.atencion}
                   </p>
                 </div>
@@ -546,10 +548,22 @@ export const IncidenciaPublica = () => {
               >
                 {mensajes.map((m) => (
                   <div key={m.id} className="space-y-2">
-                    <div className={cn('flex', m.autor === 'cliente' ? 'justify-end' : 'justify-start')}>
+                    <div
+                      className={cn(
+                        'flex items-end gap-2',
+                        m.autor === 'cliente' ? 'justify-end' : 'justify-start'
+                      )}
+                    >
+                      {m.autor === 'alma' && (
+                        <img
+                          src={almaAvatar}
+                          alt="Alma"
+                          className="h-8 w-8 rounded-full object-cover shrink-0 border border-border"
+                        />
+                      )}
                       <div
                         className={cn(
-                          'max-w-[85%] px-4 py-3 rounded-3xl text-[15px] leading-relaxed shadow-sm animate-slide-up',
+                          'max-w-[80%] px-4 py-3 rounded-3xl text-[15px] leading-relaxed shadow-sm animate-slide-up',
                           m.autor === 'cliente'
                             ? 'bg-primary text-primary-foreground rounded-br-lg'
                             : 'bg-card text-card-foreground rounded-bl-lg'
@@ -584,20 +598,6 @@ export const IncidenciaPublica = () => {
                   </div>
                 ))}
 
-                {/* Chips de sugerencias */}
-                {mensajes.length === 1 && !enviando && (
-                  <div className="flex flex-wrap gap-2 pt-1 animate-fade-in">
-                    {t.chips.map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => enviarMensaje(c)}
-                        className="rounded-full border border-primary/30 bg-card px-4 py-2 text-sm font-medium text-primary shadow-sm active:scale-95 transition-transform"
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                )}
 
                 {enviando && (
                   <div className="flex justify-start">
