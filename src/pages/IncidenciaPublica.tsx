@@ -257,7 +257,7 @@ export const IncidenciaPublica = () => {
   useEffect(() => {
     const el = scrollRef.current;
     if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
-  }, [mensajes.length, enviando, fotoPendiente, altoVisible]);
+  }, [mensajes.length, enviando, fotoPendiente, viewportVisible?.alto, viewportVisible?.offset]);
 
   const contactoValido = useMemo(
     () => nombre.trim().length >= 2 && telefonoValido(telefono) && emailValido(email),
