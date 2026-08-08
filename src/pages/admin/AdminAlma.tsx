@@ -341,11 +341,12 @@ const Reportes = ({ data }: { data: ReturnType<typeof useAlmaData> }) => {
       <div className="grid gap-3 lg:grid-cols-2">
         <Card className="rounded-2xl shadow-sm">
           <CardHeader className="pb-1">
-            <CardTitle className="text-base">Resolución de incidencias</CardTitle>
+            <CardTitle className="text-base">Resolución de tickets</CardTitle>
           </CardHeader>
           <CardContent>
             {donut.length === 0 ? (
-              <EmptyBox icon={LifeBuoy} title="Todavía no hay incidencias registradas" />
+              <EmptyBox icon={LifeBuoy} title="Todavía no hay tickets registrados" />
+
             ) : (
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
