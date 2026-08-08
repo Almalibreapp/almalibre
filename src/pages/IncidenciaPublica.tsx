@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react';
 import logoIcon from '@/assets/logo-icon-almalibre.png';
+import almaAvatar from '@/assets/alma-avatar.png';
 
 type Paso = 'bienvenida' | 'contacto' | 'chat';
 type Idioma = 'es' | 'en';
