@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { almaClient } from '@/integrations/alma/client';
 import { ArrowLeft, Send, Loader2, User, AlertTriangle, Leaf, ChevronDown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MarkdownTexto } from '@/components/ui/MarkdownTexto';
 import { cn } from '@/lib/utils';
 import { marcarSoporteComoLeido } from '@/hooks/useAlmaSupportUnread';
 
@@ -491,7 +492,7 @@ export const SoporteAlma = () => {
                       </p>
                     )}
                     <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
-                      {m.texto}
+                      <MarkdownTexto>{m.texto}</MarkdownTexto>
                     </p>
                     <p
                       className={cn(

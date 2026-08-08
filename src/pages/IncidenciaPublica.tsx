@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { MarkdownTexto } from '@/components/ui/MarkdownTexto';
 import { toast } from '@/hooks/use-toast';
 import {
   ArrowRight,
@@ -590,7 +591,11 @@ export const IncidenciaPublica = () => {
                             loading="lazy"
                           />
                         )}
-                        {m.texto && <p className="whitespace-pre-wrap break-words">{m.texto}</p>}
+                        {m.texto && (
+                          <p className="whitespace-pre-wrap break-words">
+                            <MarkdownTexto>{m.texto}</MarkdownTexto>
+                          </p>
+                        )}
                         {m.autor === 'cliente' && (
                           <span className="flex justify-end mt-1 text-primary-foreground/70">
                             {m.entregado ? <CheckCheck className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
