@@ -26,7 +26,7 @@ export const BottomNav = () => {
 
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-primary text-primary-foreground border-t border-primary/40 shadow-[0_-4px_20px_hsl(var(--primary)/0.25)] safe-area-bottom">
       <div className="container flex items-center justify-around h-16 px-2">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path || 
@@ -37,14 +37,14 @@ export const BottomNav = () => {
               key={item.path}
               onClick={() => navigate(item.path)}
               className={cn(
-                'flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-lg transition-colors min-w-[52px]',
-                isActive 
-                  ? 'text-primary' 
-                  : 'text-muted-foreground hover:text-foreground'
+                'flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-xl transition-all min-w-[52px]',
+                isActive
+                  ? 'bg-primary-foreground/15 text-primary-foreground'
+                  : 'text-primary-foreground/70 hover:text-primary-foreground'
               )}
             >
-              <item.icon className={cn('h-5 w-5', isActive && 'text-primary')} />
-              <span className={cn('text-[10px] leading-tight text-center', isActive && 'font-medium')}>
+              <item.icon className="h-5 w-5" />
+              <span className={cn('text-[10px] leading-tight text-center', isActive && 'font-semibold')}>
                 {item.label}
               </span>
             </button>
@@ -54,3 +54,4 @@ export const BottomNav = () => {
     </nav>
   );
 };
+
