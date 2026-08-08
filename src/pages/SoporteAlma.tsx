@@ -37,6 +37,7 @@ const SUGERENCIAS = [
 /** Altura real disponible (descuenta el teclado en iOS/Android) */
 const useViewportHeight = () => {
   const [height, setHeight] = useState<number | null>(null);
+  const [offsetTop, setOffsetTop] = useState(0);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ const useViewportHeight = () => {
     if (!vv) return;
     const onResize = () => {
       setHeight(vv.height);
+      setOffsetTop(vv.offsetTop);
       setKeyboardOpen(window.innerHeight - vv.height > 120);
     };
     onResize();
@@ -55,7 +57,35 @@ const useViewportHeight = () => {
     };
   }, []);
 
-  return { height, keyboardOpen };
+  return { height, offsetTop, keyboardOpen };
+};
+
+/** Bloquea el scroll y el rebote de la página mientras el chat está abierto */
+const useLockBodyScroll = () => {
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      bodyPosition: body.style.position,
+      bodyWidth: body.style.width,
+      overscroll: html.style.overscrollBehavior,
+    };
+    html.style.overflow = 'hidden';
+    html.style.overscrollBehavior = 'none';
+    body.style.overflow = 'hidden';
+    body.style.position = 'fixed';
+    body.style.width = '100%';
+    window.scrollTo(0, 0);
+    return () => {
+      html.style.overflow = prev.htmlOverflow;
+      html.style.overscrollBehavior = prev.overscroll;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.position = prev.bodyPosition;
+      body.style.width = prev.bodyWidth;
+    };
+  }, []);
 };
 
 export const SoporteAlma = () => {
