@@ -110,6 +110,7 @@ export const AdminIncidenciasVentas = () => {
   const [filtroEstado, setFiltroEstado] = useState<'todas' | 'abiertas' | 'resueltas'>('todas');
   const [filtroMaquina, setFiltroMaquina] = useState<string>('todas');
   const [busqueda, setBusqueda] = useState('');
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
   // Máquinas propias (IMEI -> ubicación) para resolver la localización del QR escaneado
   useEffect(() => {
@@ -127,10 +128,18 @@ export const AdminIncidenciasVentas = () => {
   }, []);
 
   const cargar = useCallback(async () => {
-    const { data: convs } = await almaClient
+    setErrorCarga(null);
+    const { data: convs, error: errConvs } = await almaClient
       .from('conversations')
       .select('id, phone_number, status, nombre_contacto, whatsapp_contacto, email_contacto, idioma, maquina_id')
-      .like('phone_number', 'web-%');
+      .like('phone_number', 'web-%')
+      .order('created_at', { ascending: false });
+
+    if (errConvs) {
+      setErrorCarga(errConvs.message);
+      setCargando(false);
+      return;
+    }
 
     const lista = (convs as Conversacion[]) ?? [];
     setConversaciones(lista);
@@ -142,15 +151,17 @@ export const AdminIncidenciasVentas = () => {
     }
 
     const ids = lista.map((c) => c.id);
-    const { data: tks } = await almaClient
+    const { data: tks, error: errTks } = await almaClient
       .from('tickets')
       .select('*')
       .in('conversation_id', ids)
       .order('created_at', { ascending: false });
 
+    if (errTks) setErrorCarga(errTks.message);
     setTickets((tks as Ticket[]) ?? []);
     setCargando(false);
   }, []);
+
 
   useEffect(() => {
     cargar();
@@ -192,7 +203,8 @@ export const AdminIncidenciasVentas = () => {
   const ubicacionDe = useCallback(
     (t: Ticket) => {
       const c = convDe(t);
-      const imei = (c?.phone_number ?? t.telefono_contacto ?? '').replace(/^web-/, '').replace(/^app-/, '');
+      const raw = c?.phone_number ?? t.telefono_contacto ?? '';
+      const imei = (raw.match(/^(?:web|app)-([^-]+)/)?.[1] ?? raw).trim();
       return maquinas[imei] ?? (imei ? `Máquina ${imei}` : 'Máquina sin identificar');
     },
     [convDe, maquinas]
@@ -303,6 +315,19 @@ export const AdminIncidenciasVentas = () => {
           </SelectContent>
         </Select>
       </div>
+
+      {errorCarga && (
+        <Card className="border-destructive/40">
+          <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3 py-4">
+            <p className="text-sm text-destructive flex-1">
+              No se pudieron cargar las incidencias: {errorCarga}
+            </p>
+            <Button size="sm" variant="outline" onClick={() => { setCargando(true); cargar(); }}>
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {cargando ? (
         <div className="space-y-3">
