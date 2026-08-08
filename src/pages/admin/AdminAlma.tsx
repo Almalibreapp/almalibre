@@ -7,6 +7,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +42,8 @@ import {
   Wrench,
   HelpCircle,
   Clock,
+  Send,
+  Loader2,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -1169,7 +1174,7 @@ export const AdminAlma = () => {
           <Reportes data={data} />
         </TabsContent>
         <TabsContent value="conversations" className="mt-4">
-          <Conversaciones data={data} nombreDe={nombreDe} />
+          <Conversaciones data={data} nombreDe={nombreDe} onRefresh={() => setRefreshKey((k) => k + 1)} />
         </TabsContent>
         <TabsContent value="incidents" className="mt-4">
           <Incidencias data={data} nombreDeConversacion={nombreDeConversacion} onRefresh={() => setRefreshKey((k) => k + 1)} />
