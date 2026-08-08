@@ -65,6 +65,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { applyOverrides, setOverride } from './almaOverrides';
 import { TicketUpdates } from './TicketUpdates';
+import { PerfilSoporteDialog } from './PerfilSoporteDialog';
 
 
 type Row = Record<string, any>;
@@ -488,7 +489,8 @@ const Conversaciones = ({
   onRefresh: () => void;
 }) => {
   const { conversations, messages, loading } = data;
-  const { profile, user } = useAuth();
+  const { profile, user, updateProfile } = useAuth();
+  const [perfilAbierto, setPerfilAbierto] = useState(false);
   const [abierta, setAbierta] = useState<Row | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [texto, setTexto] = useState('');
@@ -496,7 +498,10 @@ const Conversaciones = ({
   const [enviando, setEnviando] = useState(false);
   const [enviados, setEnviados] = useState<Row[]>([]);
 
-  const nombreAdmin = (profile?.nombre?.trim() || user?.email?.split('@')[0] || 'Soporte Almalibre');
+  const nombreAdmin = [profile?.nombre?.trim(), profile?.apellidos?.trim()].filter(Boolean).join(' ') ||
+    user?.email?.split('@')[0] ||
+    'Soporte Almalibre';
+  const cargoAdmin = profile?.cargo?.trim() || 'Soporte Almalibre';
 
   const filtradas = conversations.filter((c) =>
     nombreDe(c).titulo.toLowerCase().includes(busqueda.toLowerCase())
@@ -511,17 +516,17 @@ const Conversaciones = ({
     if (!mensaje || !abierta || enviando) return;
     setEnviando(true);
     try {
-      const res = await fetch('https://elon.alohafrozen.eu/admin/intervenir', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('alma-intervenir', {
+        body: {
           conversationId: String(abierta.id),
           autor: nombreAdmin,
           mensaje,
           pausarIA,
-        }),
+          cargo: cargoAdmin,
+          fotoUrl: profile?.foto_url ?? undefined,
+        },
       });
-      if (!res.ok) throw new Error(String(res.status));
+      if (error || (data as any)?.error) throw new Error('intervencion_fallida');
       setEnviados((prev) => [
         ...prev,
         {
@@ -531,6 +536,7 @@ const Conversaciones = ({
           from_me: true,
           es_intervencion: true,
           autor: nombreAdmin,
+          cargo: cargoAdmin,
           created_at: new Date().toISOString(),
         },
       ]);
@@ -647,7 +653,7 @@ const Conversaciones = ({
                 >
                   {humano && (
                     <p className="text-[11px] font-semibold text-warning mb-0.5">
-                      {(m.autor || m.author || 'Soporte')} (Soporte Almalibre)
+                      {(m.autor || m.author || 'Soporte')} ({m.cargo || 'Soporte Almalibre'})
                     </p>
                   )}
                   <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
@@ -682,10 +688,21 @@ const Conversaciones = ({
               placeholder="Escribe tu respuesta al franquiciado…"
               className="resize-none rounded-xl text-sm"
             />
-            <Button className="w-full rounded-xl" onClick={intervenir} disabled={!texto.trim() || enviando}>
-              {enviando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              Enviar como {nombreAdmin}
-            </Button>
+            <div className="flex gap-2">
+              <Button className="flex-1 rounded-xl" onClick={intervenir} disabled={!texto.trim() || enviando}>
+                {enviando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                Enviar como {nombreAdmin}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-xl shrink-0"
+                onClick={() => setPerfilAbierto(true)}
+                aria-label="Editar mi perfil de soporte"
+              >
+                <UserCog className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </DialogContent>
 
