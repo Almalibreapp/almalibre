@@ -146,6 +146,82 @@ const STATUS_CONV: Record<string, { label: string; className: string }> = {
 
 const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--warning))', 'hsl(var(--success))', 'hsl(var(--primary-glow))'];
 
+/* ----------------------------- tickets unificados ---------------------------- */
+
+export type UTicket = {
+  id: string;
+  tabla: 'tickets' | 'incidents';
+  conversation_id: string | null;
+  descripcion: string;
+  categoria: string | null;
+  status: string;
+  resuelto: boolean;
+  escalado: boolean;
+  resueltoPorAlma: boolean;
+  created_at: string | null;
+  resolved_at: string | null;
+};
+
+const esEstadoResuelto = (s?: string | null) =>
+  ['resolved', 'closed', 'resuelto', 'resuelta', 'cerrado'].includes(String(s ?? '').toLowerCase());
+
+const esEstadoEscalado = (s?: string | null) =>
+  ['escalated', 'escalada', 'escalado', 'human', 'pending_human'].includes(String(s ?? '').toLowerCase());
+
+const toUTicket = (r: Row, tabla: 'tickets' | 'incidents'): UTicket => {
+  const resuelto = esEstadoResuelto(r.status);
+  const escaladoEstado = esEstadoEscalado(r.status);
+  // "Resuelto por Alma sola" = se creó ya resuelto (sin pasar por escalada humana)
+  const creado = r.created_at ? new Date(r.created_at).getTime() : 0;
+  const cerrado = r.resolved_at ? new Date(r.resolved_at).getTime() : 0;
+  const nacidoResuelto = resuelto && !!cerrado && !!creado && Math.abs(cerrado - creado) < 60_000;
+  return {
+    id: String(r.id),
+    tabla,
+    conversation_id: r.conversation_id ?? null,
+    descripcion: r.description || r.descripcion || 'Sin descripción',
+    categoria: r.category ?? r.categoria ?? null,
+    status: String(r.status ?? ''),
+    resuelto,
+    escalado: escaladoEstado || (resuelto && !nacidoResuelto),
+    resueltoPorAlma: nacidoResuelto,
+    created_at: r.created_at ?? null,
+    resolved_at: r.resolved_at ?? null,
+  };
+};
+
+/** Usa la tabla `tickets`; si está vacía, deriva los tickets de `incidents`. */
+const buildTickets = (tickets: Row[], incidents: Row[]): UTicket[] => {
+  const base = tickets.length
+    ? tickets.map((t) => toUTicket(t, 'tickets'))
+    : incidents.map((i) => toUTicket(i, 'incidents'));
+  return base.sort(
+    (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+  );
+};
+
+/** Actualiza estado en el sistema de Alma; si es de solo lectura, guarda el cambio en el panel. */
+const guardarEstado = async (
+  tabla: 'tickets' | 'incidents',
+  id: string,
+  status: string,
+  resolved_at: string | null
+) => {
+  const { data, error } = await almaClient
+    .from(tabla)
+    .update({ status, resolved_at })
+    .eq('id', id)
+    .select();
+  if (error) return { ok: false as const, local: false, error };
+  if (!data || data.length === 0) {
+    setOverride(tabla, id, { status, resolved_at });
+    return { ok: true as const, local: true, error: null };
+  }
+  setOverride(tabla, id, { status, resolved_at });
+  return { ok: true as const, local: false, error: null };
+};
+
+
 /* ------------------------------- components ------------------------------ */
 
 const StatTile = ({
