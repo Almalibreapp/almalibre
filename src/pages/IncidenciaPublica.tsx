@@ -633,7 +633,7 @@ export const IncidenciaPublica = () => {
                 <Button
                   type="button"
                   size="icon"
-                  className="h-13 w-13 min-h-[52px] min-w-[52px] rounded-2xl shrink-0 bg-primary/10 text-primary hover:bg-primary/20"
+                  className="min-h-[52px] min-w-[52px] rounded-2xl shrink-0 bg-primary/10 text-primary hover:bg-primary/20"
                   onClick={() => fileRef.current?.click()}
                   disabled={subiendo}
                   aria-label={t.adjuntar}
