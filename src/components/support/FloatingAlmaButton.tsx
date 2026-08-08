@@ -7,7 +7,7 @@ const WHATSAPP_NUMBER = "19016750678"; // sin "+" para wa.me
 const DEFAULT_MESSAGE = "Hola Alma, necesito ayuda con mi máquina";
 
 // Rutas donde NO mostramos el botón (auth, checkout)
-const HIDDEN_PREFIXES = ["/checkout"];
+const HIDDEN_PREFIXES = ["/checkout", "/soporte-alma"];
 
 export const FloatingAlmaButton = () => {
   const { pathname } = useLocation();
