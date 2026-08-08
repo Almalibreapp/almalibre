@@ -192,7 +192,8 @@ export const AdminIncidenciasVentas = () => {
   const ubicacionDe = useCallback(
     (t: Ticket) => {
       const c = convDe(t);
-      const imei = (c?.phone_number ?? t.telefono_contacto ?? '').replace(/^web-/, '').replace(/^app-/, '');
+      const raw = c?.phone_number ?? t.telefono_contacto ?? '';
+      const imei = (raw.match(/^(?:web|app)-([^-]+)/)?.[1] ?? raw).trim();
       return maquinas[imei] ?? (imei ? `Máquina ${imei}` : 'Máquina sin identificar');
     },
     [convDe, maquinas]

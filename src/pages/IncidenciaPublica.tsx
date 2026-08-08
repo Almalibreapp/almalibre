@@ -87,7 +87,7 @@ const T = {
     atencion: 'Atención al cliente',
     maquinaDe: (u: string) => `Máquina de ${u}`,
     escribiendo: 'Alma está escribiendo…',
-    placeholderChat: 'Cuéntanos qué ha pasado…',
+    placeholderChat: 'Escribe aquí…',
     adjuntar: 'Adjuntar foto',
     quitarFoto: 'Quitar foto',
     enviar: 'Enviar mensaje',
@@ -127,7 +127,7 @@ const T = {
     atencion: 'Customer care',
     maquinaDe: (u: string) => `Machine at ${u}`,
     escribiendo: 'Alma is typing…',
-    placeholderChat: 'Tell us what happened…',
+    placeholderChat: 'Type here…',
     adjuntar: 'Attach photo',
     quitarFoto: 'Remove photo',
     enviar: 'Send message',
@@ -384,8 +384,8 @@ export const IncidenciaPublica = () => {
   return (
     <main className="relative min-h-[100dvh] overflow-hidden">
       <Fondo />
-      <div className="relative z-10 flex flex-col min-h-[100dvh] safe-area-top safe-area-bottom">
-        {cabecera}
+      <div className="relative z-10 flex flex-col h-[100dvh] safe-area-top">
+        {paso !== 'chat' && cabecera}
 
         {/* PASO 1 — bienvenida */}
         {paso === 'bienvenida' && (
@@ -508,9 +508,9 @@ export const IncidenciaPublica = () => {
 
         {/* PASO 3 y 4 — chat */}
         {paso === 'chat' && (
-          <section className="flex-1 min-h-0 flex flex-col px-2 pb-2 animate-fade-in-up">
-            <div className="flex-1 min-h-0 flex flex-col w-full max-w-md mx-auto rounded-3xl bg-card overflow-hidden shadow-2xl">
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
+          <section className="flex-1 min-h-0 flex flex-col sm:px-2 sm:pb-2 animate-fade-in-up">
+            <div className="flex-1 min-h-0 flex flex-col w-full sm:max-w-md sm:mx-auto sm:rounded-3xl bg-card overflow-hidden shadow-2xl">
+              <div className="flex items-center gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-3 border-b border-border shrink-0 bg-card">
                 <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shrink-0">
                   <LogoBlanco className="h-6 w-6" />
                 </div>
@@ -524,14 +524,14 @@ export const IncidenciaPublica = () => {
 
               <div
                 ref={scrollRef}
-                className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3 bg-secondary"
+                className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3 bg-secondary [-webkit-overflow-scrolling:touch]"
               >
                 {mensajes.map((m) => (
                   <div key={m.id} className="space-y-2">
                     <div className={cn('flex', m.autor === 'cliente' ? 'justify-end' : 'justify-start')}>
                       <div
                         className={cn(
-                          'max-w-[88%] px-4 py-3 rounded-3xl text-[15px] leading-relaxed shadow-sm animate-slide-up',
+                          'max-w-[85%] px-4 py-3 rounded-3xl text-[15px] leading-relaxed shadow-sm animate-slide-up',
                           m.autor === 'cliente'
                             ? 'bg-primary text-primary-foreground rounded-br-lg'
                             : 'bg-card text-card-foreground rounded-bl-lg'
@@ -617,7 +617,7 @@ export const IncidenciaPublica = () => {
                   e.preventDefault();
                   enviarMensaje();
                 }}
-                className="border-t border-border p-2.5 flex items-end gap-2 shrink-0 bg-background"
+                className="border-t border-border p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex items-end gap-2 shrink-0 bg-background"
               >
                 <input
                   ref={fileRef}
@@ -647,6 +647,13 @@ export const IncidenciaPublica = () => {
                   onChange={(e) => setTexto(e.target.value)}
                   placeholder={t.placeholderChat}
                   className="resize-none rounded-2xl text-base min-h-[52px] max-h-32 flex-1 py-3.5"
+                  enterKeyHint="send"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !/Mobi|Android/i.test(navigator.userAgent)) {
+                      e.preventDefault();
+                      enviarMensaje();
+                    }
+                  }}
                 />
                 <Button
                   type="submit"
@@ -661,7 +668,7 @@ export const IncidenciaPublica = () => {
             </div>
 
             {ticketFinal && (
-              <p className="text-center text-[11px] text-primary-foreground/70 mt-2">{t.pieTicket(ticketFinal)}</p>
+              <p className="hidden sm:block text-center text-[11px] text-primary-foreground/70 mt-2">{t.pieTicket(ticketFinal)}</p>
             )}
           </section>
         )}
