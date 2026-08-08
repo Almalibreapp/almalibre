@@ -288,8 +288,9 @@ export const SoporteAlma = () => {
         </div>
       </main>
 
-      <div className="fixed bottom-16 left-0 right-0 bg-background border-t p-3 safe-area-bottom">
-        <div className="container px-1">
+      <div className="fixed bottom-16 left-0 right-0 bg-background/95 backdrop-blur border-t p-3 pb-4">
+        <div className="container max-w-2xl px-1">
+
           <form
             onSubmit={(e) => {
               e.preventDefault();
