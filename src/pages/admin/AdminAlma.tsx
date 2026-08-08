@@ -515,20 +515,35 @@ const Conversaciones = ({
 
   const hilo = useMemo(() => {
     if (!abierta) return [] as Row[];
-    const todos = [
+    const reales = [
       ...messages.filter((m) => m.conversation_id === abierta.id),
       ...entrantes.filter((m) => m.conversation_id === abierta.id),
-      ...enviados.filter((m) => m.conversation_id === abierta.id),
     ];
-    const vistos = new Set<string>();
-    return todos
+    const optimistas = enviados.filter((m) => m.conversation_id === abierta.id);
+
+    const vistosId = new Set<string>();
+    const vistosTexto = new Set<string>();
+    const clave = (m: Row) => `${m.from_me ? 'me' : 'user'}::${String(m.content ?? '').trim()}`;
+
+    const limpios = reales
       .filter((m) => {
-        const k = String(m.id);
-        if (vistos.has(k)) return false;
-        vistos.add(k);
+        const id = String(m.id);
+        if (vistosId.has(id)) return false;
+        vistosId.add(id);
+        // El backend puede registrar la intervención más de una vez: dedupe por texto
+        const k = clave(m);
+        if (vistosTexto.has(k)) return false;
+        vistosTexto.add(k);
         return true;
       })
-      .sort((a, b) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')));
+      .concat(
+        // Solo mantenemos el mensaje optimista si aún no llegó el real
+        optimistas.filter((m) => !vistosTexto.has(clave(m)))
+      );
+
+    return limpios.sort((a, b) =>
+      String(a.created_at ?? '').localeCompare(String(b.created_at ?? ''))
+    );
   }, [abierta, messages, entrantes, enviados]);
 
   // Realtime del hilo abierto
@@ -553,7 +568,8 @@ const Conversaciones = ({
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }));
+    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+
   }, [hilo.length, abierta?.id]);
 
   const llamarIntervenir = async (payload: Record<string, unknown>) => {
