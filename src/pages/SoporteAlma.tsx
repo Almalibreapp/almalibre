@@ -37,6 +37,7 @@ const SUGERENCIAS = [
 /** Altura real disponible (descuenta el teclado en iOS/Android) */
 const useViewportHeight = () => {
   const [height, setHeight] = useState<number | null>(null);
+  const [offsetTop, setOffsetTop] = useState(0);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ const useViewportHeight = () => {
     if (!vv) return;
     const onResize = () => {
       setHeight(vv.height);
+      setOffsetTop(vv.offsetTop);
       setKeyboardOpen(window.innerHeight - vv.height > 120);
     };
     onResize();
@@ -55,14 +57,43 @@ const useViewportHeight = () => {
     };
   }, []);
 
-  return { height, keyboardOpen };
+  return { height, offsetTop, keyboardOpen };
+};
+
+/** Bloquea el scroll y el rebote de la página mientras el chat está abierto */
+const useLockBodyScroll = () => {
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      bodyPosition: body.style.position,
+      bodyWidth: body.style.width,
+      overscroll: html.style.overscrollBehavior,
+    };
+    html.style.overflow = 'hidden';
+    html.style.overscrollBehavior = 'none';
+    body.style.overflow = 'hidden';
+    body.style.position = 'fixed';
+    body.style.width = '100%';
+    window.scrollTo(0, 0);
+    return () => {
+      html.style.overflow = prev.htmlOverflow;
+      html.style.overscrollBehavior = prev.overscroll;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.position = prev.bodyPosition;
+      body.style.width = prev.bodyWidth;
+    };
+  }, []);
 };
 
 export const SoporteAlma = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { maquinas, loading: loadingMaquinas } = useMaquinas(user?.id);
-  const { height, keyboardOpen } = useViewportHeight();
+  const { height, offsetTop, keyboardOpen } = useViewportHeight();
+  useLockBodyScroll();
 
   const [imei, setImei] = useState<string>('');
   const [mensajes, setMensajes] = useState<ChatMsg[]>([]);
@@ -77,8 +108,15 @@ export const SoporteAlma = () => {
     if (!imei && maquinas.length > 0) setImei(maquinas[0].mac_address);
   }, [maquinas, imei]);
 
+  // Scroll dentro del contenedor (nunca mueve la página en iOS)
+  const scrollAlFinal = (smooth = true) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  };
+
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    requestAnimationFrame(() => scrollAlFinal());
   }, [mensajes, enviando, keyboardOpen]);
 
   const maquinaActual = useMemo(
@@ -169,8 +207,12 @@ export const SoporteAlma = () => {
 
   return (
     <div
-      className="fixed inset-x-0 top-0 flex flex-col overflow-hidden bg-secondary"
-      style={{ height: height ? `${height}px` : '100dvh' }}
+      className="fixed inset-x-0 flex flex-col overflow-hidden bg-secondary touch-pan-y overscroll-none"
+      style={{
+        top: `${offsetTop}px`,
+        height: height ? `${height}px` : '100dvh',
+        maxWidth: '100vw',
+      }}
     >
       {/* Header estilo WhatsApp — siempre visible */}
       <header className="shrink-0 bg-primary text-primary-foreground shadow-lg safe-area-top">
@@ -222,7 +264,7 @@ export const SoporteAlma = () => {
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="relative flex-1 overflow-y-auto overscroll-contain"
+        className="relative flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch]"
         style={{
           backgroundImage:
             'radial-gradient(hsl(var(--primary) / 0.07) 1px, transparent 1px), radial-gradient(hsl(var(--primary) / 0.05) 1px, transparent 1px)',
@@ -362,7 +404,7 @@ export const SoporteAlma = () => {
 
         {showScrollDown && (
           <button
-            onClick={() => endRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            onClick={() => scrollAlFinal()}
             className="sticky bottom-3 ml-auto mr-3 flex w-9 h-9 items-center justify-center rounded-full bg-card shadow-lg border border-border text-primary"
             aria-label="Ir al final"
           >
@@ -372,7 +414,12 @@ export const SoporteAlma = () => {
       </div>
 
       {/* Composer: parte del flujo, nunca tapado por el teclado */}
-      <div className="shrink-0 bg-background/95 backdrop-blur border-t border-border px-2 py-2">
+      <div
+        className="shrink-0 bg-background/95 backdrop-blur border-t border-border px-2 pt-2 overflow-x-hidden"
+        style={{
+          paddingBottom: keyboardOpen ? '0.5rem' : 'calc(0.5rem + env(safe-area-inset-bottom))',
+        }}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -380,7 +427,7 @@ export const SoporteAlma = () => {
           }}
           className="mx-auto flex w-full max-w-2xl items-end gap-2"
         >
-          <div className="flex-1 flex items-end rounded-3xl bg-secondary border border-border px-4 py-2">
+          <div className="min-w-0 flex-1 flex items-end rounded-3xl bg-secondary border border-border px-4 py-2">
             <textarea
               ref={inputRef}
               rows={1}
@@ -397,7 +444,7 @@ export const SoporteAlma = () => {
                 }
               }}
               disabled={enviando || maquinas.length === 0}
-              className="w-full resize-none bg-transparent text-[15px] leading-6 outline-none placeholder:text-muted-foreground max-h-[120px]"
+              className="w-full resize-none bg-transparent text-base leading-6 outline-none placeholder:text-muted-foreground max-h-[120px]"
             />
           </div>
           <button
@@ -415,10 +462,10 @@ export const SoporteAlma = () => {
         </form>
       </div>
 
-      {/* La barra inferior se oculta con el teclado abierto para ganar espacio */}
+      {/* La barra inferior vive dentro del contenedor: nunca queda fuera de pantalla */}
       {!keyboardOpen && (
-        <div className="shrink-0 relative">
-          <div className="h-16" />
+        <div className="shrink-0 relative [&>nav]:!absolute [&>nav]:!inset-x-0 [&>nav]:!bottom-0">
+          <div className="h-16" style={{ marginBottom: 'env(safe-area-inset-bottom)' }} />
           <BottomNav />
         </div>
       )}
