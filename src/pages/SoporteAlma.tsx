@@ -257,7 +257,7 @@ export const SoporteAlma = () => {
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="relative flex-1 overflow-y-auto overscroll-contain"
+        className="relative flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch]"
         style={{
           backgroundImage:
             'radial-gradient(hsl(var(--primary) / 0.07) 1px, transparent 1px), radial-gradient(hsl(var(--primary) / 0.05) 1px, transparent 1px)',
