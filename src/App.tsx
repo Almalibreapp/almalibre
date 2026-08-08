@@ -29,6 +29,7 @@ import { DailySummary } from "./pages/DailySummary";
 import { NetworkDashboard } from "./pages/NetworkDashboard";
 import { Academy } from "./pages/Academy";
 import { SoporteAlma } from "./pages/SoporteAlma";
+import { MisIncidencias } from "./pages/MisIncidencias";
 import { InstallBanner } from "@/components/pwa/InstallBanner";
 import { FloatingAlmaButton } from "@/components/support/FloatingAlmaButton";
 import NotFound from "./pages/NotFound";
@@ -230,6 +231,7 @@ const AppContent = () => {
         <Route path="/export" element={<ExportData />} />
         <Route path="/academy" element={<Academy />} />
         <Route path="/soporte-alma" element={<SoporteAlma />} />
+        <Route path="/mis-incidencias" element={<MisIncidencias />} />
 
         {/* Admin routes */}
         <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
