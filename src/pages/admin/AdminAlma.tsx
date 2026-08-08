@@ -986,6 +986,8 @@ const Tickets = ({
             ))}
           </div>
 
+          {abierto && <TicketUpdates ticketId={abierto.id} />}
+
           {abierto && (
             <div className="p-3 border-t border-border">
               <Button
