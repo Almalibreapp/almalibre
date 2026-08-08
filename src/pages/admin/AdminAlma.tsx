@@ -84,11 +84,12 @@ const useAlmaData = (refreshKey: number) => {
       if (!active) return;
       setConversations((c.data as Row[]) ?? []);
       setMessages((m.data as Row[]) ?? []);
-      setIncidents((i.data as Row[]) ?? []);
-      setTickets((t.data as Row[]) ?? []);
+      setIncidents(applyOverrides('incidents', (i.data as Row[]) ?? []));
+      setTickets(applyOverrides('tickets', (t.data as Row[]) ?? []));
       setMaquinas((mq.data as Row[]) ?? []);
       setLoading(false);
     });
+
     return () => {
       active = false;
     };
