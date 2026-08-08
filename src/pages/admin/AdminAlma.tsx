@@ -330,12 +330,13 @@ const Reportes = ({ data }: { data: ReturnType<typeof useAlmaData> }) => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <StatTile label="Conversaciones activas" value={activas} icon={MessageSquare} />
-        <StatTile label="Resueltas por Alma" value={resueltas} icon={CheckCircle2} tone="success" />
-        <StatTile label="Escaladas a una persona" value={escaladas} icon={UserCog} tone="warning" />
         <StatTile label="Tickets abiertos" value={ticketsAbiertos} icon={TicketIcon} tone="destructive" />
         <StatTile label="Tickets resueltos" value={ticketsResueltos} icon={CheckCircle2} tone="success" />
+        <StatTile label="Resueltos por Alma sola" value={resueltas} icon={Leaf} tone="success" />
+        <StatTile label="Escalados a una persona" value={escaladas} icon={UserCog} tone="warning" />
+        <StatTile label="Conversaciones activas" value={activas} icon={MessageSquare} />
       </div>
+
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Card className="rounded-2xl shadow-sm">
