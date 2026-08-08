@@ -613,24 +613,31 @@ const Incidencias = ({
     .filter((i) => nombreDeConversacion(i.conversation_id).toLowerCase().includes(busqueda.toLowerCase()));
 
   const cambiarEstado = async (inc: Row) => {
-    const nuevo = esResuelta(inc.status) ? 'escalated' : 'resolved';
+    const resuelta = esResuelta(inc.status);
+    const nuevo = resuelta ? 'escalated' : 'resolved';
     setGuardando(inc.id);
-    const { error } = await almaClient
-      .from('incidents')
-      .update({ status: nuevo, resolved_at: nuevo === 'resolved' ? new Date().toISOString() : null })
-      .eq('id', inc.id);
+    const res = await guardarEstado(
+      'incidents',
+      String(inc.id),
+      nuevo,
+      nuevo === 'resolved' ? new Date().toISOString() : null
+    );
     setGuardando(null);
-    if (error) {
+    if (!res.ok) {
       toast({
         title: 'No se pudo actualizar',
-        description: 'El sistema de Alma no permite cambiar el estado desde aquí.',
+        description: 'El sistema de Alma rechazó el cambio de estado.',
         variant: 'destructive',
       });
       return;
     }
-    toast({ title: nuevo === 'resolved' ? 'Incidencia marcada como resuelta' : 'Incidencia reabierta' });
+    toast({
+      title: nuevo === 'resolved' ? 'Incidencia marcada como resuelta' : 'Incidencia reabierta',
+      description: res.local ? 'Guardado en el panel (el sistema de Alma es de solo lectura).' : undefined,
+    });
     onRefresh();
   };
+
 
   if (loading) return <LoadingList />;
 
