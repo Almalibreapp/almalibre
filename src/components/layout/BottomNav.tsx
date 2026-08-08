@@ -37,14 +37,14 @@ export const BottomNav = () => {
               key={item.path}
               onClick={() => navigate(item.path)}
               className={cn(
-                'flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-lg transition-colors min-w-[60px]',
+                'flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-lg transition-colors min-w-[52px]',
                 isActive 
                   ? 'text-primary' 
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <item.icon className={cn('h-5 w-5', isActive && 'text-primary')} />
-              <span className={cn('text-xs', isActive && 'font-medium')}>
+              <span className={cn('text-[10px] leading-tight text-center', isActive && 'font-medium')}>
                 {item.label}
               </span>
             </button>
