@@ -651,188 +651,233 @@ const Conversaciones = ({
   if (conversations.length === 0)
     return <EmptyBox icon={Inbox} title="Aún no hay conversaciones" subtitle="Cuando alguien escriba a Alma, aparecerá aquí." />;
 
-  return (
-    <>
-      <div className="relative mb-3">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por máquina o ubicación…"
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          className="pl-9 rounded-xl"
-        />
+  const panelChat = abierta && (
+    <div className="flex flex-col h-full min-h-0">
+      {/* Cabecera de la conversación */}
+      <div className="flex items-center gap-2 bg-primary text-primary-foreground px-3 py-2.5 shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden h-8 w-8 text-primary-foreground hover:bg-primary-foreground/10"
+          onClick={() => setAbierta(null)}
+          aria-label="Volver a la lista"
+        >
+          <ChevronRight className="h-4 w-4 rotate-180" />
+        </Button>
+        <div className="w-9 h-9 rounded-full bg-primary-foreground/15 flex items-center justify-center shrink-0">
+          <MessageSquare className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold truncate">{nombreDe(abierta).titulo}</p>
+          <p className="text-[11px] text-primary-foreground/75 truncate">
+            {nombreDe(abierta).canal} · {relative(abierta.updated_at)}
+          </p>
+        </div>
       </div>
 
-      <div className="space-y-2">
-        {filtradas.map((c) => {
-          const info = nombreDe(c);
-          const pausada = estadoDe(c) === 'paused';
-          const total = messages.filter((m) => m.conversation_id === c.id).length;
-          return (
-            <button
-              key={c.id}
-              onClick={() => setAbierta(c)}
-              className="w-full text-left bg-card border border-border/60 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/30 transition-all p-3 flex items-center gap-3"
-            >
-              <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <MessageSquare className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-sm truncate">{info.titulo}</p>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'text-[10px] shrink-0',
-                      pausada
-                        ? 'bg-warning/15 text-warning border-warning/40'
-                        : 'bg-success/15 text-success border-success/30'
-                    )}
-                  >
-                    {pausada ? 'IA pausada' : 'IA activa'}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground truncate">
-                  {info.canal} · {total} mensaje{total === 1 ? '' : 's'} · {relative(c.updated_at)}
-                </p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-            </button>
-          );
-        })}
-        {filtradas.length === 0 && <EmptyBox icon={Search} title="Sin resultados para esa búsqueda" />}
-      </div>
-
-      <Dialog open={!!abierta} onOpenChange={(o) => !o && setAbierta(null)}>
-        <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
-          <DialogHeader className="bg-primary text-primary-foreground p-4 space-y-0.5">
-            <DialogTitle className="text-base text-primary-foreground pr-8">
-              {abierta ? nombreDe(abierta).titulo : ''}
-            </DialogTitle>
-            <p className="text-xs text-primary-foreground/75">
-              {abierta ? `${nombreDe(abierta).canal} · ${relative(abierta.updated_at)}` : ''}
-            </p>
-          </DialogHeader>
-
-          {/* Toggle de estado de Alma */}
-          <div className="flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-2.5">
-            <div className="min-w-0">
-              <p className={cn('text-xs font-semibold', iaPausada ? 'text-warning' : 'text-success')}>
-                {iaPausada ? 'IA pausada' : 'IA activa'}
-              </p>
-              <p className="text-[11px] text-muted-foreground truncate">
-                {iaPausada
-                  ? 'Alma está en silencio: solo escribes tú.'
-                  : 'Alma responde automáticamente al franquiciado.'}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {cambiandoEstado && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-              <Switch
-                checked={iaPausada}
-                disabled={cambiandoEstado}
-                onCheckedChange={(v) => cambiarEstadoIA(v)}
-                aria-label="Pausar o reactivar a Alma"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-xl h-8 w-8"
-                onClick={() => setPerfilAbierto(true)}
-                aria-label="Editar mi perfil de soporte"
-              >
-                <UserCog className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          <div
-            ref={scrollRef}
-            className="max-h-[52vh] overflow-y-auto p-3 space-y-2 bg-secondary"
-            style={{
-              backgroundImage: 'radial-gradient(hsl(var(--primary) / 0.07) 1px, transparent 1px)',
-              backgroundSize: '26px 26px',
-            }}
+      {/* Toggle de estado de Alma */}
+      <div className="flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-2.5 shrink-0">
+        <div className="min-w-0">
+          <p className={cn('text-xs font-semibold', iaPausada ? 'text-warning' : 'text-success')}>
+            {iaPausada ? 'IA pausada' : 'IA activa'}
+          </p>
+          <p className="text-[11px] text-muted-foreground truncate">
+            {iaPausada
+              ? 'Alma está en silencio: solo escribes tú.'
+              : 'Alma responde automáticamente al franquiciado.'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {cambiandoEstado && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+          <Switch
+            checked={iaPausada}
+            disabled={cambiandoEstado}
+            onCheckedChange={(v) => cambiarEstadoIA(v)}
+            aria-label="Pausar o reactivar a Alma"
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            className="rounded-xl h-8 w-8"
+            onClick={() => setPerfilAbierto(true)}
+            aria-label="Editar mi perfil de soporte"
           >
-            {hilo.length === 0 && <EmptyBox icon={MessageSquare} title="Esta conversación aún no tiene mensajes" />}
-            {hilo.map((m) => {
-              const humano = m.es_intervencion === true;
-              return (
-              <div key={m.id} className={cn('flex items-end gap-2', m.from_me ? 'justify-start' : 'justify-end')}>
-                {m.from_me && (
-                  <div
-                    className={cn(
-                      'w-7 h-7 rounded-full flex items-center justify-center shrink-0',
-                      humano ? 'bg-warning text-warning-foreground' : 'bg-primary text-primary-foreground'
-                    )}
-                  >
-                    {humano ? <UserCog className="h-3.5 w-3.5" /> : <Leaf className="h-3.5 w-3.5" />}
-                  </div>
-                )}
+            <UserCog className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-2 bg-secondary"
+        style={{
+          backgroundImage: 'radial-gradient(hsl(var(--primary) / 0.07) 1px, transparent 1px)',
+          backgroundSize: '26px 26px',
+        }}
+      >
+        {hilo.length === 0 && <EmptyBox icon={MessageSquare} title="Esta conversación aún no tiene mensajes" />}
+        {hilo.map((m) => {
+          const humano = m.es_intervencion === true;
+          return (
+            <div key={m.id} className={cn('flex items-end gap-2', m.from_me ? 'justify-start' : 'justify-end')}>
+              {m.from_me && (
                 <div
                   className={cn(
-                    'max-w-[80%] px-3.5 py-2 rounded-2xl shadow-sm text-sm',
-                    humano
-                      ? 'bg-warning/15 border border-warning/40 rounded-bl-md'
-                      : m.from_me
-                      ? 'bg-card rounded-bl-md'
-                      : 'bg-primary text-primary-foreground rounded-br-md'
+                    'w-7 h-7 rounded-full flex items-center justify-center shrink-0',
+                    humano ? 'bg-warning text-warning-foreground' : 'bg-primary text-primary-foreground'
                   )}
                 >
-                  {humano && (
-                    <p className="text-[11px] font-semibold text-warning mb-0.5">
-                      {(m.autor || m.author || 'Soporte')} ({m.cargo || 'Soporte Almalibre'})
-                    </p>
-                  )}
-                  <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
-                  <p className={cn('text-[10px] mt-1 text-right', m.from_me ? 'text-muted-foreground' : 'text-primary-foreground/70')}>
-                    {m.created_at ? format(parseISO(m.created_at), 'HH:mm', { locale: es }) : ''}
-                  </p>
+                  {humano ? <UserCog className="h-3.5 w-3.5" /> : <Leaf className="h-3.5 w-3.5" />}
                 </div>
-                {!m.from_me && (
-                  <div className="w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center shrink-0">
-                    <User className="h-3.5 w-3.5 text-muted-foreground" />
-                  </div>
+              )}
+              <div
+                className={cn(
+                  'max-w-[80%] px-3.5 py-2 rounded-2xl shadow-sm text-sm',
+                  humano
+                    ? 'bg-warning/15 border border-warning/40 rounded-bl-md'
+                    : m.from_me
+                    ? 'bg-card rounded-bl-md'
+                    : 'bg-primary text-primary-foreground rounded-br-md'
                 )}
+              >
+                {humano && (
+                  <p className="text-[11px] font-semibold text-warning mb-0.5">
+                    {(m.autor || m.author || 'Soporte')} ({m.cargo || 'Soporte Almalibre'})
+                  </p>
+                )}
+                <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
+                <p className={cn('text-[10px] mt-1 text-right', m.from_me ? 'text-muted-foreground' : 'text-primary-foreground/70')}>
+                  {m.created_at ? format(parseISO(m.created_at), 'HH:mm', { locale: es }) : ''}
+                </p>
               </div>
-              );
-            })}
-          </div>
+              {!m.from_me && (
+                <div className="w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center shrink-0">
+                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
-          {/* Composer tipo mensajería */}
-          <form
-            onSubmit={(e) => {
+      {/* Composer tipo mensajería */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          enviarMensaje();
+        }}
+        className="border-t border-border bg-background p-3 flex items-end gap-2 shrink-0"
+      >
+        <Textarea
+          rows={1}
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               enviarMensaje();
-            }}
-            className="border-t border-border bg-background p-3 flex items-end gap-2"
-          >
-            <Textarea
-              rows={1}
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  enviarMensaje();
-                }
-              }}
-              placeholder={`Escribe como ${nombreAdmin}…`}
-              className="resize-none rounded-2xl text-sm min-h-[44px] max-h-28 flex-1"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              className="h-11 w-11 rounded-full shrink-0"
-              disabled={!texto.trim() || enviando}
-              aria-label="Enviar mensaje"
-            >
-              {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </form>
-        </DialogContent>
+            }
+          }}
+          placeholder={`Escribe como ${nombreAdmin}…`}
+          className="resize-none rounded-2xl text-sm min-h-[44px] max-h-28 flex-1"
+        />
+        <Button
+          type="submit"
+          size="icon"
+          className="h-11 w-11 rounded-full shrink-0"
+          disabled={!texto.trim() || enviando}
+          aria-label="Enviar mensaje"
+        >
+          {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        </Button>
+      </form>
+    </div>
+  );
 
-      </Dialog>
+  return (
+    <>
+      <div className="grid md:grid-cols-[320px_1fr] gap-0 h-[calc(100vh-13rem)] min-h-[520px] rounded-2xl border border-border/60 overflow-hidden bg-card shadow-sm">
+        {/* Lista de conversaciones */}
+        <aside
+          className={cn(
+            'flex-col border-r border-border/60 bg-background min-h-0',
+            abierta ? 'hidden md:flex' : 'flex'
+          )}
+        >
+          <div className="p-3 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar conversación…"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="pl-9 rounded-xl"
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 space-y-1">
+            {filtradas.map((c) => {
+              const info = nombreDe(c);
+              const pausada = estadoDe(c) === 'paused';
+              const msgs = messages.filter((m) => m.conversation_id === c.id);
+              const ultimo = msgs[msgs.length - 1];
+              const activa = abierta?.id === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setAbierta(c)}
+                  className={cn(
+                    'w-full text-left rounded-xl p-2.5 flex items-center gap-3 transition-colors',
+                    activa ? 'bg-primary/10' : 'hover:bg-muted/60'
+                  )}
+                >
+                  <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <MessageSquare className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm truncate flex-1">{info.titulo}</p>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {c.updated_at ? format(parseISO(c.updated_at), 'HH:mm', { locale: es }) : ''}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground truncate flex-1">
+                        {ultimo?.content ? String(ultimo.content) : info.canal}
+                      </p>
+                      {pausada && (
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] shrink-0 bg-warning/15 text-warning border-warning/40"
+                        >
+                          IA pausada
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+            {filtradas.length === 0 && <EmptyBox icon={Search} title="Sin resultados para esa búsqueda" />}
+          </div>
+        </aside>
+
+        {/* Panel de chat */}
+        <section className={cn('min-h-0', abierta ? 'flex flex-col' : 'hidden md:flex')}>
+          {abierta ? (
+            panelChat
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <EmptyBox
+                icon={MessageSquare}
+                title="Selecciona una conversación"
+                subtitle="Elige un chat de la lista para leer el hilo y responder al franquiciado."
+              />
+            </div>
+          )}
+        </section>
+      </div>
 
       <PerfilSoporteDialog
         open={perfilAbierto}
@@ -842,9 +887,9 @@ const Conversaciones = ({
         onSaved={(p) => updateProfile?.(p as any)}
       />
     </>
-
   );
 };
+
 
 
 /* ------------------------------- incidencias ------------------------------ */
