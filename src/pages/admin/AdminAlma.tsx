@@ -371,11 +371,12 @@ const Reportes = ({ data }: { data: ReturnType<typeof useAlmaData> }) => {
             {donut.length > 0 && (
               <div className="flex justify-center gap-4 text-xs">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-success" /> Resueltas por Alma ({resueltas})
+                  <span className="w-2.5 h-2.5 rounded-full bg-success" /> Resueltos por Alma ({resueltas})
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-warning" /> Escaladas ({escaladas})
+                  <span className="w-2.5 h-2.5 rounded-full bg-warning" /> Escalados ({escaladas})
                 </span>
+
               </div>
             )}
           </CardContent>
