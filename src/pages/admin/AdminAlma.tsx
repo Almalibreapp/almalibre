@@ -735,18 +735,28 @@ const Conversaciones = ({
         {hilo.length === 0 && <EmptyBox icon={MessageSquare} title="Esta conversación aún no tiene mensajes" />}
         {hilo.map((m) => {
           const humano = m.es_intervencion === true;
+          const autorMsg = String(m.autor || m.author || '').trim();
+          const esMio = humano && (!autorMsg || autorMsg === nombreAdmin);
+          const avatarMio = esMio ? profile?.foto_url : undefined;
           return (
             <div key={m.id} className={cn('flex items-end gap-2', m.from_me ? 'justify-start' : 'justify-end')}>
               {m.from_me && (
                 <div
                   className={cn(
-                    'w-7 h-7 rounded-full flex items-center justify-center shrink-0',
+                    'w-7 h-7 rounded-full flex items-center justify-center shrink-0 overflow-hidden',
                     humano ? 'bg-warning text-warning-foreground' : 'bg-primary text-primary-foreground'
                   )}
                 >
-                  {humano ? <UserCog className="h-3.5 w-3.5" /> : <Leaf className="h-3.5 w-3.5" />}
+                  {avatarMio ? (
+                    <img src={avatarMio} alt={`Foto de perfil de ${nombreAdmin}`} className="w-full h-full object-cover" />
+                  ) : humano ? (
+                    <UserCog className="h-3.5 w-3.5" />
+                  ) : (
+                    <Leaf className="h-3.5 w-3.5" />
+                  )}
                 </div>
               )}
+
               <div
                 className={cn(
                   'max-w-[80%] px-3.5 py-2 rounded-2xl shadow-sm text-sm',
