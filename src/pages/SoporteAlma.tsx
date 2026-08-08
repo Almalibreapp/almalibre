@@ -12,6 +12,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { supabase } from '@/integrations/supabase/client';
+import { almaClient } from '@/integrations/alma/client';
 import { ArrowLeft, Send, Loader2, User, AlertTriangle, Leaf, ChevronDown } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,6 +23,8 @@ interface ChatMsg {
   autor: 'usuario' | 'alma' | 'error';
   texto: string;
   hora: string;
+  /** Nombre del humano de soporte cuando el mensaje es una intervención */
+  nombreAutor?: string;
 }
 
 const nowTime = () =>
@@ -99,6 +102,7 @@ export const SoporteAlma = () => {
   const [mensajes, setMensajes] = useState<ChatMsg[]>([]);
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -107,6 +111,45 @@ export const SoporteAlma = () => {
   useEffect(() => {
     if (!imei && maquinas.length > 0) setImei(maquinas[0].mac_address);
   }, [maquinas, imei]);
+
+  // Intervenciones humanas en tiempo real
+  useEffect(() => {
+    if (!conversationId) return;
+    const channel = almaClient
+      .channel(`alma-messages-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const row = payload.new as Record<string, any>;
+          if (!row?.content) return;
+          setMensajes((prev) => {
+            if (prev.some((m) => m.id === String(row.id))) return prev;
+            if (!row.es_intervencion) return prev;
+            return [
+              ...prev,
+              {
+                id: String(row.id),
+                autor: 'alma',
+                texto: String(row.content),
+                hora: nowTime(),
+                nombreAutor: row.autor || row.author || 'Soporte Almalibre',
+              },
+            ];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      almaClient.removeChannel(channel);
+    };
+  }, [conversationId]);
 
   // Scroll dentro del contenedor (nunca mueve la página en iOS)
   const scrollAlFinal = (smooth = true) => {
@@ -180,6 +223,9 @@ export const SoporteAlma = () => {
           },
         ]);
       } else {
+        const convId =
+          (data as any)?.conversationId ?? (data as any)?.conversation_id ?? (data as any)?.conversation?.id;
+        if (convId) setConversationId(String(convId));
         setMensajes((prev) => [
           ...prev,
           {
@@ -360,9 +406,16 @@ export const SoporteAlma = () => {
                         ? 'bg-primary text-primary-foreground rounded-br-md'
                         : m.autor === 'error'
                         ? 'bg-destructive/10 text-foreground border border-destructive/30 rounded-bl-md'
+                        : m.nombreAutor
+                        ? 'bg-warning/15 border border-warning/40 rounded-bl-md'
                         : 'bg-card rounded-bl-md'
                     )}
                   >
+                    {m.nombreAutor && (
+                      <p className="text-[11px] font-semibold text-primary mb-0.5">
+                        {m.nombreAutor} (Soporte Almalibre)
+                      </p>
+                    )}
                     <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
                       {m.texto}
                     </p>
