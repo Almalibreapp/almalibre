@@ -92,7 +92,8 @@ export const SoporteAlma = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { maquinas, loading: loadingMaquinas } = useMaquinas(user?.id);
-  const { height, keyboardOpen } = useViewportHeight();
+  const { height, offsetTop, keyboardOpen } = useViewportHeight();
+  useLockBodyScroll();
 
   const [imei, setImei] = useState<string>('');
   const [mensajes, setMensajes] = useState<ChatMsg[]>([]);
