@@ -233,16 +233,12 @@ export const AdminIncidenciasVentas = () => {
   const cambiarEstado = async (t: Ticket) => {
     const resuelto = esResuelto(t);
     setActualizando(t.id);
-    const { error } = await almaClient
-      .from('tickets')
-      .update({
-        status: resuelto ? 'abierto' : 'resuelto',
-        resolved_at: resuelto ? null : new Date().toISOString(),
-      })
-      .eq('id', t.id);
+    const { data, error } = await supabase.functions.invoke('alma-cambiar-estado-ticket', {
+      body: { ticketId: t.id, nuevoEstado: resuelto ? 'abierto' : 'resuelto' },
+    });
     setActualizando(null);
 
-    if (error) {
+    if (error || (data as any)?.error) {
       toast({
         title: 'No se pudo cambiar el estado',
         description: 'El sistema de Alma no ha aceptado la actualización.',
