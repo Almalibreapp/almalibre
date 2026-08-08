@@ -476,19 +476,76 @@ const Reportes = ({ data }: { data: ReturnType<typeof useAlmaData> }) => {
 const Conversaciones = ({
   data,
   nombreDe,
+  onRefresh,
 }: {
   data: ReturnType<typeof useAlmaData>;
   nombreDe: (c: Row) => { titulo: string; canal: string };
+  onRefresh: () => void;
 }) => {
   const { conversations, messages, loading } = data;
+  const { profile, user } = useAuth();
   const [abierta, setAbierta] = useState<Row | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  const [texto, setTexto] = useState('');
+  const [pausarIA, setPausarIA] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [enviados, setEnviados] = useState<Row[]>([]);
+
+  const nombreAdmin = (profile?.nombre?.trim() || user?.email?.split('@')[0] || 'Soporte Almalibre');
 
   const filtradas = conversations.filter((c) =>
     nombreDe(c).titulo.toLowerCase().includes(busqueda.toLowerCase())
   );
 
-  const hilo = abierta ? messages.filter((m) => m.conversation_id === abierta.id) : [];
+  const hilo = abierta
+    ? [...messages.filter((m) => m.conversation_id === abierta.id), ...enviados.filter((m) => m.conversation_id === abierta.id)]
+    : [];
+
+  const intervenir = async () => {
+    const mensaje = texto.trim();
+    if (!mensaje || !abierta || enviando) return;
+    setEnviando(true);
+    try {
+      const res = await fetch('https://elon.alohafrozen.eu/admin/intervenir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: String(abierta.id),
+          autor: nombreAdmin,
+          mensaje,
+          pausarIA,
+        }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setEnviados((prev) => [
+        ...prev,
+        {
+          id: `local-${Date.now()}`,
+          conversation_id: abierta.id,
+          content: mensaje,
+          from_me: true,
+          es_intervencion: true,
+          autor: nombreAdmin,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      setTexto('');
+      toast({
+        title: 'Mensaje enviado al franquiciado',
+        description: pausarIA ? 'Alma queda en pausa en esta conversación.' : 'Alma seguirá respondiendo.',
+      });
+      onRefresh();
+    } catch {
+      toast({
+        title: 'No se pudo enviar el mensaje',
+        description: 'Inténtalo de nuevo en unos segundos.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEnviando(false);
+    }
+  };
+
 
   if (loading) return <LoadingList />;
   if (conversations.length === 0)
