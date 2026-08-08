@@ -359,20 +359,6 @@ export const SoporteAlma = () => {
                       <p className="text-[10px] mt-1 text-muted-foreground text-right">{nowTime()}</p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2 pl-9">
-                    {SUGERENCIAS.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => {
-                          setTexto(s);
-                          inputRef.current?.focus();
-                        }}
-                        className="text-xs px-3 py-1.5 rounded-full bg-card border border-primary/20 text-primary shadow-sm active:scale-95 transition-transform"
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )}
 
