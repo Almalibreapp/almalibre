@@ -1074,7 +1074,7 @@ export const AdminAlma = () => {
           <Incidencias data={data} nombreDeConversacion={nombreDeConversacion} onRefresh={() => setRefreshKey((k) => k + 1)} />
         </TabsContent>
         <TabsContent value="tickets" className="mt-4">
-          <Tickets data={data} onRefresh={() => setRefreshKey((k) => k + 1)} />
+          <Tickets data={data} nombreDeConversacion={nombreDeConversacion} onRefresh={() => setRefreshKey((k) => k + 1)} />
         </TabsContent>
       </Tabs>
     </div>
