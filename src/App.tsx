@@ -205,6 +205,9 @@ const AppContent = () => {
       <GlobalPrefetch />
       <InstallBanner />
       <Routes>
+        {/* Pública (sin login) */}
+        <Route path="/incidencia" element={<IncidenciaPublica />} />
+
         {/* User routes */}
         <Route path="/" element={<Index />} />
         <Route path="/add-machine" element={<AddMachine />} />
