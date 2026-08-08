@@ -407,7 +407,12 @@ export const SoporteAlma = () => {
       </div>
 
       {/* Composer: parte del flujo, nunca tapado por el teclado */}
-      <div className="shrink-0 bg-background/95 backdrop-blur border-t border-border px-2 py-2">
+      <div
+        className="shrink-0 bg-background/95 backdrop-blur border-t border-border px-2 pt-2 overflow-x-hidden"
+        style={{
+          paddingBottom: keyboardOpen ? '0.5rem' : 'calc(0.5rem + env(safe-area-inset-bottom))',
+        }}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -415,7 +420,7 @@ export const SoporteAlma = () => {
           }}
           className="mx-auto flex w-full max-w-2xl items-end gap-2"
         >
-          <div className="flex-1 flex items-end rounded-3xl bg-secondary border border-border px-4 py-2">
+          <div className="min-w-0 flex-1 flex items-end rounded-3xl bg-secondary border border-border px-4 py-2">
             <textarea
               ref={inputRef}
               rows={1}
@@ -432,7 +437,7 @@ export const SoporteAlma = () => {
                 }
               }}
               disabled={enviando || maquinas.length === 0}
-              className="w-full resize-none bg-transparent text-[15px] leading-6 outline-none placeholder:text-muted-foreground max-h-[120px]"
+              className="w-full resize-none bg-transparent text-base leading-6 outline-none placeholder:text-muted-foreground max-h-[120px]"
             />
           </div>
           <button
@@ -450,10 +455,10 @@ export const SoporteAlma = () => {
         </form>
       </div>
 
-      {/* La barra inferior se oculta con el teclado abierto para ganar espacio */}
+      {/* La barra inferior vive dentro del contenedor: nunca queda fuera de pantalla */}
       {!keyboardOpen && (
-        <div className="shrink-0 relative">
-          <div className="h-16" />
+        <div className="shrink-0 relative [&>nav]:!absolute [&>nav]:!inset-x-0 [&>nav]:!bottom-0">
+          <div className="h-16" style={{ marginBottom: 'env(safe-area-inset-bottom)' }} />
           <BottomNav />
         </div>
       )}
