@@ -53,6 +53,8 @@ import { AdminIncidents } from "./pages/admin/AdminIncidents";
 import { AdminEmailNotifications } from "./pages/admin/AdminEmailNotifications";
 import { AdminCupones } from "./pages/admin/AdminCupones";
 import { AdminExportData } from "./pages/admin/AdminExportData";
+import { AdminAlma } from "./pages/admin/AdminAlma";
+
 import { AdminPushNotifications } from "./pages/admin/AdminPushNotifications";
 import { ExportData } from "./pages/ExportData";
 
