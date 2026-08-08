@@ -41,15 +41,10 @@ import {
 
 const menuItems = [
   { path: '/notifications', icon: Bell, label: 'Notificaciones', description: 'Configura tus alertas' },
-  { path: '/subscription', icon: Crown, label: 'Mi Suscripción', description: 'Gestiona tu plan' },
   { path: '/payment-methods', icon: CreditCard, label: 'Métodos de Pago', description: 'Tarjetas y cuentas' },
   { path: '/orders', icon: Package, label: 'Mis Pedidos', description: 'Historial de compras' },
 ];
 
-const supportItems = [
-  { path: '/support', icon: Headphones, label: 'Soporte Técnico', description: 'Asistente IA 24/7' },
-  { path: '/incidents', icon: AlertTriangle, label: 'Incidencias', description: 'Historial de incidencias' },
-];
 
 const toolItems = [
   { path: '/academy', icon: GraduationCap, label: 'Almalibre Academy', description: 'Formación operativa obligatoria' },
@@ -214,33 +209,6 @@ export const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* Support Section */}
-        <Card className="animate-fade-in" style={{ animationDelay: '150ms' }}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Headphones className="h-5 w-5" />
-              Soporte e Incidencias
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {supportItems.map((item) => (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-muted/50 transition-colors border-b last:border-b-0"
-              >
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <item.icon className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-medium">{item.label}</p>
-                  <p className="text-sm text-muted-foreground">{item.description}</p>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-              </button>
-            ))}
-          </CardContent>
-        </Card>
 
         {/* Tools Section */}
         <Card className="animate-fade-in" style={{ animationDelay: '175ms' }}>

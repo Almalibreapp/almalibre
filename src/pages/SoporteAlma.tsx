@@ -29,12 +29,6 @@ interface ChatMsg {
 const nowTime = () =>
   new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
-const SUGERENCIAS = [
-  'La máquina no dispensa açaí',
-  'Error en pantalla',
-  'No acepta pagos con tarjeta',
-  'Temperatura fuera de rango',
-];
 
 /** Altura real disponible (descuenta el teclado en iOS/Android) */
 const useViewportHeight = () => {
@@ -358,20 +352,6 @@ export const SoporteAlma = () => {
                       </p>
                       <p className="text-[10px] mt-1 text-muted-foreground text-right">{nowTime()}</p>
                     </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2 pl-9">
-                    {SUGERENCIAS.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => {
-                          setTexto(s);
-                          inputRef.current?.focus();
-                        }}
-                        className="text-xs px-3 py-1.5 rounded-full bg-card border border-primary/20 text-primary shadow-sm active:scale-95 transition-transform"
-                      >
-                        {s}
-                      </button>
-                    ))}
                   </div>
                 </div>
               )}
