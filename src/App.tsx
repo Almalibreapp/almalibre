@@ -243,6 +243,8 @@ const AppContent = () => {
           <Route path="push" element={<AdminPushNotifications />} />
           <Route path="incidents" element={<AdminIncidents />} />
           <Route path="notifications" element={<AdminEmailNotifications />} />
+          <Route path="alma" element={<AdminAlma />} />
+
         </Route>
 
         <Route path="*" element={<NotFound />} />
