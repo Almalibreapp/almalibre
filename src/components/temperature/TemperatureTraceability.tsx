@@ -150,8 +150,6 @@ export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: Temper
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-muted/50 rounded-lg p-3 text-center">
               <Thermometer className="h-4 w-4 mx-auto mb-1 text-primary" />
               <p className={cn(
