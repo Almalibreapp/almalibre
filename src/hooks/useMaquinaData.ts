@@ -123,7 +123,8 @@ export const useMaquinaData = (imei: string | undefined) => {
   const temperatura = useTemperatura(imei);
 
   const isLoading = ventasResumen.isLoading || toppings.isLoading || temperatura.isLoading;
-  const hasError = ventasResumen.isError || toppings.isError || temperatura.isError;
+  // La temperatura no marca error global: se reintenta en segundo plano
+  const hasError = ventasResumen.isError || toppings.isError;
   const error = ventasResumen.error || toppings.error || temperatura.error;
 
   const refetchAll = () => {
