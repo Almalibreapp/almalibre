@@ -417,7 +417,8 @@ export const IncidenciaPublica = () => {
       <div
         className={cn('relative z-10 flex flex-col h-full', paso !== 'chat' && 'safe-area-top')}
       >
-        {paso !== 'chat' && cabecera}
+        {paso === 'bienvenida' && cabecera}
+
 
         {/* PASO 1 — bienvenida */}
         {paso === 'bienvenida' && (
@@ -448,8 +449,12 @@ export const IncidenciaPublica = () => {
 
         {/* PASO 2 — contacto */}
         {paso === 'contacto' && (
-          <section className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-end sm:justify-center px-4 pb-4 animate-fade-in [-webkit-overflow-scrolling:touch]">
+          <section className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-end sm:justify-center px-4 pt-5 pb-4 animate-fade-in [-webkit-overflow-scrolling:touch]">
+            <div className="flex items-center justify-center pb-4 shrink-0">
+              <LogoBlanco className="h-8 w-auto opacity-90" />
+            </div>
             <div className="w-full max-w-md mx-auto rounded-3xl bg-card p-6 shadow-2xl animate-slide-up">
+
               <div className="flex items-center justify-between gap-3 mb-4">
                 <h2 className="font-display text-xl font-bold text-foreground">{t.contactoTitulo}</h2>
                 <div className="inline-flex rounded-full bg-muted p-0.5">
