@@ -88,9 +88,11 @@ export const MachineCard = ({ maquina, onClick }: MachineCardProps) => {
                 ) : (
                   <>
                     <Thermometer className={cn("h-4 w-4", isTempCritical && "text-critical")} />
-                    <span className="font-bold text-sm sm:text-base">
-                      {temperatura?.temperatura !== undefined ? `${temperatura.temperatura}°` : '--°'}
-                    </span>
+                    {temperatura?.temperatura !== undefined ? (
+                      <span className="font-bold text-sm sm:text-base">{`${temperatura.temperatura}°`}</span>
+                    ) : (
+                      <span className="h-4 w-10 rounded bg-primary-foreground/30 animate-pulse" />
+                    )}
                   </>
                 )}
               </div>

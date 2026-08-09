@@ -94,8 +94,12 @@ export const useTemperatura = (imei: string | undefined) => {
     queryKey: ['temperatura', imei],
     queryFn: () => fetchTemperatura(imei!),
     enabled: !!imei && imei.length > 0,
-    refetchInterval: 30 * 1000,
-    retry: 2,
+    // Nunca mostramos "sin datos": seguimos reintentando hasta que la API responda
+    refetchInterval: (query) => (query.state.data ? 30 * 1000 : 8 * 1000),
+    retry: 8,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 15000),
+    // Conservamos la última lectura válida mientras se reintenta
+    placeholderData: (prev) => prev,
     staleTime: 15 * 1000,
   });
 };
@@ -119,7 +123,8 @@ export const useMaquinaData = (imei: string | undefined) => {
   const temperatura = useTemperatura(imei);
 
   const isLoading = ventasResumen.isLoading || toppings.isLoading || temperatura.isLoading;
-  const hasError = ventasResumen.isError || toppings.isError || temperatura.isError;
+  // La temperatura no marca error global: se reintenta en segundo plano
+  const hasError = ventasResumen.isError || toppings.isError;
   const error = ventasResumen.error || toppings.error || temperatura.error;
 
   const refetchAll = () => {

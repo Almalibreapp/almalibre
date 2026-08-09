@@ -142,8 +142,13 @@ export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: Temper
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Current temperature + stats */}
-        {temperatura?.temperatura != null && (
+        {temperatura?.temperatura == null ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="bg-muted/50 rounded-lg p-3 h-[86px] animate-pulse" />
+            ))}
+          </div>
+        ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-muted/50 rounded-lg p-3 text-center">
               <Thermometer className="h-4 w-4 mx-auto mb-1 text-primary" />
@@ -183,10 +188,9 @@ export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: Temper
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : chartData.length === 0 ? (
-          <div className="h-56 flex flex-col items-center justify-center text-muted-foreground">
-            <Thermometer className="h-8 w-8 mb-2" />
-            <p className="text-sm">Sin lecturas en las últimas {selectedHours}h</p>
-            <p className="text-xs">Las lecturas se registran automáticamente cada 30s</p>
+          <div className="h-56 w-full rounded-lg bg-muted/50 animate-pulse flex flex-col items-center justify-center text-muted-foreground gap-2">
+            <Thermometer className="h-8 w-8 opacity-40" />
+            <p className="text-xs">Recuperando lecturas de temperatura…</p>
           </div>
         ) : (
           <div className="h-56 w-full">
