@@ -417,7 +417,8 @@ export const IncidenciaPublica = () => {
       <div
         className={cn('relative z-10 flex flex-col h-full', paso !== 'chat' && 'safe-area-top')}
       >
-        {paso !== 'chat' && cabecera}
+        {paso === 'bienvenida' && cabecera}
+
 
         {/* PASO 1 — bienvenida */}
         {paso === 'bienvenida' && (
