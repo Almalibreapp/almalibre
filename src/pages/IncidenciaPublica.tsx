@@ -283,17 +283,12 @@ export const IncidenciaPublica = () => {
     }
     setSubiendo(true);
     try {
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const ruta = `${imei || 'sin-imei'}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from('incidencias-clientes')
-        .upload(ruta, file, { contentType: file.type, upsert: false });
-      if (upErr) throw upErr;
-      const { data: firmada, error: signErr } = await supabase.storage
-        .from('incidencias-clientes')
-        .createSignedUrl(ruta, 60 * 60 * 24 * 365);
-      if (signErr || !firmada?.signedUrl) throw signErr ?? new Error('sin_url');
-      setFotoPendiente({ url: firmada.signedUrl, preview: URL.createObjectURL(file) });
+      const form = new FormData();
+      form.append('file', file);
+      form.append('imei', imei || 'sin-imei');
+      const { data, error } = await supabase.functions.invoke('incidencia-foto', { body: form });
+      if (error || !data?.url) throw error ?? new Error('sin_url');
+      setFotoPendiente({ url: data.url as string, preview: URL.createObjectURL(file) });
     } catch {
       toast({ title: t.fotoError, description: t.fotoErrorDesc, variant: 'destructive' });
     } finally {
