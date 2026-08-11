@@ -125,6 +125,43 @@ export const Dashboard = () => {
               <span className="text-sm text-muted-foreground">{maquinas.length} máquina(s)</span>
             </div>
 
+            {/* Alerta de incidencias de clientes */}
+            <button
+              onClick={() => navigate('/mis-incidencias')}
+              className="w-full animate-fade-in"
+              style={{ animationDelay: '50ms' }}
+            >
+              <Card
+                className={`
+                  text-left transition-all duration-200 active:scale-[0.99]
+                  border-l-4 border-l-warning
+                  ${pendientes > 0 ? 'bg-warning/10 hover:bg-warning/15' : 'bg-muted/50 hover:bg-muted'}
+                `}
+              >
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div
+                    className={`
+                      h-12 w-12 rounded-full flex items-center justify-center shrink-0
+                      ${pendientes > 0 ? 'bg-warning/20 text-warning' : 'bg-muted-foreground/10 text-muted-foreground'}
+                    `}
+                  >
+                    <AlertTriangle className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground">Incidencias de clientes</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {loadingPendientes
+                        ? 'Comprobando tickets…'
+                        : pendientes > 0
+                          ? `Tienes ${pendientes} ticket${pendientes === 1 ? '' : 's'} pendiente${pendientes === 1 ? '' : 's'} de resolver`
+                          : 'No tienes tickets pendientes'}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                </CardContent>
+              </Card>
+            </button>
+
             <div className="grid gap-4">
               {maquinas.map((maquina, index) => (
                 <div
