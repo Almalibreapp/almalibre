@@ -8,9 +8,10 @@ import { NotificationCenter } from '@/components/notifications/NotificationCente
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
+import { useTicketsPendientes } from '@/hooks/useTicketsPendientes';
 import { initPushNotifications } from '@/services/pushNotifications';
 import { initLocalNotifications } from '@/services/localNotifications';
-import { Plus, Settings, IceCream, RefreshCw, Network } from 'lucide-react';
+import { Plus, Settings, IceCream, RefreshCw, Network, AlertTriangle, ChevronRight } from 'lucide-react';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
 import { AlmaTipModal } from '@/components/alma-tip/AlmaTipModal';
 
