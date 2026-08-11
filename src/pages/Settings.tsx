@@ -58,6 +58,7 @@ export const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { profile, signOut, updateProfile } = useAuth();
+  const { pendientes, loading: loadingPendientes } = useTicketsPendientes();
 
   const [loading, setLoading] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
