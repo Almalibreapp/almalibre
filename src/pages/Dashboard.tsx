@@ -34,6 +34,7 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const { profile, user } = useAuth();
   const { maquinas, loading, refetch } = useMaquinas(user?.id);
+  const { pendientes, loading: loadingPendientes } = useTicketsPendientes();
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
