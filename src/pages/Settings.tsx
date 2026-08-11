@@ -41,7 +41,7 @@ import {
 
 const menuItems = [
   { path: '/notifications', icon: Bell, label: 'Notificaciones', description: 'Configura tus alertas' },
-  { path: '/mis-incidencias', icon: AlertTriangle, label: 'Incidencias', description: 'Tickets y seguimiento de tu soporte' },
+  { path: '/mis-incidencias', icon: AlertTriangle, label: 'Mis Incidencias', description: 'Incidencias de clientes en tus máquinas' },
   { path: '/payment-methods', icon: CreditCard, label: 'Métodos de Pago', description: 'Tarjetas y cuentas' },
   { path: '/orders', icon: Package, label: 'Mis Pedidos', description: 'Historial de compras' },
 ];
