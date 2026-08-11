@@ -11,7 +11,7 @@ import { useMaquinas } from '@/hooks/useMaquinas';
 import { useTicketsPendientes } from '@/hooks/useTicketsPendientes';
 import { initPushNotifications } from '@/services/pushNotifications';
 import { initLocalNotifications } from '@/services/localNotifications';
-import { Plus, Settings, IceCream, RefreshCw, Network, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Plus, Settings, IceCream, RefreshCw, Network, AlertTriangle, CheckCircle2, ChevronRight } from 'lucide-react';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
 import { AlmaTipModal } from '@/components/alma-tip/AlmaTipModal';
 
