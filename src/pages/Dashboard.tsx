@@ -133,42 +133,42 @@ export const Dashboard = () => {
             >
               <Card
                 className={`
-                  text-left transition-all duration-200 active:scale-[0.99] overflow-hidden
-                  border-l-4
+                  text-left transition-all duration-200 active:scale-[0.99]
+                  border-l-[3px]
                   ${pendientes > 0
-                    ? 'border-l-warning bg-warning/10 hover:bg-warning/15 shadow-sm shadow-warning/10'
-                    : 'border-l-success bg-success/10 hover:bg-success/15'}
+                    ? 'border-l-warning bg-warning/5 hover:bg-warning/10'
+                    : 'border-l-success bg-success/5 hover:bg-success/10'}
                 `}
               >
-                <CardContent className="p-4 flex items-center gap-4">
+                <CardContent className="p-3 flex items-center gap-3">
                   <div
                     className={`
-                      h-12 w-12 rounded-full flex items-center justify-center shrink-0
-                      ${pendientes > 0
-                        ? 'bg-warning/20 text-warning animate-pulse'
-                        : 'bg-success/20 text-success'}
+                      h-8 w-8 rounded-full flex items-center justify-center shrink-0
+                      ${pendientes > 0 ? 'bg-warning/15 text-warning' : 'bg-success/15 text-success'}
                     `}
                   >
                     {pendientes > 0 ? (
-                      <AlertTriangle className="h-6 w-6" />
+                      <AlertTriangle className="h-4 w-4" />
                     ) : (
-                      <CheckCircle2 className="h-6 w-6" />
+                      <CheckCircle2 className="h-4 w-4" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground">
-                      {pendientes > 0 ? 'Incidencias pendientes' : 'Todo en orden'}
+                    <p className="text-sm font-medium text-foreground">
+                      {pendientes > 0
+                        ? `${pendientes} pendiente${pendientes === 1 ? '' : 's'}`
+                        : 'Sin incidencias'}
                     </p>
-                    <p className="text-sm text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground truncate">
                       {loadingPendientes
-                        ? 'Comprobando tickets…'
+                        ? 'Comprobando…'
                         : pendientes > 0
-                          ? `Tienes ${pendientes} ticket${pendientes === 1 ? '' : 's'} pendiente${pendientes === 1 ? '' : 's'} por resolver en tus máquinas`
-                          : 'No tienes incidencias de clientes pendientes'}
+                          ? 'Tienes tickets de clientes por resolver'
+                          : 'Todo en orden en tus máquinas'}
                     </p>
                   </div>
                   <ChevronRight className={`
-                    h-5 w-5 shrink-0
+                    h-4 w-4 shrink-0
                     ${pendientes > 0 ? 'text-warning' : 'text-success'}
                   `} />
                 </CardContent>
