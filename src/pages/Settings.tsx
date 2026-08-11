@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTicketsPendientes } from '@/hooks/useTicketsPendientes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,7 +57,6 @@ export const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { profile, signOut, updateProfile } = useAuth();
-  const { pendientes, loading: loadingPendientes } = useTicketsPendientes();
 
   const [loading, setLoading] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -212,42 +210,6 @@ export const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* Alerta de incidencias de clientes */}
-        <button
-          onClick={() => navigate('/mis-incidencias')}
-          className="w-full animate-fade-in"
-          style={{ animationDelay: '125ms' }}
-        >
-          <Card
-            className={`
-              text-left transition-all duration-200 active:scale-[0.99]
-              border-l-4 border-l-warning
-              ${pendientes > 0 ? 'bg-warning/10 hover:bg-warning/15' : 'bg-muted/50 hover:bg-muted'}
-            `}
-          >
-            <CardContent className="p-4 flex items-center gap-4">
-              <div
-                className={`
-                  h-12 w-12 rounded-full flex items-center justify-center shrink-0
-                  ${pendientes > 0 ? 'bg-warning/20 text-warning' : 'bg-muted-foreground/10 text-muted-foreground'}
-                `}
-              >
-                <AlertTriangle className="h-6 w-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-foreground">Incidencias de clientes</p>
-                <p className="text-sm text-muted-foreground truncate">
-                  {loadingPendientes
-                    ? 'Comprobando tickets…'
-                    : pendientes > 0
-                      ? `Tienes ${pendientes} ticket${pendientes === 1 ? '' : 's'} pendiente${pendientes === 1 ? '' : 's'} de resolver`
-                      : 'No tienes tickets pendientes'}
-                </p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-            </CardContent>
-          </Card>
-        </button>
 
         {/* Tools Section */}
         <Card className="animate-fade-in" style={{ animationDelay: '175ms' }}>
