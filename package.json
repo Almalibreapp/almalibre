@@ -11,7 +11,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8",
     "@capacitor/app": "^8.0.0",
+    "@capacitor/cli": "^8",
     "@capacitor/core": "^8.0.0",
     "@capacitor/local-notifications": "^8.0.1",
     "@hookform/resolvers": "^3.10.0",
