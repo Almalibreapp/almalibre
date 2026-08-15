@@ -48,13 +48,33 @@ Deno.serve(async (req) => {
     let totalPages = 1
     const ordenes: any[] = []
 
+    // El proxy del fabricante devuelve 502/503 de forma intermitente:
+    // reintentamos con backoff y, si sigue fallando, respondemos 200 con
+    // lista vacía para no romper el panel.
+    const fetchPage = async (p: number): Promise<Response | null> => {
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const r = await fetch(
+            `${API_BASE_URL}/fabricante-ext/v1/ordenes/${imei}?fecha=${fecha}&page=${p}`,
+            { headers: { Authorization: `Bearer ${API_TOKEN}`, 'Content-Type': 'application/json' } }
+          )
+          if (r.ok) return r
+          if (r.status < 500) return null
+        } catch (_) { /* red inestable: reintentar */ }
+        if (attempt < 3) await new Promise((res) => setTimeout(res, 500 * attempt))
+      }
+      return null
+    }
+
     while (page <= totalPages && page <= 20) {
-      const res = await fetch(
-        `${API_BASE_URL}/fabricante-ext/v1/ordenes/${imei}?fecha=${fecha}&page=${page}`,
-        { headers: { Authorization: `Bearer ${API_TOKEN}`, 'Content-Type': 'application/json' } }
-      )
-      if (!res.ok) {
-        if (page === 1) throw new Error(`Fabricante HTTP ${res.status}`)
+      const res = await fetchPage(page)
+      if (!res) {
+        if (page === 1) {
+          return new Response(
+            JSON.stringify({ success: true, imei, fecha, total: 0, ventas: [], fuente: 'fabricante', degradado: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
         break
       }
       const data = await res.json()
