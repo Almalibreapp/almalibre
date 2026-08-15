@@ -146,13 +146,12 @@ export const AdminAnalytics = () => {
               venta_api_id: v.venta_api_id || v.id || '',
               created_at: new Date().toISOString(),
             }));
-          } catch { return []; }
+          } catch (err) {
+            throw err;
+          }
         });
 
-        const results = await Promise.allSettled(apiPromises);
-        const apiSales = results
-          .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
-          .flatMap(r => r.value);
+        const apiSales = (await Promise.all(apiPromises)).flat();
 
         // Remove DB sales for today (may be incomplete) and replace with API
         allSales = allSales.filter(s => s.fecha !== todayStr);

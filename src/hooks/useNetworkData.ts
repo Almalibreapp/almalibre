@@ -93,7 +93,7 @@ export const useNetworkDetail = (fecha?: string) => {
       // Use centralized fetchSpanishDayOrders for each machine — handles timezone detection & normalization
       const results = await Promise.all(
         imeis.map(async (m) => {
-          const ventas = await fetchSpanishDayOrders(m.imei, spainDate, fetchOrdenes).catch(() => []);
+          const ventas = await fetchSpanishDayOrders(m.imei, spainDate, fetchOrdenes);
           return {
             maquinaId: m.id,
             nombre: m.nombre,
