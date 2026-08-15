@@ -51,10 +51,13 @@ export const fetchVentasResumen = async (imei: string) => {
       ventas_mes: { cantidad: 0, total_euros: 0 },
     };
   } catch (err) {
+    // No devolvemos ceros: propagamos para que la query reintente y no se
+    // muestren ventas incompletas.
     console.warn(`[fetchVentasResumen] Error for ${imei}:`, err);
-    return { mac_addr: imei, ventas_hoy: { cantidad: 0, total_euros: 0 }, ventas_ayer: { cantidad: 0, total_euros: 0 }, ventas_mes: { cantidad: 0, total_euros: 0 } };
+    throw err;
   }
 };
+
 
 const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' | 'ordenes') => {
   const key = `${tag}|${imei}|${dateStr}`;
