@@ -18,6 +18,20 @@ const VENTAS_MAX_ATTEMPTS = 3;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Respaldo: la API de telemetría sirve la rama "historico" (vacía) para el día
+// chino en curso, por lo que las ventas posteriores a las 18:00 hora española
+// no aparecen hasta el día siguiente. Nuestra edge function consulta al
+// fabricante directamente y sí las devuelve.
+const fetchVentasFabricante = async (imei: string, dateStr: string) => {
+  const { supabase } = await import('@/integrations/supabase/client');
+  const { data, error } = await supabase.functions.invoke('ventas-fabricante', {
+    body: { imei, fecha: dateStr },
+  });
+  if (error) throw error;
+  return (data?.ventas ?? []) as any[];
+};
+
+
 
 
 // Información general de la máquina
