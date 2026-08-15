@@ -28,7 +28,21 @@ const fetchVentasFabricante = async (imei: string, dateStr: string) => {
     body: { imei, fecha: dateStr },
   });
   if (error) throw error;
+  // Respuesta degradada (proxy caído): no es un "cero" real.
+  if (data?.degradado) throw new Error('Fabricante degradado');
   return (data?.ventas ?? []) as any[];
+};
+
+// Une la respuesta nueva con la última respuesta correcta cacheada.
+// Evita que un día pase de 114 a 77 ventas cuando el upstream devuelve
+// resultados incompletos de forma intermitente.
+const mergeWithCache = (key: string, ventas: any[]) => {
+  const cached = ventasSuccessCache.get(key);
+  if (!cached || Date.now() - cached.at > VENTAS_CACHE_TTL_MS) return ventas;
+  const byId = new Map<string, any>();
+  (cached.data?.ventas ?? []).forEach((v: any) => byId.set(String(v.id), v));
+  ventas.forEach((v: any) => byId.set(String(v.id), v));
+  return Array.from(byId.values());
 };
 
 
