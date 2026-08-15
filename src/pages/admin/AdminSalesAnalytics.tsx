@@ -137,7 +137,8 @@ export const AdminSalesAnalytics = () => {
       const allSales = await Promise.all(
         uniqueByImei.map(m => fetchSpanishDaySales(m.mac_address, m.id, dateStr))
       );
-      return deduplicateSales(allSales.flat());
+      return deduplicateSales(allSales.flat())
+        .sort((a: any, b: any) => String(a.horaSpain || a.hora || '').localeCompare(String(b.horaSpain || b.hora || '')));
     },
     refetchInterval: isTodayFn(selectedDate) ? 30000 : false,
     enabled: viewMode === 'daily' && !!maquinas && maquinas.length > 0,
