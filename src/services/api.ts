@@ -112,13 +112,31 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
           toppings: v.toppings || [],
         }));
 
+        // Si la telemetría cae en la rama "historico" y no devuelve nada,
+        // preguntamos al fabricante (día chino en curso: ventas > 18:00 ES).
+        if (ventas.length === 0) {
+          try {
+            const fallback = await fetchVentasFabricante(imei, dateStr);
+            fallback.forEach((v: any, index: number) => {
+              ventas.push({
+                ...v,
+                id: v.id || v.numero_orden || `${imei}-${dateStr}-${v.fecha_hora_china || ''}-${v.precio}-${index}`,
+                fecha: dateStr,
+              });
+            });
+          } catch (fallbackError) {
+            console.warn(`[fetchVentas/${tag}] fabricante falló para ${imei} ${dateStr}:`, fallbackError);
+          }
+        }
+
         const result = {
           mac_addr: data.imei || imei,
           fecha: data.fecha || dateStr,
-          total_ventas: data.total || ventas.length,
+          total_ventas: ventas.length || data.total || 0,
           ventas,
           fuente: data.fuente,
         };
+
 
         ventasSuccessCache.set(key, { data: result, at: Date.now() });
         return result;
