@@ -28,7 +28,21 @@ const fetchVentasFabricante = async (imei: string, dateStr: string) => {
     body: { imei, fecha: dateStr },
   });
   if (error) throw error;
+  // Respuesta degradada (proxy caído): no es un "cero" real.
+  if (data?.degradado) throw new Error('Fabricante degradado');
   return (data?.ventas ?? []) as any[];
+};
+
+// Une la respuesta nueva con la última respuesta correcta cacheada.
+// Evita que un día pase de 114 a 77 ventas cuando el upstream devuelve
+// resultados incompletos de forma intermitente.
+const mergeWithCache = (key: string, ventas: any[]) => {
+  const cached = ventasSuccessCache.get(key);
+  if (!cached || Date.now() - cached.at > VENTAS_CACHE_TTL_MS) return ventas;
+  const byId = new Map<string, any>();
+  (cached.data?.ventas ?? []).forEach((v: any) => byId.set(String(v.id), v));
+  ventas.forEach((v: any) => byId.set(String(v.id), v));
+  return Array.from(byId.values());
 };
 
 
@@ -129,11 +143,12 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
           }
         }
 
+        const mergedVentas = mergeWithCache(key, ventas);
         const result = {
           mac_addr: data.imei || imei,
           fecha: data.fecha || dateStr,
-          total_ventas: ventas.length || data.total || 0,
-          ventas,
+          total_ventas: mergedVentas.length,
+          ventas: mergedVentas,
           fuente: data.fuente,
         };
 
@@ -163,11 +178,12 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
         id: v.id || v.numero_orden || `${imei}-${dateStr}-${v.fecha_hora_china || ''}-${v.precio}-${index}`,
         fecha: dateStr,
       }));
+      const mergedVentas = mergeWithCache(key, ventas);
       const result = {
         mac_addr: imei,
         fecha: dateStr,
-        total_ventas: ventas.length,
-        ventas,
+        total_ventas: mergedVentas.length,
+        ventas: mergedVentas,
         fuente: 'fabricante',
       };
       ventasSuccessCache.set(key, { data: result, at: Date.now() });
