@@ -18,6 +18,20 @@ const VENTAS_MAX_ATTEMPTS = 3;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Respaldo: la API de telemetría sirve la rama "historico" (vacía) para el día
+// chino en curso, por lo que las ventas posteriores a las 18:00 hora española
+// no aparecen hasta el día siguiente. Nuestra edge function consulta al
+// fabricante directamente y sí las devuelve.
+const fetchVentasFabricante = async (imei: string, dateStr: string) => {
+  const { supabase } = await import('@/integrations/supabase/client');
+  const { data, error } = await supabase.functions.invoke('ventas-fabricante', {
+    body: { imei, fecha: dateStr },
+  });
+  if (error) throw error;
+  return (data?.ventas ?? []) as any[];
+};
+
+
 
 
 // Información general de la máquina
@@ -98,13 +112,31 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
           toppings: v.toppings || [],
         }));
 
+        // Si la telemetría cae en la rama "historico" y no devuelve nada,
+        // preguntamos al fabricante (día chino en curso: ventas > 18:00 ES).
+        if (ventas.length === 0) {
+          try {
+            const fallback = await fetchVentasFabricante(imei, dateStr);
+            fallback.forEach((v: any, index: number) => {
+              ventas.push({
+                ...v,
+                id: v.id || v.numero_orden || `${imei}-${dateStr}-${v.fecha_hora_china || ''}-${v.precio}-${index}`,
+                fecha: dateStr,
+              });
+            });
+          } catch (fallbackError) {
+            console.warn(`[fetchVentas/${tag}] fabricante falló para ${imei} ${dateStr}:`, fallbackError);
+          }
+        }
+
         const result = {
           mac_addr: data.imei || imei,
           fecha: data.fecha || dateStr,
-          total_ventas: data.total || ventas.length,
+          total_ventas: ventas.length || data.total || 0,
           ventas,
           fuente: data.fuente,
         };
+
 
         ventasSuccessCache.set(key, { data: result, at: Date.now() });
         return result;
