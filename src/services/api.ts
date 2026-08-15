@@ -154,11 +154,34 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
       return cached.data;
     }
 
+    // Último recurso: la telemetría está caída (nginx 502/HTML). Pedimos las
+    // ventas directamente al fabricante para no dejar el panel sin datos.
+    try {
+      const fallback = await fetchVentasFabricante(imei, dateStr);
+      const ventas = fallback.map((v: any, index: number) => ({
+        ...v,
+        id: v.id || v.numero_orden || `${imei}-${dateStr}-${v.fecha_hora_china || ''}-${v.precio}-${index}`,
+        fecha: dateStr,
+      }));
+      const result = {
+        mac_addr: imei,
+        fecha: dateStr,
+        total_ventas: ventas.length,
+        ventas,
+        fuente: 'fabricante',
+      };
+      ventasSuccessCache.set(key, { data: result, at: Date.now() });
+      return result;
+    } catch (fallbackError) {
+      console.warn(`[fetchVentas/${tag}] fabricante (fallback total) falló para ${imei} ${dateStr}:`, fallbackError);
+    }
+
     // Sin datos fiables: propagamos el error para que la query reintente
     // en lugar de mostrar un día con ventas incompletas.
     throw lastError instanceof Error
       ? lastError
       : new Error(`No se pudieron obtener las ventas de ${imei} (${dateStr})`);
+
   })();
 
   promise.catch(() => {}).finally(() => ventasInflight.delete(key));
