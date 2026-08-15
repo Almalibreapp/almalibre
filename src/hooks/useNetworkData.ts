@@ -6,12 +6,11 @@ import { VentasResumenResponse, TemperaturaResponse, ToppingVenta } from '@/type
 import { fetchSpanishDayOrders, isSuccessfulSale, buildHourlySalesData, getPeakSalesHour, getCurrentSpainDate } from '@/lib/sales';
 
 const fetchMachineVentasResumen = async (imei: string) => {
-  try {
-    return await fetchVentasResumen(imei);
-  } catch {
-    return null;
-  }
+  // Sin catch: si una máquina falla preferimos reintentar la query completa
+  // antes que mostrar totales de red incompletos.
+  return await fetchVentasResumen(imei);
 };
+
 
 const fetchMachineTemperatura = async (imei: string) => {
   try {
@@ -93,7 +92,7 @@ export const useNetworkDetail = (fecha?: string) => {
       // Use centralized fetchSpanishDayOrders for each machine — handles timezone detection & normalization
       const results = await Promise.all(
         imeis.map(async (m) => {
-          const ventas = await fetchSpanishDayOrders(m.imei, spainDate, fetchOrdenes).catch(() => []);
+          const ventas = await fetchSpanishDayOrders(m.imei, spainDate, fetchOrdenes);
           return {
             maquinaId: m.id,
             nombre: m.nombre,

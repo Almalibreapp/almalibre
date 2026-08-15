@@ -219,9 +219,15 @@ export const fetchSpanishDayOrders = async (
     ? [prevDate, spainDate, nextDate]
     : [prevDate, spainDate];
 
+  // El día objetivo es obligatorio: si falla, propagamos el error para que la
+  // query reintente en vez de pintar un día con ventas incompletas.
+  // Los días adyacentes son complementarios y sí se pueden tolerar.
   const responses = await Promise.all(
-    datesToFetch.map((fecha) => fetcher(imei, fecha).catch(() => null))
+    datesToFetch.map((fecha) =>
+      fecha === spainDate ? fetcher(imei, fecha) : fetcher(imei, fecha).catch(() => null)
+    )
   );
+
   const allSales = responses.flatMap((r) => r?.ventas ?? []);
   const normalized = normalizeSalesBatchToSpain(allSales, spainDate, undefined, imei);
   return dedupeSalesByUid(normalized).filter((sale) => sale.fechaSpain === spainDate);

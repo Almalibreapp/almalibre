@@ -50,10 +50,7 @@ export const AdminDashboard = () => {
           estado: v.estado || 'exitoso',
         }));
       });
-      const results = await Promise.allSettled(promises);
-      const allSales = results
-        .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
-        .flatMap(r => r.value);
+      const allSales = (await Promise.all(promises)).flat();
       const seen = new Set<string>();
       return allSales.filter(v => {
         if (seen.has(v.id)) return false;

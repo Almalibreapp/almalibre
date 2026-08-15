@@ -97,12 +97,15 @@ export const AdminSales = () => {
                 fecha_hora_china: fhc,
               };
             });
-          } catch { return []; }
+          } catch (err) {
+            // Propagamos: mejor reintentar que mostrar ventas incompletas.
+            throw err;
+          }
         });
-        const results = await Promise.allSettled(apiPromises);
-        const allSales = results.filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled').flatMap((r) => r.value);
+        const allSales: any[] = (await Promise.all(apiPromises)).flat();
         const seen = new Set<string>();
-        return allSales.filter(v => { const key = String(v.sale_uid || v.id); if (seen.has(key)) return false; seen.add(key); return true; });
+        return allSales.filter(v => { const key = String(v.sale_uid || v.id); if (seen.has(key)) return false; seen.add(key); return true; }) as any[];
+
       }
       let query = supabase.from('ventas_historico').select('*').eq('fecha', dateStr).order('hora', { ascending: true });
       if (selectedMachine !== 'all') query = query.eq('maquina_id', selectedMachine);

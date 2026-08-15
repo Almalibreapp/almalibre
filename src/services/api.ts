@@ -6,19 +6,18 @@ const normalizeTemperatureDateParam = (value: string | undefined, fallback: stri
   return match?.[0] || fallback;
 };
 
-// In-flight dedupe + short circuit breaker for the flaky upstream "ventas" endpoint.
-// If the upstream fails, we cache an empty result briefly so we don't hammer it
-// (the manufacturer API returns 500/Nginx HTML when overloaded).
+// In-flight dedupe + reintentos para el endpoint "ventas" (upstream inestable).
+// IMPORTANTE: nunca devolvemos un resultado vacío ante un fallo, porque eso
+// hacía que faltaran ventas en el panel. Reintentamos y, si aún falla,
+// devolvemos la última respuesta correcta cacheada o lanzamos el error para
+// que React Query reintente y conserve los datos anteriores.
 const ventasInflight = new Map<string, Promise<any>>();
-const ventasFailureUntil = new Map<string, number>();
-const VENTAS_FAILURE_TTL_MS = 15000;
+const ventasSuccessCache = new Map<string, { data: any; at: number }>();
+const VENTAS_CACHE_TTL_MS = 10 * 60 * 1000;
+const VENTAS_MAX_ATTEMPTS = 3;
 
-const emptyVentas = (imei: string, dateStr: string) => ({
-  mac_addr: imei,
-  fecha: dateStr,
-  total_ventas: 0,
-  ventas: [] as any[],
-});
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 
 
 // Información general de la máquina
@@ -52,73 +51,89 @@ export const fetchVentasResumen = async (imei: string) => {
       ventas_mes: { cantidad: 0, total_euros: 0 },
     };
   } catch (err) {
+    // No devolvemos ceros: propagamos para que la query reintente y no se
+    // muestren ventas incompletas.
     console.warn(`[fetchVentasResumen] Error for ${imei}:`, err);
-    return { mac_addr: imei, ventas_hoy: { cantidad: 0, total_euros: 0 }, ventas_ayer: { cantidad: 0, total_euros: 0 }, ventas_mes: { cantidad: 0, total_euros: 0 } };
+    throw err;
   }
 };
 
+
 const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' | 'ordenes') => {
   const key = `${tag}|${imei}|${dateStr}`;
-
-  // Circuit breaker: upstream recently failed → return empty immediately.
-  const failUntil = ventasFailureUntil.get(key);
-  if (failUntil && Date.now() < failUntil) {
-    return emptyVentas(imei, dateStr);
-  }
 
   // Dedupe concurrent identical requests.
   const inflight = ventasInflight.get(key);
   if (inflight) return inflight;
 
   const promise = (async () => {
-    try {
-      const response = await fetch(
-        `${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`,
-        { headers: API_CONFIG.headers }
-      );
-      if (!response.ok) {
-        ventasFailureUntil.set(key, Date.now() + VENTAS_FAILURE_TTL_MS);
-        console.warn(`[fetchVentas/${tag}] HTTP ${response.status} for ${imei} ${dateStr}`);
-        return emptyVentas(imei, dateStr);
+    let lastError: unknown = null;
+
+    for (let attempt = 1; attempt <= VENTAS_MAX_ATTEMPTS; attempt++) {
+      try {
+        const response = await fetch(
+          `${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`,
+          { headers: API_CONFIG.headers }
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const text = await response.text();
+        if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+          throw new Error('Respuesta HTML del upstream');
+        }
+
+        const data = JSON.parse(text);
+        const ventas = (data.ventas || []).map((v: any, index: number) => ({
+          ...v,
+          // El uid debe ser único aunque falten id/numero_orden: incluimos índice
+          // para no perder ventas idénticas (misma hora y precio) al deduplicar.
+          id: v.id || v.numero_orden || `${imei}-${dateStr}-${v.fecha_hora_china || ''}-${v.precio}-${index}`,
+          fecha_hora_china: v.fecha_hora_china || '',
+          fecha: dateStr,
+          producto: v.producto || '',
+          precio: Number(v.precio || 0),
+          cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
+          metodo_pago: v.metodo_pago || '',
+          estado: v.estado || 'exitoso',
+          toppings: v.toppings || [],
+        }));
+
+        const result = {
+          mac_addr: data.imei || imei,
+          fecha: data.fecha || dateStr,
+          total_ventas: data.total || ventas.length,
+          ventas,
+          fuente: data.fuente,
+        };
+
+        ventasSuccessCache.set(key, { data: result, at: Date.now() });
+        return result;
+      } catch (err) {
+        lastError = err;
+        console.warn(`[fetchVentas/${tag}] intento ${attempt} falló para ${imei} ${dateStr}:`, err);
+        if (attempt < VENTAS_MAX_ATTEMPTS) await sleep(400 * attempt);
       }
-      const text = await response.text();
-      if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-        ventasFailureUntil.set(key, Date.now() + VENTAS_FAILURE_TTL_MS);
-        console.warn(`[fetchVentas/${tag}] Server returned HTML for ${imei} ${dateStr}`);
-        return emptyVentas(imei, dateStr);
-      }
-      const data = JSON.parse(text);
-      const ventas = (data.ventas || []).map((v: any) => ({
-        ...v,
-        id: v.id || v.numero_orden || `${v.fecha_hora_china}-${v.precio}`,
-        fecha_hora_china: v.fecha_hora_china || '',
-        fecha: dateStr,
-        producto: v.producto || '',
-        precio: Number(v.precio || 0),
-        cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-        metodo_pago: v.metodo_pago || '',
-        estado: v.estado || 'exitoso',
-        toppings: v.toppings || [],
-      }));
-      return {
-        mac_addr: data.imei || imei,
-        fecha: data.fecha || dateStr,
-        total_ventas: data.total || ventas.length,
-        ventas,
-        fuente: data.fuente,
-      };
-    } catch (err) {
-      ventasFailureUntil.set(key, Date.now() + VENTAS_FAILURE_TTL_MS);
-      console.warn(`[fetchVentas/${tag}] Error for ${imei} ${dateStr}:`, err);
-      return emptyVentas(imei, dateStr);
-    } finally {
-      ventasInflight.delete(key);
     }
+
+    // Fallback: última respuesta correcta reciente (mejor que perder ventas).
+    const cached = ventasSuccessCache.get(key);
+    if (cached && Date.now() - cached.at < VENTAS_CACHE_TTL_MS) {
+      console.warn(`[fetchVentas/${tag}] usando caché para ${imei} ${dateStr}`);
+      return cached.data;
+    }
+
+    // Sin datos fiables: propagamos el error para que la query reintente
+    // en lugar de mostrar un día con ventas incompletas.
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(`No se pudieron obtener las ventas de ${imei} (${dateStr})`);
   })();
 
+  promise.catch(() => {}).finally(() => ventasInflight.delete(key));
   ventasInflight.set(key, promise);
   return promise;
 };
+
 
 /**
  * Fetch sales for a specific date.

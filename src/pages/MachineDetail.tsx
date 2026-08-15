@@ -257,7 +257,7 @@ export const MachineDetail = () => {
       if (!imei) return [];
       const allSales = await Promise.all(
         monthDays.map(fecha =>
-          fetchSpanishDayOrders(imei, fecha, fetchOrdenes).catch(() => [])
+          fetchSpanishDayOrders(imei, fecha, fetchOrdenes)
         )
       );
       // Deduplicate by saleUid
