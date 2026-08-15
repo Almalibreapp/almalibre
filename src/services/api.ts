@@ -143,11 +143,12 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
           }
         }
 
+        const mergedVentas = mergeWithCache(key, ventas);
         const result = {
           mac_addr: data.imei || imei,
           fecha: data.fecha || dateStr,
-          total_ventas: ventas.length || data.total || 0,
-          ventas,
+          total_ventas: mergedVentas.length,
+          ventas: mergedVentas,
           fuente: data.fuente,
         };
 
