@@ -6,19 +6,18 @@ const normalizeTemperatureDateParam = (value: string | undefined, fallback: stri
   return match?.[0] || fallback;
 };
 
-// In-flight dedupe + short circuit breaker for the flaky upstream "ventas" endpoint.
-// If the upstream fails, we cache an empty result briefly so we don't hammer it
-// (the manufacturer API returns 500/Nginx HTML when overloaded).
+// In-flight dedupe + reintentos para el endpoint "ventas" (upstream inestable).
+// IMPORTANTE: nunca devolvemos un resultado vacío ante un fallo, porque eso
+// hacía que faltaran ventas en el panel. Reintentamos y, si aún falla,
+// devolvemos la última respuesta correcta cacheada o lanzamos el error para
+// que React Query reintente y conserve los datos anteriores.
 const ventasInflight = new Map<string, Promise<any>>();
-const ventasFailureUntil = new Map<string, number>();
-const VENTAS_FAILURE_TTL_MS = 15000;
+const ventasSuccessCache = new Map<string, { data: any; at: number }>();
+const VENTAS_CACHE_TTL_MS = 10 * 60 * 1000;
+const VENTAS_MAX_ATTEMPTS = 3;
 
-const emptyVentas = (imei: string, dateStr: string) => ({
-  mac_addr: imei,
-  fecha: dateStr,
-  total_ventas: 0,
-  ventas: [] as any[],
-});
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 
 
 // Información general de la máquina
