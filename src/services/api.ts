@@ -178,11 +178,12 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
         id: v.id || v.numero_orden || `${imei}-${dateStr}-${v.fecha_hora_china || ''}-${v.precio}-${index}`,
         fecha: dateStr,
       }));
+      const mergedVentas = mergeWithCache(key, ventas);
       const result = {
         mac_addr: imei,
         fecha: dateStr,
-        total_ventas: ventas.length,
-        ventas,
+        total_ventas: mergedVentas.length,
+        ventas: mergedVentas,
         fuente: 'fabricante',
       };
       ventasSuccessCache.set(key, { data: result, at: Date.now() });
