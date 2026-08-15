@@ -206,18 +206,12 @@ export const fetchSpanishDayOrders = async (
   const prevDate = shiftSpainDate(spainDate, -1);
   const nextDate = shiftSpainDate(spainDate, 1);
 
-  // Para máquinas con desfase horario China (UTC+8) la API devuelve ventas por
-  // fecha china. Una venta del día siguiente en hora china puede caer en el
-  // día anterior en hora española, así que hay que ampliar el rango de fetch.
-  const CHINA_TIME_IMEIS = new Set<string>([
-    '865622072039477',
-    '865622073018769',
-    '865622072055218',
-  ]);
-  const isChinaMachine = CHINA_TIME_IMEIS.has(imei);
-  const datesToFetch = isChinaMachine
-    ? [prevDate, spainDate, nextDate]
-    : [prevDate, spainDate];
+  // La API del fabricante devuelve las ventas agrupadas por DÍA CHINO (UTC+8).
+  // El día chino empieza a las 18:00 hora española, así que una venta española
+  // puede estar en la respuesta del día anterior o del día siguiente.
+  // Pedimos siempre D-1, D y D+1 y filtramos después por fecha española.
+  const datesToFetch = [prevDate, spainDate, nextDate];
+
 
   // El día objetivo es obligatorio: si falla, propagamos el error para que la
   // query reintente en vez de pintar un día con ventas incompletas.
