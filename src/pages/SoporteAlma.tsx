@@ -267,9 +267,13 @@ export const SoporteAlma = () => {
     setShowScrollDown(el.scrollHeight - el.scrollTop - el.clientHeight > 240);
   };
 
-  const enviar = async () => {
-    const contenido = texto.trim();
+  const enviar = async (textoDirecto?: string) => {
+    const contenido = (textoDirecto ?? texto).trim();
     if (!contenido || enviando || !imei) return;
+
+    // Al enviar, las sugerencias previas desaparecen
+    setMensajes((prev) => prev.map((m) => (m.sugerencias ? { ...m, sugerencias: undefined } : m)));
+
 
     setMensajes((prev) => [
       ...prev,
