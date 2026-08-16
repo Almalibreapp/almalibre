@@ -664,6 +664,38 @@ export const SoporteAlma = () => {
         </form>
       </div>
 
+      {imagenAmpliada && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setImagenAmpliada(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            type="button"
+            onClick={() => setImagenAmpliada(null)}
+            aria-label="Cerrar imagen"
+            className="absolute top-4 right-4 h-10 w-10 rounded-full bg-card/90 text-foreground flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <figure
+            className="max-h-full max-w-full flex flex-col items-center gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={imagenAmpliada.url}
+              alt={imagenAmpliada.descripcion || 'Imagen ampliada de Alma'}
+              className="max-h-[80vh] max-w-full object-contain rounded-xl"
+            />
+            {imagenAmpliada.descripcion && (
+              <figcaption className="text-sm text-white/90 text-center px-4">
+                {imagenAmpliada.descripcion}
+              </figcaption>
+            )}
+          </figure>
+        </div>
+      )}
     </div>
   );
 };
