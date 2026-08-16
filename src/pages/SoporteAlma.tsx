@@ -326,6 +326,12 @@ export const SoporteAlma = () => {
               )
               .filter((img: ChatImagen) => !!img.url)
           : [];
+        const sugerencias: string[] = Array.isArray((data as any)?.sugerencias)
+          ? (data as any).sugerencias
+              .map((s: any) => (typeof s === 'string' ? s : String(s?.texto ?? s?.label ?? '')))
+              .map((s: string) => s.trim())
+              .filter((s: string) => s.length > 0)
+          : [];
         setMensajes((prev) => [
           ...prev,
           {
@@ -334,6 +340,7 @@ export const SoporteAlma = () => {
             texto: (data as any)?.respuesta ?? 'He recibido tu mensaje.',
             hora: nowTime(),
             imagenes: imagenes.length > 0 ? imagenes : undefined,
+            sugerencias: sugerencias.length > 0 ? sugerencias : undefined,
           },
         ]);
       }
