@@ -311,6 +311,15 @@ export const SoporteAlma = () => {
         const convId =
           (data as any)?.conversationId ?? (data as any)?.conversation_id ?? (data as any)?.conversation?.id;
         if (convId) setConversationId(String(convId));
+        const imagenes: ChatImagen[] = Array.isArray((data as any)?.imagenes)
+          ? (data as any).imagenes
+              .map((img: any) =>
+                typeof img === 'string'
+                  ? { url: img }
+                  : { url: String(img?.url ?? ''), descripcion: img?.descripcion || undefined }
+              )
+              .filter((img: ChatImagen) => !!img.url)
+          : [];
         setMensajes((prev) => [
           ...prev,
           {
@@ -318,6 +327,7 @@ export const SoporteAlma = () => {
             autor: 'alma',
             texto: (data as any)?.respuesta ?? 'He recibido tu mensaje.',
             hora: nowTime(),
+            imagenes: imagenes.length > 0 ? imagenes : undefined,
           },
         ]);
       }
