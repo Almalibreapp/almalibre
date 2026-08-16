@@ -13,7 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { supabase } from '@/integrations/supabase/client';
 import { almaClient } from '@/integrations/alma/client';
-import { ArrowLeft, Send, Loader2, User, AlertTriangle, Leaf, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, User, AlertTriangle, Leaf, ChevronDown, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MarkdownTexto } from '@/components/ui/MarkdownTexto';
 import { cn } from '@/lib/utils';
