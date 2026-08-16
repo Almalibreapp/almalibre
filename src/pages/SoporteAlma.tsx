@@ -13,7 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
 import { supabase } from '@/integrations/supabase/client';
 import { almaClient } from '@/integrations/alma/client';
-import { ArrowLeft, Send, Loader2, User, AlertTriangle, Leaf, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, User, AlertTriangle, Leaf, ChevronDown, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MarkdownTexto } from '@/components/ui/MarkdownTexto';
 import { cn } from '@/lib/utils';
@@ -110,6 +110,7 @@ export const SoporteAlma = () => {
   const [cargandoHistorial, setCargandoHistorial] = useState(true);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [soporte, setSoporte] = useState<Record<string, { foto: string | null; cargo: string | null }>>({});
+  const [imagenAmpliada, setImagenAmpliada] = useState<ChatImagen | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -528,14 +529,18 @@ export const SoporteAlma = () => {
                       <div className="mt-2 space-y-2">
                         {m.imagenes.map((img, i) => (
                           <figure key={`${m.id}-img-${i}`} className="space-y-1">
-                            <a href={img.url} target="_blank" rel="noopener noreferrer">
+                            <button
+                              type="button"
+                              onClick={() => setImagenAmpliada(img)}
+                              className="block w-full"
+                            >
                               <img
                                 src={img.url}
                                 alt={img.descripcion || `Imagen ${i + 1} de Alma`}
                                 loading="lazy"
                                 className="rounded-xl border max-h-64 w-full object-cover"
                               />
-                            </a>
+                            </button>
                             {img.descripcion && (
                               <figcaption className="text-[11px] text-muted-foreground">
                                 {img.descripcion}
@@ -659,6 +664,38 @@ export const SoporteAlma = () => {
         </form>
       </div>
 
+      {imagenAmpliada && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setImagenAmpliada(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            type="button"
+            onClick={() => setImagenAmpliada(null)}
+            aria-label="Cerrar imagen"
+            className="absolute top-4 right-4 h-10 w-10 rounded-full bg-card/90 text-foreground flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <figure
+            className="max-h-full max-w-full flex flex-col items-center gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={imagenAmpliada.url}
+              alt={imagenAmpliada.descripcion || 'Imagen ampliada de Alma'}
+              className="max-h-[80vh] max-w-full object-contain rounded-xl"
+            />
+            {imagenAmpliada.descripcion && (
+              <figcaption className="text-sm text-white/90 text-center px-4">
+                {imagenAmpliada.descripcion}
+              </figcaption>
+            )}
+          </figure>
+        </div>
+      )}
     </div>
   );
 };
