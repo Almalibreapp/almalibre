@@ -19,6 +19,11 @@ import { MarkdownTexto } from '@/components/ui/MarkdownTexto';
 import { cn } from '@/lib/utils';
 import { marcarSoporteComoLeido } from '@/hooks/useAlmaSupportUnread';
 
+interface ChatImagen {
+  url: string;
+  descripcion?: string;
+}
+
 interface ChatMsg {
   id: string;
   autor: 'usuario' | 'alma' | 'error';
@@ -26,6 +31,8 @@ interface ChatMsg {
   hora: string;
   /** Nombre del humano de soporte cuando el mensaje es una intervención */
   nombreAutor?: string;
+  /** Imágenes adjuntas devueltas por el backend */
+  imagenes?: ChatImagen[];
 }
 
 const nowTime = () =>
