@@ -474,8 +474,8 @@ export const SoporteAlma = () => {
               {mensajes.map((m) => {
                 const perfil = m.nombreAutor ? soporte[m.nombreAutor.trim().toLowerCase()] : undefined;
                 return (
+                <div key={m.id} className="space-y-2">
                 <div
-                  key={m.id}
                   className={cn(
                     'flex gap-2 items-end animate-fade-in',
                     m.autor === 'usuario' ? 'justify-end' : 'justify-start'
