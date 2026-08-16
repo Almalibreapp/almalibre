@@ -528,14 +528,18 @@ export const SoporteAlma = () => {
                       <div className="mt-2 space-y-2">
                         {m.imagenes.map((img, i) => (
                           <figure key={`${m.id}-img-${i}`} className="space-y-1">
-                            <a href={img.url} target="_blank" rel="noopener noreferrer">
+                            <button
+                              type="button"
+                              onClick={() => setImagenAmpliada(img)}
+                              className="block w-full"
+                            >
                               <img
                                 src={img.url}
                                 alt={img.descripcion || `Imagen ${i + 1} de Alma`}
                                 loading="lazy"
                                 className="rounded-xl border max-h-64 w-full object-cover"
                               />
-                            </a>
+                            </button>
                             {img.descripcion && (
                               <figcaption className="text-[11px] text-muted-foreground">
                                 {img.descripcion}
