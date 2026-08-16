@@ -33,6 +33,8 @@ interface ChatMsg {
   nombreAutor?: string;
   /** Imágenes adjuntas devueltas por el backend */
   imagenes?: ChatImagen[];
+  /** Respuestas rápidas sugeridas por el backend */
+  sugerencias?: string[];
 }
 
 const nowTime = () =>
