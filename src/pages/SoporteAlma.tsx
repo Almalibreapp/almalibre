@@ -562,6 +562,22 @@ export const SoporteAlma = () => {
                     </div>
                   )}
                 </div>
+                {m.sugerencias && m.sugerencias.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pl-9">
+                    {m.sugerencias.map((s, i) => (
+                      <button
+                        key={`${m.id}-sug-${i}`}
+                        type="button"
+                        disabled={enviando}
+                        onClick={() => enviar(s)}
+                        className="rounded-full border border-primary/40 bg-card px-3.5 py-1.5 text-[13px] font-medium text-primary shadow-sm transition-colors hover:bg-primary/10 disabled:opacity-50"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                </div>
                 );
               })}
 
