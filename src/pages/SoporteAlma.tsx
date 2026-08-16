@@ -332,6 +332,15 @@ export const SoporteAlma = () => {
               .map((s: any) => (typeof s === 'string' ? s : String(s?.texto ?? s?.label ?? '')))
               .map((s: string) => s.trim())
               .filter((s: string) => s.length > 0)
+              // Ocultamos la opción negativa: solo mostramos avances tipo "Listo, siguiente paso"
+              .filter(
+                (s: string) =>
+                  !s
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .includes('no funciono')
+              )
           : [];
         setMensajes((prev) => [
           ...prev,
