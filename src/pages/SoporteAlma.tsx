@@ -511,6 +511,27 @@ export const SoporteAlma = () => {
                     <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
                       <MarkdownTexto>{m.texto}</MarkdownTexto>
                     </p>
+                    {m.imagenes && m.imagenes.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {m.imagenes.map((img, i) => (
+                          <figure key={`${m.id}-img-${i}`} className="space-y-1">
+                            <a href={img.url} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={img.url}
+                                alt={img.descripcion || `Imagen ${i + 1} de Alma`}
+                                loading="lazy"
+                                className="rounded-xl border max-h-64 w-full object-cover"
+                              />
+                            </a>
+                            {img.descripcion && (
+                              <figcaption className="text-[11px] text-muted-foreground">
+                                {img.descripcion}
+                              </figcaption>
+                            )}
+                          </figure>
+                        ))}
+                      </div>
+                    )}
                     <p
                       className={cn(
                         'text-[10px] mt-1 text-right',
