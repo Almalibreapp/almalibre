@@ -110,6 +110,7 @@ export const SoporteAlma = () => {
   const [cargandoHistorial, setCargandoHistorial] = useState(true);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [soporte, setSoporte] = useState<Record<string, { foto: string | null; cargo: string | null }>>({});
+  const [imagenAmpliada, setImagenAmpliada] = useState<ChatImagen | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
