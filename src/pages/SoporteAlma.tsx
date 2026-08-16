@@ -33,6 +33,8 @@ interface ChatMsg {
   nombreAutor?: string;
   /** Imágenes adjuntas devueltas por el backend */
   imagenes?: ChatImagen[];
+  /** Respuestas rápidas sugeridas por el backend */
+  sugerencias?: string[];
 }
 
 const nowTime = () =>
@@ -265,9 +267,13 @@ export const SoporteAlma = () => {
     setShowScrollDown(el.scrollHeight - el.scrollTop - el.clientHeight > 240);
   };
 
-  const enviar = async () => {
-    const contenido = texto.trim();
+  const enviar = async (textoDirecto?: string) => {
+    const contenido = (textoDirecto ?? texto).trim();
     if (!contenido || enviando || !imei) return;
+
+    // Al enviar, las sugerencias previas desaparecen
+    setMensajes((prev) => prev.map((m) => (m.sugerencias ? { ...m, sugerencias: undefined } : m)));
+
 
     setMensajes((prev) => [
       ...prev,
@@ -320,6 +326,12 @@ export const SoporteAlma = () => {
               )
               .filter((img: ChatImagen) => !!img.url)
           : [];
+        const sugerencias: string[] = Array.isArray((data as any)?.sugerencias)
+          ? (data as any).sugerencias
+              .map((s: any) => (typeof s === 'string' ? s : String(s?.texto ?? s?.label ?? '')))
+              .map((s: string) => s.trim())
+              .filter((s: string) => s.length > 0)
+          : [];
         setMensajes((prev) => [
           ...prev,
           {
@@ -328,6 +340,7 @@ export const SoporteAlma = () => {
             texto: (data as any)?.respuesta ?? 'He recibido tu mensaje.',
             hora: nowTime(),
             imagenes: imagenes.length > 0 ? imagenes : undefined,
+            sugerencias: sugerencias.length > 0 ? sugerencias : undefined,
           },
         ]);
       }
@@ -461,8 +474,8 @@ export const SoporteAlma = () => {
               {mensajes.map((m) => {
                 const perfil = m.nombreAutor ? soporte[m.nombreAutor.trim().toLowerCase()] : undefined;
                 return (
+                <div key={m.id} className="space-y-2">
                 <div
-                  key={m.id}
                   className={cn(
                     'flex gap-2 items-end animate-fade-in',
                     m.autor === 'usuario' ? 'justify-end' : 'justify-start'
@@ -548,6 +561,22 @@ export const SoporteAlma = () => {
                       <User className="h-3.5 w-3.5 text-muted-foreground" />
                     </div>
                   )}
+                </div>
+                {m.sugerencias && m.sugerencias.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pl-9">
+                    {m.sugerencias.map((s, i) => (
+                      <button
+                        key={`${m.id}-sug-${i}`}
+                        type="button"
+                        disabled={enviando}
+                        onClick={() => enviar(s)}
+                        className="rounded-full border border-primary/40 bg-card px-3.5 py-1.5 text-[13px] font-medium text-primary shadow-sm transition-colors hover:bg-primary/10 disabled:opacity-50"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 </div>
                 );
               })}
