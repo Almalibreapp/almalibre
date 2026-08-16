@@ -19,6 +19,11 @@ import { MarkdownTexto } from '@/components/ui/MarkdownTexto';
 import { cn } from '@/lib/utils';
 import { marcarSoporteComoLeido } from '@/hooks/useAlmaSupportUnread';
 
+interface ChatImagen {
+  url: string;
+  descripcion?: string;
+}
+
 interface ChatMsg {
   id: string;
   autor: 'usuario' | 'alma' | 'error';
@@ -26,6 +31,8 @@ interface ChatMsg {
   hora: string;
   /** Nombre del humano de soporte cuando el mensaje es una intervención */
   nombreAutor?: string;
+  /** Imágenes adjuntas devueltas por el backend */
+  imagenes?: ChatImagen[];
 }
 
 const nowTime = () =>
@@ -304,6 +311,15 @@ export const SoporteAlma = () => {
         const convId =
           (data as any)?.conversationId ?? (data as any)?.conversation_id ?? (data as any)?.conversation?.id;
         if (convId) setConversationId(String(convId));
+        const imagenes: ChatImagen[] = Array.isArray((data as any)?.imagenes)
+          ? (data as any).imagenes
+              .map((img: any) =>
+                typeof img === 'string'
+                  ? { url: img }
+                  : { url: String(img?.url ?? ''), descripcion: img?.descripcion || undefined }
+              )
+              .filter((img: ChatImagen) => !!img.url)
+          : [];
         setMensajes((prev) => [
           ...prev,
           {
@@ -311,6 +327,7 @@ export const SoporteAlma = () => {
             autor: 'alma',
             texto: (data as any)?.respuesta ?? 'He recibido tu mensaje.',
             hora: nowTime(),
+            imagenes: imagenes.length > 0 ? imagenes : undefined,
           },
         ]);
       }
@@ -494,6 +511,27 @@ export const SoporteAlma = () => {
                     <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
                       <MarkdownTexto>{m.texto}</MarkdownTexto>
                     </p>
+                    {m.imagenes && m.imagenes.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {m.imagenes.map((img, i) => (
+                          <figure key={`${m.id}-img-${i}`} className="space-y-1">
+                            <a href={img.url} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={img.url}
+                                alt={img.descripcion || `Imagen ${i + 1} de Alma`}
+                                loading="lazy"
+                                className="rounded-xl border max-h-64 w-full object-cover"
+                              />
+                            </a>
+                            {img.descripcion && (
+                              <figcaption className="text-[11px] text-muted-foreground">
+                                {img.descripcion}
+                              </figcaption>
+                            )}
+                          </figure>
+                        ))}
+                      </div>
+                    )}
                     <p
                       className={cn(
                         'text-[10px] mt-1 text-right',
