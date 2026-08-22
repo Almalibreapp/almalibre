@@ -1,0 +1,1 @@
+UPDATE public.maquinas SET nombre_personalizado = 'AlmaLibre-VLC' WHERE mac_address = '865622072039477';
