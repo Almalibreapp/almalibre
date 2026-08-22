@@ -18,8 +18,8 @@ import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { toast } from 'sonner';
 import { DashboardSkeleton, ChartSkeleton } from '@/components/ui/sales-skeleton';
 import { StatCard } from '@/components/ui/stat-card';
-import {
 import { dedupeMaquinasByImei } from '@/lib/maquinas';
+import {
   Euro, TrendingUp, Calendar, ChevronLeft, ChevronRight,
   Clock, CreditCard, List, BarChart3, IceCream, Package, RefreshCw,
   ArrowUpRight, ArrowDownRight,

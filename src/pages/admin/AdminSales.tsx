@@ -17,8 +17,8 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGri
 import { fetchOrdenes } from '@/services/api';
 import { fetchSpanishDayOrders } from '@/lib/sales';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
-import {
 import { dedupeMaquinasByImei } from '@/lib/maquinas';
+import {
   Euro, TrendingUp, Calendar, ChevronLeft, ChevronRight,
   Clock, CreditCard, List, BarChart3, IceCream, Target,
 } from 'lucide-react';
