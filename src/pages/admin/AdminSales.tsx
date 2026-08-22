@@ -17,6 +17,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGri
 import { fetchOrdenes } from '@/services/api';
 import { fetchSpanishDayOrders } from '@/lib/sales';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
+import { dedupeMaquinasByImei } from '@/lib/maquinas';
 import {
   Euro, TrendingUp, Calendar, ChevronLeft, ChevronRight,
   Clock, CreditCard, List, BarChart3, IceCream, Target,
@@ -67,7 +68,7 @@ export const AdminSales = () => {
     queryKey: ['admin-all-machines'],
     queryFn: async () => {
       const { data } = await supabase.from('maquinas').select('*').order('nombre_personalizado');
-      return data || [];
+      return dedupeMaquinasByImei(data || []);
     },
     staleTime: 5 * 60 * 1000,
   });

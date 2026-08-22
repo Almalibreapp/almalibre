@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Maquina } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { dedupeMaquinasByImei } from '@/lib/maquinas';
 
 export const useMaquinas = (userId: string | undefined) => {
   const [maquinas, setMaquinas] = useState<Maquina[]>([]);
@@ -22,7 +23,7 @@ export const useMaquinas = (userId: string | undefined) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setMaquinas(data as Maquina[]);
+      setMaquinas(dedupeMaquinasByImei(data as Maquina[]));
     } catch (error) {
       console.error('Error fetching machines:', error);
       toast({

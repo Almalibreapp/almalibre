@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner';
 import { fetchOrdenes } from '@/services/api';
 import { fetchSpanishDayOrders } from '@/lib/sales';
+import { dedupeMaquinasByImei } from '@/lib/maquinas';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))', '#8884d8', '#82ca9d', '#ffc658'];
 
@@ -83,7 +84,7 @@ export const AdminAnalytics = () => {
     queryKey: ['admin-all-machines'],
     queryFn: async () => {
       const { data } = await supabase.from('maquinas').select('*').order('nombre_personalizado');
-      return data || [];
+      return dedupeMaquinasByImei(data || []);
     },
   });
 
