@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { DashboardSkeleton, ChartSkeleton } from '@/components/ui/sales-skeleton';
 import { StatCard } from '@/components/ui/stat-card';
 import {
+import { dedupeMaquinasByImei } from '@/lib/maquinas';
   Euro, TrendingUp, Calendar, ChevronLeft, ChevronRight,
   Clock, CreditCard, List, BarChart3, IceCream, Package, RefreshCw,
   ArrowUpRight, ArrowDownRight,
@@ -118,7 +119,7 @@ export const AdminSalesAnalytics = () => {
     queryKey: ['admin-all-machines'],
     queryFn: async () => {
       const { data } = await supabase.from('maquinas').select('*').order('nombre_personalizado');
-      return data || [];
+      return dedupeMaquinasByImei(data || []);
     },
     staleTime: 5 * 60 * 1000,
   });

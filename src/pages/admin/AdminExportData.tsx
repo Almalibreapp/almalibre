@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { fetchOrdenes } from '@/services/api';
 import { convertirVentaAEspana } from '@/lib/timezone-utils';
+import { dedupeMaquinasByImei } from '@/lib/maquinas';
 
 interface Maquina {
   id: string;
@@ -54,7 +55,7 @@ export const AdminExportData = () => {
   useEffect(() => {
     const fetchAll = async () => {
       const { data } = await supabase.from('maquinas').select('*').order('nombre_personalizado');
-      setMaquinas((data as Maquina[]) || []);
+      setMaquinas(dedupeMaquinasByImei((data as Maquina[]) || []));
       setLoadingMaquinas(false);
     };
     fetchAll();

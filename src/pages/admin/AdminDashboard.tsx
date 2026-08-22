@@ -9,6 +9,7 @@ import { fetchTemperatura, fetchOrdenes } from '@/services/api';
 import { fetchSpanishDayOrders } from '@/lib/sales';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { Euro, Thermometer, Package, AlertTriangle, IceCream } from 'lucide-react';
+import { dedupeMaquinasByImei } from '@/lib/maquinas';
 
 export const AdminDashboard = () => {
   useVentasRealtime();
@@ -17,7 +18,7 @@ export const AdminDashboard = () => {
     queryKey: ['admin-all-machines'],
     queryFn: async () => {
       const { data } = await supabase.from('maquinas').select('*');
-      return (data || []) as { id: string; mac_address: string; nombre_personalizado: string; ubicacion: string | null; activa: boolean; usuario_id: string }[];
+      return dedupeMaquinasByImei((data || []) as { id: string; mac_address: string; nombre_personalizado: string; ubicacion: string | null; activa: boolean; usuario_id: string; created_at?: string }[]);
     },
     staleTime: 5 * 60 * 1000,
   });

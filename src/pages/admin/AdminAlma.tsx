@@ -66,6 +66,7 @@ import { toast } from '@/hooks/use-toast';
 import { applyOverrides, setOverride } from './almaOverrides';
 import { TicketUpdates } from './TicketUpdates';
 import { PerfilSoporteDialog } from './PerfilSoporteDialog';
+import { dedupeMaquinasByImei } from '@/lib/maquinas';
 
 
 type Row = Record<string, any>;
@@ -96,7 +97,7 @@ const useAlmaData = (refreshKey: number) => {
       setMessages((m.data as Row[]) ?? []);
       setIncidents(applyOverrides('incidents', (i.data as Row[]) ?? []));
       setTickets(applyOverrides('tickets', (t.data as Row[]) ?? []));
-      setMaquinas((mq.data as Row[]) ?? []);
+      setMaquinas(dedupeMaquinasByImei(((mq.data as Row[]) ?? []) as (Row & { mac_address: string })[]) as Row[]);
       yaCargado.current = true;
       setLoading(false);
     });
