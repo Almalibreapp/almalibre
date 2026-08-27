@@ -68,176 +68,64 @@ export const fetchVentasResumen = async (imei: string) => {
 };
 
 
+const decodeEntities = (text: string) =>
+  String(text || '')
+    .replace(/&ccedil;/gi, 'ç')
+    .replace(/&ntilde;/gi, 'ñ')
+    .replace(/&aacute;/gi, 'á')
+    .replace(/&eacute;/gi, 'é')
+    .replace(/&iacute;/gi, 'í')
+    .replace(/&oacute;/gi, 'ó')
+    .replace(/&uacute;/gi, 'ú');
+
+/**
+ * Ventas de un día (fecha española) leídas SIEMPRE de la base de datos.
+ */
 const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' | 'ordenes') => {
   const key = `${tag}|${imei}|${dateStr}`;
 
-  // Dedupe concurrent identical requests.
   const inflight = ventasInflight.get(key);
   if (inflight) return inflight;
 
   const promise = (async () => {
-    let lastError: unknown = null;
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data, error } = await supabase
+      .from('ventas_historico')
+      .select('id, venta_api_id, fecha, hora, producto, precio, cantidad_unidades, metodo_pago, numero_orden, estado, toppings')
+      .eq('imei', imei)
+      .eq('fecha', dateStr)
+      .order('hora', { ascending: true });
 
-    // La rama histórica de la función externa `ventas` genera tokens internos
-    // con un reloj desincronizado y responde 500 ("JWT issued at future"). Para
-    // días pasados evitamos por completo esa ruta y consultamos al fabricante,
-    // que admite las mismas fechas y no depende de ese JWT.
-    const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-    if (dateStr < todaySpain) {
-      try {
-        const historical = await fetchVentasFabricante(imei, dateStr);
-        const ventas = historical.map((v: any, index: number) => ({
-          ...v,
-          id: v.id || v.numero_orden || `${imei}-${dateStr}-${v.fecha_hora_china || ''}-${v.precio}-${index}`,
-          fecha: dateStr,
-        }));
-        const mergedVentas = mergeWithCache(key, ventas);
-        const result = {
-          mac_addr: imei,
-          fecha: dateStr,
-          total_ventas: mergedVentas.length,
-          ventas: mergedVentas,
-          fuente: 'fabricante-historico',
-        };
-        ventasSuccessCache.set(key, { data: result, at: Date.now() });
-        return result;
-      } catch (historicalError) {
-        lastError = historicalError;
-        const cachedHistorical = ventasSuccessCache.get(key);
-        if (cachedHistorical) {
-          console.warn(`[fetchVentas/${tag}] usando caché histórica para ${imei} ${dateStr}`);
-          return cachedHistorical.data;
-        }
+    if (error) throw error;
 
-        console.warn(`[fetchVentas/${tag}] histórico no disponible ${imei} ${dateStr}:`, historicalError);
-        return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [], degradado: true };
-      }
-    }
+    const ventas = (data || []).map((v: any) => ({
+      id: String(v.id),
+      venta_api_id: v.venta_api_id,
+      fecha: v.fecha,
+      hora: String(v.hora || '00:00').substring(0, 5),
+      producto: decodeEntities(v.producto || ''),
+      precio: Number(v.precio || 0),
+      cantidad_unidades: Number(v.cantidad_unidades || 1),
+      metodo_pago: normalizeMetodoPago(v.metodo_pago),
+      numero_orden: v.numero_orden || undefined,
+      estado: v.estado || 'exitoso',
+      toppings: Array.isArray(v.toppings) ? v.toppings : [],
+    }));
 
-    for (let attempt = 1; attempt <= VENTAS_MAX_ATTEMPTS; attempt++) {
-      try {
-        const response = await fetch(
-          `${API_CONFIG.endpoints.ventas}?imei=${imei}&fecha=${dateStr}`,
-          { headers: API_CONFIG.headers }
-        );
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const text = await response.text();
-        if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-          throw new Error('Respuesta HTML del upstream');
-        }
-
-        const data = JSON.parse(text);
-        const ventas = (data.ventas || []).map((v: any, index: number) => ({
-          ...v,
-          // El uid debe ser único aunque falten id/numero_orden: incluimos índice
-          // para no perder ventas idénticas (misma hora y precio) al deduplicar.
-          id: v.id || v.numero_orden || `${imei}-${dateStr}-${v.fecha_hora_china || ''}-${v.precio}-${index}`,
-          fecha_hora_china: v.fecha_hora_china || '',
-          fecha: dateStr,
-          producto: v.producto || '',
-          precio: Number(v.precio || 0),
-          cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-          metodo_pago: v.metodo_pago || '',
-          estado: v.estado || 'exitoso',
-          toppings: v.toppings || [],
-        }));
-
-        // Si la telemetría cae en la rama "historico" y no devuelve nada,
-        // preguntamos al fabricante (día chino en curso: ventas > 18:00 ES).
-        if (ventas.length === 0) {
-          try {
-            const fallback = await fetchVentasFabricante(imei, dateStr);
-            fallback.forEach((v: any, index: number) => {
-              ventas.push({
-                ...v,
-                id: v.id || v.numero_orden || `${imei}-${dateStr}-${v.fecha_hora_china || ''}-${v.precio}-${index}`,
-                fecha: dateStr,
-              });
-            });
-          } catch (fallbackError) {
-            console.warn(`[fetchVentas/${tag}] fabricante falló para ${imei} ${dateStr}:`, fallbackError);
-          }
-        }
-
-        const mergedVentas = mergeWithCache(key, ventas);
-        const result = {
-          mac_addr: data.imei || imei,
-          fecha: data.fecha || dateStr,
-          total_ventas: mergedVentas.length,
-          ventas: mergedVentas,
-          fuente: data.fuente,
-        };
-
-
-        ventasSuccessCache.set(key, { data: result, at: Date.now() });
-        return result;
-      } catch (err) {
-        lastError = err;
-        console.warn(`[fetchVentas/${tag}] intento ${attempt} falló para ${imei} ${dateStr}:`, err);
-        if (attempt < VENTAS_MAX_ATTEMPTS) await sleep(400 * attempt);
-      }
-    }
-
-    // Fallback: última respuesta correcta reciente (mejor que perder ventas).
-    const cached = ventasSuccessCache.get(key);
-    if (cached && Date.now() - cached.at < VENTAS_CACHE_TTL_MS) {
-      console.warn(`[fetchVentas/${tag}] usando caché para ${imei} ${dateStr}`);
-      return cached.data;
-    }
-
-    // Último recurso: la telemetría está caída (nginx 502/HTML). Pedimos las
-    // ventas directamente al fabricante para no dejar el panel sin datos.
-    try {
-      const fallback = await fetchVentasFabricante(imei, dateStr);
-      const ventas = fallback.map((v: any, index: number) => ({
-        ...v,
-        id: v.id || v.numero_orden || `${imei}-${dateStr}-${v.fecha_hora_china || ''}-${v.precio}-${index}`,
-        fecha: dateStr,
-      }));
-      const mergedVentas = mergeWithCache(key, ventas);
-      const result = {
-        mac_addr: imei,
-        fecha: dateStr,
-        total_ventas: mergedVentas.length,
-        ventas: mergedVentas,
-        fuente: 'fabricante',
-      };
-      ventasSuccessCache.set(key, { data: result, at: Date.now() });
-      return result;
-    } catch (fallbackError) {
-      console.warn(`[fetchVentas/${tag}] fabricante (fallback total) falló para ${imei} ${dateStr}:`, fallbackError);
-    }
-
-    // Penúltimo recurso: caché aunque esté caducada. Cuando el upstream
-    // devuelve el HTML de error de nginx, es mejor mostrar los últimos datos
-    // buenos que dejar la pantalla en blanco.
-    if (cached) {
-      console.warn(`[fetchVentas/${tag}] usando caché caducada para ${imei} ${dateStr}`);
-      return cached.data;
-    }
-
-    // Días pasados: el upstream puede fallar de forma permanente (p. ej. la
-    // rama histórica devuelve "JWT issued at future"). Devolvemos un día vacío
-    // marcado como degradado para no dejar la pantalla en blanco.
-    if (dateStr < todaySpain) {
-      console.warn(`[fetchVentas/${tag}] día histórico no disponible ${imei} ${dateStr}:`, lastError);
-      return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [], degradado: true };
-    }
-
-    // Hoy sin datos fiables: propagamos el error para que la query reintente
-    // en lugar de mostrar un día con ventas incompletas.
-    throw lastError instanceof Error
-      ? lastError
-      : new Error(`No se pudieron obtener las ventas de ${imei} (${dateStr})`);
-
-
+    return {
+      mac_addr: imei,
+      fecha: dateStr,
+      total_ventas: ventas.length,
+      ventas,
+      fuente: 'supabase',
+    };
   })();
 
   promise.catch(() => {}).finally(() => ventasInflight.delete(key));
   ventasInflight.set(key, promise);
   return promise;
 };
+
 
 
 /**
