@@ -162,17 +162,19 @@ export const AdminMachineDetail = () => {
   const { data: ventasHoyAPI } = useQuery({
     queryKey: ['admin-machine-ventas-hoy-api', imei, todayStr],
     queryFn: async () => {
-      const detalle = await fetchOrdenes(imei!);
-      if (!detalle?.ventas) return [];
-      return detalle.ventas.map((v: any) => ({
+      // fetchSpanishDayOrders pide D-1, D y D+1 (día chino) y filtra por fecha española:
+      // así entran también las ventas posteriores a las 18:00 ES.
+      const ventas = await fetchSpanishDayOrders(imei!, todayStr, fetchOrdenes);
+      return ventas.map((v: any) => ({
         precio: Number(v.precio || 0),
         fecha_hora_china: v.fecha_hora_china || '',
-        fecha: v.fecha_hora_china ? extraerFechaSegunMaquina(v.fecha_hora_china, imei!) : (detalle.fecha || todayStr).substring(0, 10),
-        hora: v.fecha_hora_china ? convertirHoraSegunMaquina(v.fecha_hora_china, imei!) : (v.hora || '00:00'),
+        fecha: v.fechaSpain || v._spainFecha || todayStr,
+        hora: v.horaSpain || v._spainHora || '00:00',
         cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
         estado: v.estado || 'exitoso',
       }));
     },
+
     enabled: !!imei,
     refetchInterval: 30000,
   });
