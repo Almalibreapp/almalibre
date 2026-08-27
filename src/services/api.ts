@@ -200,7 +200,16 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
       return cached.data;
     }
 
-    // Sin datos fiables: propagamos el error para que la query reintente
+    // Días pasados: el upstream puede fallar de forma permanente (p. ej. la
+    // rama histórica devuelve "JWT issued at future"). Devolvemos un día vacío
+    // marcado como degradado para no dejar la pantalla en blanco.
+    const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+    if (dateStr < todaySpain) {
+      console.warn(`[fetchVentas/${tag}] día histórico no disponible ${imei} ${dateStr}:`, lastError);
+      return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [], degradado: true };
+    }
+
+    // Hoy sin datos fiables: propagamos el error para que la query reintente
     // en lugar de mostrar un día con ventas incompletas.
     throw lastError instanceof Error
       ? lastError
