@@ -20,6 +20,8 @@ import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 
 import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
+import { fetchSpanishDayOrders } from '@/lib/sales';
+
 import type { Venta } from '@/types';
 import { cn } from '@/lib/utils';
 import { addDays, format, parseISO } from 'date-fns';
