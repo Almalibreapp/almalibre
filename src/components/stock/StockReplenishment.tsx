@@ -61,7 +61,8 @@ export const StockReplenishment = ({ imei, stock, stockConfig: externalConfig }:
       return {
         posicion: posStr,
         nombre: prod.goodsName,
-        stock_actual: config?.unidades_actuales ?? prod.stock ?? 0,
+        // Nunca usar prod.stock (stock físico de la máquina): el sistema es autónomo
+        stock_actual: config?.unidades_actuales ?? 0,
         capacidad_maxima: config?.capacidad_maxima ?? 100,
       };
     });

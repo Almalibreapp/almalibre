@@ -59,13 +59,12 @@ export const useStockConfig = (imei: string | undefined) => {
     const userId = await resolveUserId();
     if (!userId) return;
 
-    // Valid positions from manufacturer
-    const validPositions = new Set(toppings.map((t) => t.posicion));
-
-    // Clean up orphaned positions (e.g. "topping_1" format from old data)
-    const orphanedItems = items.filter((i) => !validPositions.has(i.topping_position));
+    // Solo se limpian posiciones con formato antiguo no numérico (ej. "topping_1").
+    // NUNCA se borran posiciones numéricas por ausencia en una respuesta de la API:
+    // una respuesta parcial de la máquina no debe destruir la configuración del sistema.
+    const orphanedItems = items.filter((i) => !/^\d+$/.test(i.topping_position));
     if (orphanedItems.length > 0) {
-      console.log('[initializeStock] Cleaning orphaned positions:', orphanedItems.map(i => i.topping_position));
+      console.log('[initializeStock] Limpiando posiciones legacy:', orphanedItems.map(i => i.topping_position));
       for (const orphan of orphanedItems) {
         await supabase
           .from('stock_config')
