@@ -250,12 +250,16 @@ export const fetchToppings = async (imei: string) => {
   const toppings = stock.map((s: any) => {
     const pos = String(s.position || s.posicion);
     const config = configMap.get(pos);
+    // IMPORTANTE: el stock del SISTEMA es autónomo. Nunca se replica el stock
+    // que reporta la máquina física (s.unidades_actuales / s.stock_actual).
+    const stockActual = config?.unidades_actuales ?? 0;
+    const capacidad = config?.capacidad_maxima ?? 100;
     return {
       posicion: pos,
       nombre: s.nombre || s.name || '',
-      stock_actual: config?.unidades_actuales ?? s.unidades_actuales ?? s.actual ?? s.stock_actual ?? 0,
-      capacidad_maxima: config?.capacidad_maxima ?? s.capacidad_maxima ?? s.maximo ?? 100,
-      porcentaje: s.porcentaje ?? 0,
+      stock_actual: stockActual,
+      capacidad_maxima: capacidad,
+      porcentaje: capacidad > 0 ? Math.round((stockActual / capacidad) * 100) : 0,
       estado: s.estado || 'ok',
     };
   });
