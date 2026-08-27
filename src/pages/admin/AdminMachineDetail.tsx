@@ -267,8 +267,8 @@ export const AdminMachineDetail = () => {
     queryClient.prefetchQuery({
       queryKey: ['ventas-ordenes-date', imei, prevStr],
       queryFn: async () => {
-        const result = await fetchOrdenes(imei, prevStr).catch(() => null);
-        const ventas = prepareSalesForChartDate(result?.ventas || [], prevStr, prevStr, imei);
+        const sales = await fetchSpanishDayOrders(imei, prevStr, fetchOrdenes).catch(() => []);
+        const ventas = prepareSalesForChartDate(sales as any[], prevStr, prevStr, imei);
         return { ventas, fecha: prevStr, total_ventas: ventas.length };
       },
       staleTime: 5 * 60 * 1000,
@@ -278,13 +278,14 @@ export const AdminMachineDetail = () => {
       queryClient.prefetchQuery({
         queryKey: ['ventas-ordenes-date', imei, nextStr],
         queryFn: async () => {
-          const result = await fetchOrdenes(imei, nextStr).catch(() => null);
-          const ventas = prepareSalesForChartDate(result?.ventas || [], nextStr, nextStr, imei);
+          const sales = await fetchSpanishDayOrders(imei, nextStr, fetchOrdenes).catch(() => []);
+          const ventas = prepareSalesForChartDate(sales as any[], nextStr, nextStr, imei);
           return { ventas, fecha: nextStr, total_ventas: ventas.length };
         },
         staleTime: 5 * 60 * 1000,
       });
     }
+
   }, [imei, selectedDate, todayStr, queryClient]);
 
   if (loadingMachine) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
