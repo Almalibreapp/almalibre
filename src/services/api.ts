@@ -97,6 +97,42 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
   const promise = (async () => {
     let lastError: unknown = null;
 
+    // La rama histórica de la función externa `ventas` genera tokens internos
+    // con un reloj desincronizado y responde 500 ("JWT issued at future"). Para
+    // días pasados evitamos por completo esa ruta y consultamos al fabricante,
+    // que admite las mismas fechas y no depende de ese JWT.
+    const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+    if (dateStr < todaySpain) {
+      try {
+        const historical = await fetchVentasFabricante(imei, dateStr);
+        const ventas = historical.map((v: any, index: number) => ({
+          ...v,
+          id: v.id || v.numero_orden || `${imei}-${dateStr}-${v.fecha_hora_china || ''}-${v.precio}-${index}`,
+          fecha: dateStr,
+        }));
+        const mergedVentas = mergeWithCache(key, ventas);
+        const result = {
+          mac_addr: imei,
+          fecha: dateStr,
+          total_ventas: mergedVentas.length,
+          ventas: mergedVentas,
+          fuente: 'fabricante-historico',
+        };
+        ventasSuccessCache.set(key, { data: result, at: Date.now() });
+        return result;
+      } catch (historicalError) {
+        lastError = historicalError;
+        const cachedHistorical = ventasSuccessCache.get(key);
+        if (cachedHistorical) {
+          console.warn(`[fetchVentas/${tag}] usando caché histórica para ${imei} ${dateStr}`);
+          return cachedHistorical.data;
+        }
+
+        console.warn(`[fetchVentas/${tag}] histórico no disponible ${imei} ${dateStr}:`, historicalError);
+        return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [], degradado: true };
+      }
+    }
+
     for (let attempt = 1; attempt <= VENTAS_MAX_ATTEMPTS; attempt++) {
       try {
         const response = await fetch(
@@ -203,7 +239,6 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
     // Días pasados: el upstream puede fallar de forma permanente (p. ej. la
     // rama histórica devuelve "JWT issued at future"). Devolvemos un día vacío
     // marcado como degradado para no dejar la pantalla en blanco.
-    const todaySpain = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
     if (dateStr < todaySpain) {
       console.warn(`[fetchVentas/${tag}] día histórico no disponible ${imei} ${dateStr}:`, lastError);
       return { mac_addr: imei, fecha: dateStr, total_ventas: 0, ventas: [], degradado: true };
