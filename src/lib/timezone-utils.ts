@@ -5,12 +5,12 @@
  */
 
 // IMEIs de máquinas cuyo timestamp viene en hora china (UTC+8).
-// Añadir aquí cualquier máquina nueva que reporte en horario chino.
-const CHINA_TIME_IMEIS = new Set<string>([
-  '865622072039477',
-  '865622073018769',
-  '865622072055218',
-]);
+// Verificado 2026-08-27 contra la API: TODAS las máquinas envían ya
+// `fecha_hora_china` en hora española (la última venta coincide al segundo con
+// la hora de Madrid), así que la lista está vacía. Añadir aquí solo una máquina
+// que realmente reporte en UTC+8.
+const CHINA_TIME_IMEIS = new Set<string>([]);
+
 
 /**
  * Convert a fecha_hora_china string to Spain display time,
