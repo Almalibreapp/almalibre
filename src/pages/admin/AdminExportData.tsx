@@ -211,15 +211,24 @@ export const AdminExportData = () => {
       } else {
         // Ventas
         const rows: Array<Record<string, unknown>> = [];
-        for (const dia of dias) {
-          const data = await fetchOrdenes(selectedImei, dia);
+        // La API agrupa por dia chino (UTC+8), que empieza a las 18:00 ES.
+        // Pedimos un dia extra por cada extremo y filtramos por fecha espanola.
+        const diasFetch = [addDaysISO(desdeStr, -1), ...dias, addDaysISO(hastaStr, 1)];
+        const vistos = new Set<string>();
+        for (const dia of diasFetch) {
+          const data = await fetchOrdenes(selectedImei, dia).catch(() => null);
           const ventas = Array.isArray(data?.ventas) ? data.ventas : [];
           for (const v of ventas) {
             const estado = String(v.estado || '').toLowerCase();
             if (estado === 'fallido' || estado === 'cancelado' || estado === 'failed' || estado === 'cancelled') continue;
             const { fecha, hora } = convertirVentaAEspana(v.fecha_hora_china || `${dia} 00:00:00`, selectedImei);
+            const fechaFinal = fecha || dia;
+            if (fechaFinal < desdeStr || fechaFinal > hastaStr) continue;
+            const uid = String(v.id ?? v.numero_orden ?? `${fechaFinal}|${hora}|${v.precio}|${v.producto}`);
+            if (vistos.has(uid)) continue;
+            vistos.add(uid);
             rows.push({
-              Fecha: fecha || dia,
+              Fecha: fechaFinal,
               Hora: hora,
               Producto: v.producto || '',
               'Precio (€)': Number(v.precio || 0),
