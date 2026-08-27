@@ -6,44 +6,25 @@ const normalizeTemperatureDateParam = (value: string | undefined, fallback: stri
   return match?.[0] || fallback;
 };
 
-// In-flight dedupe + reintentos para el endpoint "ventas" (upstream inestable).
-// IMPORTANTE: nunca devolvemos un resultado vacío ante un fallo, porque eso
-// hacía que faltaran ventas en el panel. Reintentamos y, si aún falla,
-// devolvemos la última respuesta correcta cacheada o lanzamos el error para
-// que React Query reintente y conserve los datos anteriores.
+// FUENTE ÚNICA DE VENTAS: la base de datos (ventas_historico).
+// La API del fabricante en tiempo real devolvía datos incoherentes
+// (día chino, métodos de pago inventados, duplicados), así que ya NO se usa
+// para mostrar ventas en la app.
 const ventasInflight = new Map<string, Promise<any>>();
-const ventasSuccessCache = new Map<string, { data: any; at: number }>();
-const VENTAS_CACHE_TTL_MS = 10 * 60 * 1000;
-const VENTAS_MAX_ATTEMPTS = 3;
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Respaldo: la API de telemetría sirve la rama "historico" (vacía) para el día
-// chino en curso, por lo que las ventas posteriores a las 18:00 hora española
-// no aparecen hasta el día siguiente. Nuestra edge function consulta al
-// fabricante directamente y sí las devuelve.
-const fetchVentasFabricante = async (imei: string, dateStr: string) => {
-  const { supabase } = await import('@/integrations/supabase/client');
-  const { data, error } = await supabase.functions.invoke('ventas-fabricante', {
-    body: { imei, fecha: dateStr },
-  });
-  if (error) throw error;
-  // Respuesta degradada (proxy caído): no es un "cero" real.
-  if (data?.degradado) throw new Error('Fabricante degradado');
-  return (data?.ventas ?? []) as any[];
+// El efectivo está bloqueado en todas las máquinas: cualquier venta que llegue
+// marcada como efectivo/cash es un valor por defecto erróneo del proveedor.
+const normalizeMetodoPago = (value: unknown) => {
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (!raw) return 'tarjeta';
+  if (raw.includes('cupon') || raw.includes('cupón') || raw.includes('coupon')) return 'cupon';
+  if (raw.includes('bizum')) return 'bizum';
+  if (raw.includes('apple')) return 'apple pay';
+  if (raw.includes('google')) return 'google pay';
+  // efectivo/cash/metálico => no existe operativamente
+  return 'tarjeta';
 };
 
-// Une la respuesta nueva con la última respuesta correcta cacheada.
-// Evita que un día pase de 114 a 77 ventas cuando el upstream devuelve
-// resultados incompletos de forma intermitente.
-const mergeWithCache = (key: string, ventas: any[]) => {
-  const cached = ventasSuccessCache.get(key);
-  if (!cached || Date.now() - cached.at > VENTAS_CACHE_TTL_MS) return ventas;
-  const byId = new Map<string, any>();
-  (cached.data?.ventas ?? []).forEach((v: any) => byId.set(String(v.id), v));
-  ventas.forEach((v: any) => byId.set(String(v.id), v));
-  return Array.from(byId.values());
-};
 
 
 
