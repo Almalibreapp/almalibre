@@ -67,6 +67,14 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  // DESACTIVADO: esta sincronización escribía ventas del fabricante en
+  // ventas_historico con horarios de día chino y método de pago "efectivo"
+  // por defecto, duplicando y ensuciando los datos reales.
+  return new Response(
+    JSON.stringify({ success: true, disabled: true, message: 'sync-ventas desactivado: la fuente de ventas es ventas_historico' }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
