@@ -192,11 +192,20 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
       console.warn(`[fetchVentas/${tag}] fabricante (fallback total) falló para ${imei} ${dateStr}:`, fallbackError);
     }
 
+    // Penúltimo recurso: caché aunque esté caducada. Cuando el upstream
+    // devuelve el HTML de error de nginx, es mejor mostrar los últimos datos
+    // buenos que dejar la pantalla en blanco.
+    if (cached) {
+      console.warn(`[fetchVentas/${tag}] usando caché caducada para ${imei} ${dateStr}`);
+      return cached.data;
+    }
+
     // Sin datos fiables: propagamos el error para que la query reintente
     // en lugar de mostrar un día con ventas incompletas.
     throw lastError instanceof Error
       ? lastError
       : new Error(`No se pudieron obtener las ventas de ${imei} (${dateStr})`);
+
 
   })();
 
