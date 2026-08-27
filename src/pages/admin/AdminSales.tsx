@@ -38,12 +38,12 @@ const decodeHtmlEntities = (text: string) => {
 
 const normalizePaymentMethod = (method?: string | null) => {
   const raw = decodeHtmlEntities(method || '').trim().toLowerCase();
-  if (!raw) return 'efectivo';
+  if (!raw) return 'tarjeta';
   if (raw.includes('tarjeta') || raw.includes('card') || raw.includes('credito') || raw.includes('débito') || raw.includes('debito')) return 'tarjeta';
   if (raw.includes('bizum')) return 'bizum';
   if (raw.includes('apple')) return 'apple pay';
   if (raw.includes('google')) return 'google pay';
-  if (raw.includes('cash') || raw.includes('efectivo') || raw.includes('metalico') || raw.includes('metálico')) return 'efectivo';
+  if (raw.includes('cash') || raw.includes('efectivo') || raw.includes('metalico') || raw.includes('metálico')) return 'tarjeta';
   return raw;
 };
 
@@ -95,7 +95,7 @@ export const AdminSales = () => {
                 fecha, hora,
                 producto: v.producto || '', precio: Number(v.precio || 0),
                 cantidad_unidades: v.cantidad_unidades || v.cantidad || 1,
-                metodo_pago: v.metodo_pago || 'efectivo',
+                metodo_pago: v.metodo_pago || 'tarjeta',
                 numero_orden: v.numero_orden || null,
                 estado: v.estado || 'exitoso', toppings: v.toppings || [],
                 fecha_hora_china: fhc,

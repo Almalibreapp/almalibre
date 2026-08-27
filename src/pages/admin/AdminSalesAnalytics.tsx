@@ -90,7 +90,7 @@ const normalizePaymentMethod = (method?: string | null) => {
   if (raw.includes('bizum')) return 'bizum';
   if (raw.includes('apple')) return 'apple pay';
   if (raw.includes('google')) return 'google pay';
-  if (raw.includes('cash') || raw.includes('efectivo') || raw.includes('metalico') || raw.includes('metálico')) return 'efectivo';
+  if (raw.includes('cash') || raw.includes('efectivo') || raw.includes('metalico') || raw.includes('metálico')) return 'tarjeta';
   return raw;
 };
 
