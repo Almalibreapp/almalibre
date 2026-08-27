@@ -1,0 +1,2 @@
+DELETE FROM public.ventas_historico WHERE metodo_pago = 'efectivo' AND venta_api_id ~ '^[0-9]{1,8}$';
+UPDATE public.ventas_historico SET metodo_pago = 'tarjeta' WHERE lower(metodo_pago) IN ('efectivo','cash','metalico','metálico','');
