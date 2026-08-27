@@ -86,7 +86,7 @@ export async function checkAndNotify(
         notifications.push({
           title: '💰 Nueva venta',
           body: ultima
-            ? `${ultima.producto || 'Venta'} - €${Number(ultima.precio || 0).toFixed(2)}${nuevas > 1 ? ` (+${nuevas} ventas)` : ''}`
+            ? `AÇAÍ - €${Number(ultima.precio || 0).toFixed(2)}${nuevas > 1 ? ` (+${nuevas} ventas)` : ''}`
             : `${nuevas} nueva(s) venta(s)`,
           id: Date.now(),
           schedule: { at: new Date(Date.now() + 200) },
