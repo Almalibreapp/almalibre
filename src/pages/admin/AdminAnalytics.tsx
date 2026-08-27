@@ -58,20 +58,20 @@ const normalizePaymentMethod = (method?: string | null) => {
   return raw;
 };
 
+const PRODUCTO_BASE = 'AÇAÍ';
+
 const parseProductAndToppings = (productText?: string | null) => {
   const decoded = decodeHtmlEntities(productText || '').trim();
-  if (!decoded) return { productName: 'Sin nombre', toppings: [] as string[] };
+  if (!decoded) return { productName: PRODUCTO_BASE, toppings: [] as string[] };
 
-  const [baseProduct, toppingsText] = decoded.split(':');
+  const [, toppingsText] = decoded.split(':');
   const toppings = (toppingsText || '')
     .split(',')
     .map((t) => t.trim())
     .filter(Boolean);
 
-  return {
-    productName: (baseProduct || decoded).trim(),
-    toppings,
-  };
+  // El producto base siempre se muestra como AÇAÍ, sea cual sea el nombre del hardware.
+  return { productName: PRODUCTO_BASE, toppings };
 };
 
 export const AdminAnalytics = () => {

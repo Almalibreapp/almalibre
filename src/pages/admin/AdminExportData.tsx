@@ -230,7 +230,7 @@ export const AdminExportData = () => {
             rows.push({
               Fecha: fechaFinal,
               Hora: hora,
-              Producto: v.producto || '',
+              Producto: 'AÇAÍ',
               'Precio (€)': Number(v.precio || 0),
               Unidades: v.cantidad_unidades || 1,
               'Método Pago': v.metodo_pago || '',
