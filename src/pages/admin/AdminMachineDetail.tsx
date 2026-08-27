@@ -230,10 +230,11 @@ export const AdminMachineDetail = () => {
     queryKey: ['ventas-ordenes-date', imei, selectedDate],
     queryFn: async () => {
       if (!imei || !selectedDate) return null;
-      const result = await fetchOrdenes(imei, selectedDate).catch(() => null);
-      const ventas = prepareSalesForChartDate(result?.ventas || [], selectedDate, selectedDate, imei);
+      const sales = await fetchSpanishDayOrders(imei, selectedDate, fetchOrdenes).catch(() => []);
+      const ventas = prepareSalesForChartDate(sales as any[], selectedDate, selectedDate, imei);
       return { ventas, fecha: selectedDate, total_ventas: ventas.length };
     },
+
     enabled: !!imei && !isToday && !!selectedDate,
   });
 
