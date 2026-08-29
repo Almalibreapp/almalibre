@@ -16,64 +16,52 @@ const headers = {
 const decodeHtmlEntities = (text: string) => {
   if (!text) return ''
   return text
-    .replace(/&ccedil;/g, 'ç')
-    .replace(/&ntilde;/g, 'ñ')
-    .replace(/&aacute;/g, 'á')
-    .replace(/&eacute;/g, 'é')
-    .replace(/&iacute;/g, 'í')
-    .replace(/&oacute;/g, 'ó')
-    .replace(/&uacute;/g, 'ú')
-    .replace(/&atilde;/g, 'ã')
-    .replace(/&otilde;/g, 'õ')
+    .replace(/&Ccedil;/g, 'Ç').replace(/&ccedil;/g, 'ç')
+    .replace(/&Ntilde;/g, 'Ñ').replace(/&ntilde;/g, 'ñ')
+    .replace(/&Aacute;/g, 'Á').replace(/&aacute;/g, 'á')
+    .replace(/&Eacute;/g, 'É').replace(/&eacute;/g, 'é')
+    .replace(/&Iacute;/g, 'Í').replace(/&iacute;/g, 'í')
+    .replace(/&Oacute;/g, 'Ó').replace(/&oacute;/g, 'ó')
+    .replace(/&Uacute;/g, 'Ú').replace(/&uacute;/g, 'ú')
+    .replace(/&atilde;/g, 'ã').replace(/&otilde;/g, 'õ')
 }
 
+// El efectivo está bloqueado a nivel de ejecución en todas las máquinas:
+// cualquier valor desconocido o "efectivo" se registra como tarjeta.
 const normalizePaymentMethod = (value: unknown) => {
   const raw = decodeHtmlEntities(String(value || '')).trim().toLowerCase()
-  // CRITICAL: Do NOT default to 'efectivo' when empty — preserve the original value
-  // The API returns correct payment methods in real-time; defaulting masks real data
-  if (!raw) return ''
-
-  if (raw.includes('tarjeta') || raw.includes('card') || raw.includes('credito') || raw.includes('débito') || raw.includes('debito')) {
-    return 'tarjeta'
-  }
+  if (!raw) return 'tarjeta'
   if (raw.includes('bizum')) return 'bizum'
   if (raw.includes('apple')) return 'apple pay'
   if (raw.includes('google')) return 'google pay'
-  if (raw.includes('cash') || raw.includes('efectivo') || raw.includes('metalico') || raw.includes('metálico')) {
-    return 'efectivo'
-  }
-
-  return raw
+  if (raw.includes('cupon') || raw.includes('cupón') || raw.includes('coupon')) return 'cupon'
+  return 'tarjeta'
 }
 
 const extractToppingsFromProduct = (productText: string) => {
   const decoded = decodeHtmlEntities(productText)
   const [, toppingsText] = decoded.split(':')
   if (!toppingsText) return []
-
   return toppingsText
     .split(',')
     .map((name) => name.trim())
     .filter(Boolean)
-    .map((name, index) => ({
-      posicion: `txt-${index + 1}`,
-      nombre: name,
-      cantidad: '1',
-    }))
+    .map((name, index) => ({ posicion: `txt-${index + 1}`, nombre: name, cantidad: '1' }))
+}
+
+// La API devuelve `fecha` como "YYYY-MM-DD HH:mm:ss" ya en hora española.
+const splitFechaHora = (v: any, fallbackDate: string) => {
+  const raw = String(v.fecha || '').replace('T', ' ').trim()
+  const [datePart, timePart] = raw.split(' ')
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(datePart || '') ? datePart : fallbackDate
+  const hora = (timePart || v.hora || '00:00').substring(0, 5)
+  return { fecha, hora }
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
-
-  // DESACTIVADO: esta sincronización escribía ventas del fabricante en
-  // ventas_historico con horarios de día chino y método de pago "efectivo"
-  // por defecto, duplicando y ensuciando los datos reales.
-  return new Response(
-    JSON.stringify({ success: true, disabled: true, message: 'sync-ventas desactivado: la fuente de ventas es ventas_historico' }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  )
 
   try {
     const supabase = createClient(
@@ -84,64 +72,59 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const { imei, maquina_id, fecha, dias_atras } = body
 
-    // Helper: fetch ALL pages of orders from the endpoint
     const fetchOrders = async (machineImei: string, dateStr: string) => {
       let allOrders: any[] = []
       let page = 1
       let totalPages = 1
-      let lastData: any = null
+      let ok = false
 
-      while (page <= totalPages) {
+      while (page <= totalPages && page <= 20) {
         const url = `${API_BASE_URL}/fabricante-ext/v1/ordenes/${machineImei}?fecha=${dateStr}&page=${page}`
-        console.log(`[sync-ventas] Fetching: ${url}`)
         const res = await fetch(url, { headers })
         if (!res.ok) {
           console.log(`[sync-ventas] HTTP ${res.status} for ${url}`)
           if (page === 1) return null
           break
         }
-        const data = await res.json()
-        lastData = data
+        const data = await res.json().catch(() => null)
+        if (!data) { if (page === 1) return null; break }
+        ok = true
         const orders = data?.ordenes || data?.ventas || []
-        allOrders = [...allOrders, ...orders]
-        totalPages = data.total_pages || 1
+        allOrders = allOrders.concat(orders)
+        totalPages = Number(data.total_pages || 1)
         page++
       }
 
-      if (!lastData) return null
-      // Return merged data with all orders
-      return { ...lastData, ordenes: allOrders, total: lastData.total_count || allOrders.length }
+      return ok ? allOrders : null
     }
 
-    // Helper: map orders to DB rows
-    const mapOrdersToRows = (data: any, machineId: string, machineImei: string, dateStr: string) => {
-      // The new endpoint may use "ordenes" or "ventas" as the array key
-      const orders = data.ordenes || data.ventas || []
+    const mapOrdersToRows = (orders: any[], machineId: string, machineImei: string, dateStr: string) => {
       if (!Array.isArray(orders) || orders.length === 0) return []
-
       return orders.map((v: any) => {
-        // Try multiple payment method field names
-        const rawPayment = v.metodo_pago ?? v.payment_method ?? v.pay_type ?? v.payType ?? v.metodoPago ?? v.tipo_pago
-        const normalizedPayment = normalizePaymentMethod(rawPayment)
         const product = decodeHtmlEntities(v.producto || '')
-        const toppings = Array.isArray(v.toppings) && v.toppings.length > 0
+        const toppingsRaw = Array.isArray(v.toppings) && v.toppings.length > 0
           ? v.toppings
           : (Array.isArray(v.toppings_usados) && v.toppings_usados.length > 0
             ? v.toppings_usados
             : extractToppingsFromProduct(product))
-
-        console.log(`[sync-ventas] Order ${v.id || v.numero_orden}: raw metodo_pago="${rawPayment}" -> normalized="${normalizedPayment}"`)
+        const toppings = toppingsRaw.map((t: any) => ({
+          ...t,
+          nombre: decodeHtmlEntities(t?.nombre || ''),
+        }))
+        const { fecha: f, hora: h } = splitFechaHora(v, dateStr)
 
         return {
           maquina_id: machineId,
           imei: machineImei,
-          venta_api_id: String(v.id || v.numero_orden || `${dateStr}-${v.hora}-${v.precio}`),
-          fecha: v.fecha || dateStr,
-          hora: v.hora || '00:00',
+          venta_api_id: String(v.id || v.numero_orden || `${f}-${h}-${v.precio}`),
+          fecha: f,
+          hora: h,
           producto: product,
           precio: Number(v.precio || 0),
           cantidad_unidades: Number(v.cantidad_unidades || v.cantidad || 1),
-          metodo_pago: normalizedPayment || 'efectivo',
+          metodo_pago: normalizePaymentMethod(
+            v.metodo_pago ?? v.payment_method ?? v.pay_type ?? v.payType ?? v.metodoPago ?? v.tipo_pago
+          ),
           numero_orden: v.numero_orden || v.order_no || null,
           estado: v.estado || 'exitoso',
           toppings,
@@ -149,95 +132,68 @@ Deno.serve(async (req) => {
       })
     }
 
-    // If specific machine + date
-    if (imei && maquina_id) {
-      const results = []
-      const daysBack = dias_atras || 30
-
-      for (let i = 0; i < daysBack; i++) {
-        const d = new Date()
-        d.setDate(d.getDate() - i)
-        const dateStr = d.toISOString().split('T')[0]
-
-        if (fecha && dateStr !== fecha) continue
-
-        try {
-          const data = await fetchOrders(imei, dateStr)
-          if (!data) continue
-
-          const rows = mapOrdersToRows(data, maquina_id, imei, dateStr)
-          if (rows.length === 0) continue
-
-          const { error, count } = await supabase
-            .from('ventas_historico')
-            .upsert(rows, { onConflict: 'imei,venta_api_id' })
-
-          results.push({ fecha: dateStr, ventas: rows.length, error: error?.message })
-        } catch (e) {
-          results.push({ fecha: dateStr, error: e.message })
-        }
-      }
-
-      // Update sync log
-      await supabase.from('ventas_sync_log').upsert({
-        maquina_id,
-        imei,
-        ultima_fecha_sync: new Date().toISOString().split('T')[0],
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'imei' })
-
-      return new Response(JSON.stringify({ success: true, results }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+    const upsertRows = async (rows: any[]) => {
+      if (rows.length === 0) return null
+      const { error } = await supabase
+        .from('ventas_historico')
+        .upsert(rows, { onConflict: 'imei,venta_api_id', ignoreDuplicates: false })
+      if (error) console.log('[sync-ventas] upsert error:', error.message)
+      return error?.message || null
     }
 
-    // Sync ALL machines
-    const { data: maquinas } = await supabase.from('maquinas').select('id, mac_address')
-    if (!maquinas || maquinas.length === 0) {
+    const targets = imei && maquina_id
+      ? [{ id: maquina_id, mac_address: imei }]
+      : ((await supabase.from('maquinas').select('id, mac_address')).data || [])
+
+    if (targets.length === 0) {
       return new Response(JSON.stringify({ success: true, message: 'No hay máquinas' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const allResults = []
-    for (const maq of maquinas) {
-      const daysBack = dias_atras || 7
+    // Evitar duplicar máquinas repetidas por IMEI
+    const seen = new Set<string>()
+    const machines = targets.filter((m: any) => {
+      if (!m.mac_address || seen.has(m.mac_address)) return false
+      seen.add(m.mac_address)
+      return true
+    })
+
+    const daysBack = fecha ? 1 : (dias_atras || 3)
+    const results: any[] = []
+
+    for (const maq of machines) {
       for (let i = 0; i < daysBack; i++) {
-        const d = new Date()
-        d.setDate(d.getDate() - i)
-        const dateStr = d.toISOString().split('T')[0]
+        const dateStr = fecha
+          ? fecha
+          : new Date(Date.now() - i * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' })
 
         try {
-          const data = await fetchOrders(maq.mac_address, dateStr)
-          if (!data) continue
-
-          const rows = mapOrdersToRows(data, maq.id, maq.mac_address, dateStr)
+          const orders = await fetchOrders(maq.mac_address, dateStr)
+          if (!orders) { results.push({ maquina: maq.mac_address, fecha: dateStr, error: 'api_error' }); continue }
+          const rows = mapOrdersToRows(orders, maq.id, maq.mac_address, dateStr)
           if (rows.length === 0) continue
-
-          await supabase
-            .from('ventas_historico')
-            .upsert(rows, { onConflict: 'imei,venta_api_id' })
-
-          allResults.push({ maquina: maq.mac_address, fecha: dateStr, ventas: rows.length })
+          const err = await upsertRows(rows)
+          results.push({ maquina: maq.mac_address, fecha: dateStr, ventas: rows.length, error: err })
         } catch (e) {
-          allResults.push({ maquina: maq.mac_address, fecha: dateStr, error: e.message })
+          results.push({ maquina: maq.mac_address, fecha: dateStr, error: (e as Error).message })
         }
       }
 
       await supabase.from('ventas_sync_log').upsert({
         maquina_id: maq.id,
         imei: maq.mac_address,
-        ultima_fecha_sync: new Date().toISOString().split('T')[0],
+        ultima_fecha_sync: new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' }),
         updated_at: new Date().toISOString(),
       }, { onConflict: 'imei' })
     }
 
-    return new Response(JSON.stringify({ success: true, results: allResults }), {
+    return new Response(JSON.stringify({ success: true, results }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    console.error('[sync-ventas] Error:', error.message)
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('[sync-ventas] Error:', (error as Error).message)
+    return new Response(JSON.stringify({ success: false, error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
