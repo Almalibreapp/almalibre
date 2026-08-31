@@ -57,9 +57,9 @@ const extractSpainDateTime = (sale: SaleLike, imei: string = ''): { fecha: strin
 };
 
 const resolveSaleUid = (sale: SaleLike, fecha: string, hora: string) => String(
-  sale.id
+  sale.numero_orden
     ?? sale.venta_api_id
-    ?? sale.numero_orden
+    ?? sale.id
     ?? `${fecha}|${hora}|${toNumber(sale.precio)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
 );
 
@@ -168,7 +168,7 @@ export const normalizeSalesBatchToSpain = <T extends SaleLike>(
     const fecha = spain.fecha || fallbackDate;
     const hora = spain.hora;
     const saleUid = String(
-      sale.id ?? sale.venta_api_id ?? sale.numero_orden
+      sale.numero_orden ?? sale.venta_api_id ?? sale.id
         ?? `${fecha}|${hora}|${Number(sale.precio || 0)}|${String(sale.producto || '')}|${JSON.stringify(sale.toppings || [])}`
     );
     return {

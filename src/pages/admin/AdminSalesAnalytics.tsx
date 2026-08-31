@@ -56,7 +56,7 @@ const fetchSpanishDaySales = async (imei: string, maquinaId: string, spanishDate
 const deduplicateSales = (sales: any[]) => {
   const seen = new Set<string>();
   return sales.filter(v => {
-    const key = v.id;
+    const key = String(v.numero_orden || v.venta_api_id || v.saleUid || v.id);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
