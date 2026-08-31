@@ -113,10 +113,17 @@ Deno.serve(async (req) => {
         }))
         const { fecha: f, hora: h } = splitFechaHora(v, dateStr)
 
+        // Identificador canónico: el número de pedido de la máquina (empieza por
+        // el IMEI). Es el único estable entre fuentes; usar v.id creaba duplicados.
+        const deviceOrder = String(v.numero_orden || v.order_no || '')
+        const canonicalId = deviceOrder.startsWith(machineImei)
+          ? deviceOrder
+          : String(v.id || deviceOrder || `${f}-${h}-${v.precio}`)
+
         return {
           maquina_id: machineId,
           imei: machineImei,
-          venta_api_id: String(v.id || v.numero_orden || `${f}-${h}-${v.precio}`),
+          venta_api_id: canonicalId,
           fecha: f,
           hora: h,
           producto: product,
