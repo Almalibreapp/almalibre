@@ -98,7 +98,7 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
 
     if (error) throw error;
 
-    const ventas = (data || []).map((v: any) => ({
+    const mappedVentas = (data || []).map((v: any) => ({
       id: String(v.id),
       venta_api_id: v.venta_api_id,
       fecha: v.fecha,
@@ -111,6 +111,15 @@ const performVentasFetch = async (imei: string, dateStr: string, tag: 'detalle' 
       estado: v.estado || 'exitoso',
       toppings: Array.isArray(v.toppings) ? v.toppings : [],
     }));
+
+    // Defensa adicional: una venta física se identifica por su número de orden.
+    // Así una fila heredada con otro venta_api_id nunca se muestra dos veces.
+    const ventas = Array.from(new Map(
+      mappedVentas.map((venta: any) => [
+        String(venta.numero_orden || venta.venta_api_id || venta.id),
+        venta,
+      ])
+    ).values());
 
     return {
       mac_addr: imei,
