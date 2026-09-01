@@ -49,14 +49,44 @@ const extractToppingsFromProduct = (productText: string) => {
     .map((name, index) => ({ posicion: `txt-${index + 1}`, nombre: name, cantidad: '1' }))
 }
 
-// La API devuelve `fecha` como "YYYY-MM-DD HH:mm:ss" ya en hora española.
-const splitFechaHora = (v: any, fallbackDate: string) => {
+// La API mezcla dos formatos y a veces devuelve la hora en hora china (UTC+8).
+// Fuente de verdad: el número de pedido "2348AAAAMMDDHHMMSS..." codifica la hora
+// china exacta; restándole 6 h obtenemos la hora española (verificado contra myPOS).
+// Si el pedido viene identificado con el IMEI, la `fecha` de la API también es china.
+const shiftChinaToSpain = (date: string, time: string) => {
+  const [Y, M, D] = date.split('-').map(Number)
+  const [h, m] = time.split(':').map(Number)
+  const d = new Date(Date.UTC(Y, M - 1, D, h - 6, m))
+  const p = (n: number) => String(n).padStart(2, '0')
+  return {
+    fecha: `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`,
+    hora: `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`,
+  }
+}
+
+const splitFechaHora = (v: any, fallbackDate: string, machineImei = '') => {
+  const orderNo = String(v.numero_orden || v.order_no || '')
+
+  // 1) Número de pedido con timestamp chino embebido -> fuente de verdad.
+  const stamped = orderNo.match(/^\d{4}(20\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/)
+  if (stamped) {
+    const [, Y, M, D, h, m] = stamped
+    return shiftChinaToSpain(`${Y}-${M}-${D}`, `${h}:${m}`)
+  }
+
   const raw = String(v.fecha || '').replace('T', ' ').trim()
   const [datePart, timePart] = raw.split(' ')
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(datePart || '') ? datePart : fallbackDate
   const hora = (timePart || v.hora || '00:00').substring(0, 5)
+
+  // 2) Pedido identificado por IMEI: la API entrega hora china sin convertir.
+  if (machineImei && orderNo.startsWith(machineImei)) {
+    return shiftChinaToSpain(fecha, hora)
+  }
+
   return { fecha, hora }
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
