@@ -64,6 +64,13 @@ const shiftChinaToSpain = (date: string, time: string) => {
   }
 }
 
+const nowMadrid = () => {
+  const p = (n: number) => String(n).padStart(2, '0')
+  const d = new Date()
+  const s = d.toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' })
+  return s.substring(0, 16)
+}
+
 const splitFechaHora = (v: any, fallbackDate: string, machineImei = '') => {
   const orderNo = String(v.numero_orden || v.order_no || '')
 
@@ -79,13 +86,16 @@ const splitFechaHora = (v: any, fallbackDate: string, machineImei = '') => {
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(datePart || '') ? datePart : fallbackDate
   const hora = (timePart || v.hora || '00:00').substring(0, 5)
 
-  // 2) Pedido identificado por IMEI: la API entrega hora china sin convertir.
-  if (machineImei && orderNo.startsWith(machineImei)) {
+  // 2) A veces la API entrega la hora china sin convertir. La firma inequívoca
+  // es que la venta quedaría en el futuro respecto a la hora española actual:
+  // en ese caso restamos las 6 h. Si la hora ya es válida, se respeta.
+  if (`${fecha} ${hora}` > nowMadrid()) {
     return shiftChinaToSpain(fecha, hora)
   }
 
   return { fecha, hora }
 }
+
 
 
 Deno.serve(async (req) => {
