@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
           ...t,
           nombre: decodeHtmlEntities(t?.nombre || ''),
         }))
-        const { fecha: f, hora: h } = splitFechaHora(v, dateStr)
+        const { fecha: f, hora: h } = splitFechaHora(v, dateStr, machineImei)
 
         // Identificador canónico: el número de pedido de la máquina (empieza por
         // el IMEI). Es el único estable entre fuentes; usar v.id creaba duplicados.
