@@ -8,12 +8,10 @@ import {
   Euro,
   LogOut,
   ArrowLeft,
-  AlertTriangle,
   Mail,
   Ticket,
   Download,
   Send,
-  MessageCircleHeart,
 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
