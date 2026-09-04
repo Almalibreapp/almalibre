@@ -49,8 +49,6 @@ import { AdminIncidents } from "./pages/admin/AdminIncidents";
 import { AdminEmailNotifications } from "./pages/admin/AdminEmailNotifications";
 import { AdminCupones } from "./pages/admin/AdminCupones";
 import { AdminExportData } from "./pages/admin/AdminExportData";
-import { AdminAlma } from "./pages/admin/AdminAlma";
-import { AdminIncidenciasVentas } from "./pages/admin/AdminIncidenciasVentas";
 
 
 import { AdminPushNotifications } from "./pages/admin/AdminPushNotifications";
@@ -222,15 +220,10 @@ const AppContent = () => {
         <Route path="/payment-methods" element={<PaymentMethods />} />
         <Route path="/support" element={<Support />} />
         <Route path="/notifications" element={<NotificationSettings />} />
-        <Route path="/ai" element={<AI />} />
         <Route path="/cupones" element={<Cupones />} />
-        <Route path="/ai/stock-prediction" element={<StockPrediction />} />
-        <Route path="/ai/profitability" element={<ProfitabilityAnalysis />} />
-        <Route path="/ai/daily-summary" element={<DailySummary />} />
         <Route path="/network" element={<NetworkDashboard />} />
         <Route path="/export" element={<ExportData />} />
         <Route path="/academy" element={<Academy />} />
-        <Route path="/soporte-alma" element={<SoporteAlma />} />
         <Route path="/mis-incidencias" element={<MisIncidencias />} />
 
         {/* Admin routes */}
