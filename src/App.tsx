@@ -21,14 +21,9 @@ import { Subscription } from "./pages/Subscription";
 import { PaymentMethods } from "./pages/PaymentMethods";
 import { Support } from "./pages/Support";
 import { NotificationSettings } from "./pages/NotificationSettings";
-import { AI } from "./pages/AI";
 import { Cupones } from "./pages/Cupones";
-import { StockPrediction } from "./pages/StockPrediction";
-import { ProfitabilityAnalysis } from "./pages/ProfitabilityAnalysis";
-import { DailySummary } from "./pages/DailySummary";
 import { NetworkDashboard } from "./pages/NetworkDashboard";
 import { Academy } from "./pages/Academy";
-import { SoporteAlma } from "./pages/SoporteAlma";
 import { MisIncidencias } from "./pages/MisIncidencias";
 import { IncidenciaPublica } from "./pages/IncidenciaPublica";
 import { InstallBanner } from "@/components/pwa/InstallBanner";
@@ -54,8 +49,6 @@ import { AdminIncidents } from "./pages/admin/AdminIncidents";
 import { AdminEmailNotifications } from "./pages/admin/AdminEmailNotifications";
 import { AdminCupones } from "./pages/admin/AdminCupones";
 import { AdminExportData } from "./pages/admin/AdminExportData";
-import { AdminAlma } from "./pages/admin/AdminAlma";
-import { AdminIncidenciasVentas } from "./pages/admin/AdminIncidenciasVentas";
 
 
 import { AdminPushNotifications } from "./pages/admin/AdminPushNotifications";
@@ -227,15 +220,10 @@ const AppContent = () => {
         <Route path="/payment-methods" element={<PaymentMethods />} />
         <Route path="/support" element={<Support />} />
         <Route path="/notifications" element={<NotificationSettings />} />
-        <Route path="/ai" element={<AI />} />
         <Route path="/cupones" element={<Cupones />} />
-        <Route path="/ai/stock-prediction" element={<StockPrediction />} />
-        <Route path="/ai/profitability" element={<ProfitabilityAnalysis />} />
-        <Route path="/ai/daily-summary" element={<DailySummary />} />
         <Route path="/network" element={<NetworkDashboard />} />
         <Route path="/export" element={<ExportData />} />
         <Route path="/academy" element={<Academy />} />
-        <Route path="/soporte-alma" element={<SoporteAlma />} />
         <Route path="/mis-incidencias" element={<MisIncidencias />} />
 
         {/* Admin routes */}
@@ -252,10 +240,6 @@ const AppContent = () => {
           <Route path="push" element={<AdminPushNotifications />} />
           <Route path="incidents" element={<AdminIncidents />} />
           <Route path="notifications" element={<AdminEmailNotifications />} />
-          <Route path="alma" element={<AdminAlma />} />
-          <Route path="incidencias-ventas" element={<AdminIncidenciasVentas />} />
-
-
         </Route>
 
       <Route path="*" element={<NotFound />} />
