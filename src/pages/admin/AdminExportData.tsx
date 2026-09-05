@@ -221,8 +221,13 @@ export const AdminExportData = () => {
           for (const v of ventas) {
             const estado = String(v.estado || '').toLowerCase();
             if (estado === 'fallido' || estado === 'cancelado' || estado === 'failed' || estado === 'cancelled') continue;
-            const { fecha, hora } = convertirVentaAEspana(v.fecha_hora_china || `${dia} 00:00:00`, selectedImei);
-            const fechaFinal = fecha || dia;
+            // Las ventas ya llegan con fecha/hora en horario español desde la BD.
+            // Solo se convierte cuando el registro trae hora china sin convertir.
+            const conv = v.fecha_hora_china
+              ? convertirVentaAEspana(v.fecha_hora_china, selectedImei)
+              : { fecha: String(v.fecha || dia), hora: String(v.hora || '').substring(0, 5) };
+            const hora = conv.hora;
+            const fechaFinal = conv.fecha || dia;
             if (fechaFinal < desdeStr || fechaFinal > hastaStr) continue;
             const uid = String(v.id ?? v.numero_orden ?? `${fechaFinal}|${hora}|${v.precio}|${v.producto}`);
             if (vistos.has(uid)) continue;
