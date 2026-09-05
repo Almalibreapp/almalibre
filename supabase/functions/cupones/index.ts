@@ -127,7 +127,19 @@ serve(async (req) => {
         console.error('[cupones] Cache read error:', cacheErr.message)
       }
 
-      const cupones = (cached ?? []).map((c: any) => {
+      // Filtrar por máquina: cada franquiciado solo debe ver los cupones de su IMEI
+      const imeiFilter = (url.searchParams.get('imei') || '').trim()
+      const cachedFiltered = (cached ?? []).filter((c: any) => {
+        if (!imeiFilter) return true
+        const maquinas = String(c.maquinas ?? '').trim()
+        if (!maquinas) return false
+        return maquinas
+          .split(/[,;\s]+/)
+          .filter(Boolean)
+          .includes(imeiFilter)
+      })
+
+      const cupones = cachedFiltered.map((c: any) => {
         let descuento = '0'
         try {
           const cont = typeof c.contenido === 'string' ? JSON.parse(c.contenido) : c.contenido
