@@ -6,14 +6,12 @@ export type NotificationType =
   | 'temperatura_alerta'
   | 'nueva_venta'
   | 'pedido_actualizado'
-  | 'incidencia_actualizada'
   | 'promocion'
 
 export interface PushNotificationData {
   tipo: NotificationType
   maquina_id?: string
   pedido_id?: string
-  incidencia_id?: string
   promocion_id?: string
   [key: string]: unknown
 }

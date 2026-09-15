@@ -226,12 +226,12 @@ export const NotificationSettings = () => {
           </CardContent>
         </Card>
 
-        {/* Orders & Incidents */}
+        {/* Pedidos */}
         <Card className="animate-fade-in" style={{ animationDelay: '200ms' }}>
           <CardHeader>
-            <CardTitle className="text-base">Pedidos e incidencias</CardTitle>
+            <CardTitle className="text-base">Pedidos</CardTitle>
             <CardDescription>
-              Actualizaciones sobre tus pedidos y tickets de soporte
+              Actualizaciones sobre tus pedidos
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -253,23 +253,6 @@ export const NotificationSettings = () => {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                  <Wrench className="h-4 w-4 text-purple-500" />
-                </div>
-                <div>
-                  <Label htmlFor="incidencias" className="text-sm font-medium">Incidencias</Label>
-                  <p className="text-xs text-muted-foreground">Actualizaciones de tus tickets</p>
-                </div>
-              </div>
-              <Switch
-                id="incidencias"
-                checked={preferencias.incidencias}
-                onCheckedChange={(checked) => handleToggle('incidencias', checked)}
-                disabled={isUpdating}
-              />
-            </div>
           </CardContent>
         </Card>
 

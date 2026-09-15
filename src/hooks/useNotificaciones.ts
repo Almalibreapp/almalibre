@@ -164,7 +164,6 @@ export const usePreferenciasNotificaciones = () => {
     temperatura_alerta: true,
     nuevas_ventas: false,
     pedidos: true,
-    incidencias: true,
     promociones: true,
     canal_push: true,
     canal_email: true,
