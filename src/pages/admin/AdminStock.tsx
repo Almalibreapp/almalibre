@@ -31,7 +31,7 @@ export const AdminStock = () => {
 
       if (!stock) return [];
 
-      const machineMap = new Map(machines?.map((m) => [m.mac_address, m]) || []);
+      const machineMap = new Map<string, any>((machines as any[])?.map((m: any) => [m.mac_address, m]) || []);
       const profileMap = new Map(profiles?.map((p) => [p.id, p.nombre]) || []);
 
       return stock.map((s): StockItem => {
