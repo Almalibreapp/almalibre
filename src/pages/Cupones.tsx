@@ -24,8 +24,8 @@ export const Cupones = () => {
     queryKey: ['user-machines-for-cupones', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('maquinas')
+      const { data, error } = await (supabase as any)
+        .from('maquinas_usuario')
         .select('id, mac_address, nombre_personalizado, ubicacion')
         .eq('usuario_id', user.id);
       if (error) throw error;

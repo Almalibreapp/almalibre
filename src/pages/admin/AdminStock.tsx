@@ -25,13 +25,13 @@ export const AdminStock = () => {
     queryFn: async () => {
       const [{ data: stock }, { data: machines }, { data: profiles }] = await Promise.all([
         supabase.from('stock_config').select('*').order('unidades_actuales', { ascending: true }),
-        supabase.from('maquinas').select('mac_address, nombre_personalizado, usuario_id'),
+        (supabase as any).from('maquinas_usuario').select('mac_address, nombre_personalizado, usuario_id'),
         supabase.from('profiles').select('id, nombre'),
       ]);
 
       if (!stock) return [];
 
-      const machineMap = new Map(machines?.map((m) => [m.mac_address, m]) || []);
+      const machineMap = new Map<string, any>((machines as any[])?.map((m: any) => [m.mac_address, m]) || []);
       const profileMap = new Map(profiles?.map((p) => [p.id, p.nombre]) || []);
 
       return stock.map((s): StockItem => {

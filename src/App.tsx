@@ -122,8 +122,8 @@ const GlobalPrefetch = () => {
         // 2. Fetch user's machines, then prefetch ventas + temperatura + today's sales for each
         const fetchAndPrefetch = async () => {
           try {
-            const { data: maquinas } = await supabase
-              .from('maquinas')
+            const { data: maquinas } = await (supabase as any)
+              .from('maquinas_usuario')
               .select('id, mac_address')
               .eq('usuario_id', userId);
 

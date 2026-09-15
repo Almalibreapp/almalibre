@@ -67,7 +67,7 @@ export const AdminMachines = () => {
     queryKey: ['admin-machines-enriched-v2'],
     queryFn: async () => {
       const [maquinasResult, profilesResult, rolesResult] = await Promise.all([
-        supabase.from('maquinas').select('*'),
+        (supabase as any).from('maquinas_usuario').select('*'),
         supabase.from('profiles').select('id, nombre, email'),
         supabase.from('user_roles').select('user_id, role'),
       ]);
