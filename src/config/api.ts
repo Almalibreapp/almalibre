@@ -23,6 +23,6 @@ export const API_CONFIG = {
     temperatura: `${SUPABASE_URL}/temperatura`,
     productos: `${SUPABASE_URL}/productos`,
     control: `${SUPABASE_URL}/control`,
-    cupones: `${SUPABASE_URL}/cupones`,
+    cupones: `${SUPABASE_URL}/cupones-promo`,
   },
 };

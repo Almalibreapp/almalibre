@@ -1,7 +1,7 @@
 import { API_CONFIG } from '@/config/api';
 
 // Cupones: llamar DIRECTAMENTE al proyecto externo del fabricante
-const CUPONES_URL = 'https://nrfhtviwgrkbyiujxlrd.supabase.co/functions/v1/cupones';
+const CUPONES_URL = 'https://nrfhtviwgrkbyiujxlrd.supabase.co/functions/v1/cupones-promo';
 const CUPONES_HEADERS: Record<string, string> = {
   'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZmh0dml3Z3JrYnlpdWp4bHJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODQ5NTMsImV4cCI6MjA5MTI2MDk1M30.TRxGviX8eZ5kty4th38BPqmkHXhQTEhCZ_1Oki_VGmE',
   'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZmh0dml3Z3JrYnlpdWp4bHJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODQ5NTMsImV4cCI6MjA5MTI2MDk1M30.TRxGviX8eZ5kty4th38BPqmkHXhQTEhCZ_1Oki_VGmE',
