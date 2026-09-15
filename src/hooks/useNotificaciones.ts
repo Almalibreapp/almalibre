@@ -14,7 +14,7 @@ export const useNotificaciones = () => {
       if (!user) return [];
       
       const { data, error } = await supabase
-        .from('notificaciones')
+        .from('notificaciones_usuario' as any)
         .select('*')
         .eq('usuario_id', user.id)
         .order('created_at', { ascending: false })
@@ -32,7 +32,7 @@ export const useNotificaciones = () => {
   const marcarComoLeida = useMutation({
     mutationFn: async (notificacionId: string) => {
       const { error } = await supabase
-        .from('notificaciones')
+        .from('notificaciones_usuario' as any)
         .update({ leida: true })
         .eq('id', notificacionId);
 
@@ -48,7 +48,7 @@ export const useNotificaciones = () => {
       if (!user) return;
       
       const { error } = await supabase
-        .from('notificaciones')
+        .from('notificaciones_usuario' as any)
         .update({ leida: true })
         .eq('usuario_id', user.id)
         .eq('leida', false);
@@ -63,7 +63,7 @@ export const useNotificaciones = () => {
   const eliminarNotificacion = useMutation({
     mutationFn: async (notificacionId: string) => {
       const { error } = await supabase
-        .from('notificaciones')
+        .from('notificaciones_usuario' as any)
         .delete()
         .eq('id', notificacionId);
 
@@ -79,7 +79,7 @@ export const useNotificaciones = () => {
       if (!user) return;
       
       const { error } = await supabase
-        .from('notificaciones')
+        .from('notificaciones_usuario' as any)
         .delete()
         .eq('usuario_id', user.id);
 
