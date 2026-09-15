@@ -135,6 +135,7 @@ export const AdminMachines = () => {
                     <TableCell>
                       <div>
                         <p className="font-medium">{machine.nombre_personalizado}</p>
+                        {machine.ownerEmail && <p className="text-xs text-muted-foreground">{machine.ownerEmail}</p>}
                         {machine.ubicacion && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> {machine.ubicacion}</p>}
                       </div>
                     </TableCell>
