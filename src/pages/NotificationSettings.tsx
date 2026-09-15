@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, BellRing, Mail, Package, Thermometer, TrendingDown, Wrench, Tag, Smartphone, Loader2 } from 'lucide-react';
+import { ArrowLeft, Bell, BellRing, Mail, Package, Thermometer, TrendingDown, Tag, Smartphone, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
