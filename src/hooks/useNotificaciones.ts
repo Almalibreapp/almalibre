@@ -21,7 +21,7 @@ export const useNotificaciones = () => {
         .limit(50);
 
       if (error) throw error;
-      return data as Notificacion[];
+      return data as unknown as Notificacion[];
     },
     enabled: !!user,
     refetchInterval: 60000, // Refetch cada minuto
