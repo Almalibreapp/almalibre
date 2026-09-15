@@ -16,8 +16,8 @@ export const useMaquinas = (userId: string | undefined) => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('maquinas')
+      const { data, error } = await (supabase as any)
+        .from('maquinas_usuario')
         .select('*')
         .eq('usuario_id', userId)
         .order('created_at', { ascending: false });

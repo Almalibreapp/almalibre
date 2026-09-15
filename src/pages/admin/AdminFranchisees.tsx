@@ -55,7 +55,7 @@ export const AdminFranchisees = () => {
   const loadFranchisees = async () => {
     try {
       const { data: profiles } = await supabase.from('profiles').select('*');
-      const { data: machines } = await supabase.from('maquinas').select('usuario_id');
+      const { data: machines } = await (supabase as any).from('maquinas_usuario').select('usuario_id');
       const { data: roles } = await supabase.from('user_roles').select('user_id, role');
 
       if (!profiles) return;

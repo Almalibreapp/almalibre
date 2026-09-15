@@ -25,7 +25,7 @@ export const AdminStock = () => {
     queryFn: async () => {
       const [{ data: stock }, { data: machines }, { data: profiles }] = await Promise.all([
         supabase.from('stock_config').select('*').order('unidades_actuales', { ascending: true }),
-        supabase.from('maquinas').select('mac_address, nombre_personalizado, usuario_id'),
+        (supabase as any).from('maquinas_usuario').select('mac_address, nombre_personalizado, usuario_id'),
         supabase.from('profiles').select('id, nombre'),
       ]);
 
