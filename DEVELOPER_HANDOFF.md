@@ -69,7 +69,7 @@ Complete technical overview for a developer taking ownership of the app. Every U
 ## 3. Frontend entry points
 
 - `src/main.tsx` — bootstraps React, registers service worker.
-- `src/App.tsx` — providers (QueryClient, Tooltip, Toaster), router, global prefetch, `<FloatingAlmaButton>` and `<InstallBanner>`.
+- `src/App.tsx` — providers (QueryClient, Tooltip, Toaster), router, global prefetch, `<InstallBanner>`.
 - `src/pages/Index.tsx` — auth gate: shows `AuthForm` → `RoleSelector` (admins) → `Dashboard` (franchisee) or `Academy` (mandatory training not yet completed).
 
 ### Routes (`src/App.tsx`)
@@ -90,7 +90,6 @@ Complete technical overview for a developer taking ownership of the app. Every U
 /promotions, /promotions/new
 /subscription              Plans Basic / Pro / Premium (disabled)
 /payment-methods
-/support                   Alma AI assistant (error diagnosis E-01..E-20)
 /notifications             Notification preferences
 /ai, /ai/stock-prediction, /ai/profitability, /ai/daily-summary
 /cupones                   Discount coupons (external hardware API)
@@ -124,7 +123,7 @@ Complete technical overview for a developer taking ownership of the app. Every U
 | Machines & telemetry | `maquinas`, `lecturas_temperatura`, `stock_config`, `stock_history`, `stock_sync_log`, `ventas_historico`, `ventas_sync_log` |
 | E-commerce | `productos`, `pedidos`, `pedido_items`, `direcciones_guardadas`, `metodos_pago` |
 | Coupons | `codigos_promocionales`, `canjes_codigo`, `cupones_cache` |
-| Support | `incidencias`, `incidencia_mensajes`, `mensajes_soporte` |
+| Support | `mensajes_soporte` |
 | Notifications | `notificaciones`, `preferencias_notificaciones`, `push_subscriptions` |
 | Billing | `suscripciones`, `pagos_suscripcion` |
 | Academy | `academy_modulos`, `academy_progreso`, `academy_consentimiento` |
@@ -272,7 +271,6 @@ Spanish-time helper for storing "today": `new Date().toLocaleDateString('sv-SE',
 - Loading UX: skeletons only, no spinners.
 - "One machine, one owner": `maquinas.mac_address` may appear once per franchisee; admin views deduplicate with franchisee priority.
 - Bottom nav has exactly 4 items: Inicio, Pedidos, Cupones, Mi Perfil.
-- `FloatingAlmaButton` (WhatsApp `+19016750678`) — visible ONLY for logged-in franchisees, hidden for admins & anonymous.
 - Academy is a hard gate: franchisees cannot reach Dashboard until certified (`useAcademyStatus`).
 - Excel export in `/export` reads `lecturas_temperatura` directly (not the flaky external endpoint), highlights pasteurization (≥66 °C).
 

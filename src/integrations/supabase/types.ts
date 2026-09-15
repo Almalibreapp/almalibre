@@ -337,91 +337,6 @@ export type Database = {
         }
         Relationships: []
       }
-      incidencia_mensajes: {
-        Row: {
-          autor: string
-          created_at: string | null
-          id: string
-          incidencia_id: string
-          mensaje: string
-        }
-        Insert: {
-          autor: string
-          created_at?: string | null
-          id?: string
-          incidencia_id: string
-          mensaje: string
-        }
-        Update: {
-          autor?: string
-          created_at?: string | null
-          id?: string
-          incidencia_id?: string
-          mensaje?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "incidencia_mensajes_incidencia_id_fkey"
-            columns: ["incidencia_id"]
-            isOneToOne: false
-            referencedRelation: "incidencias"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      incidencias: {
-        Row: {
-          created_at: string | null
-          descripcion: string
-          estado: string
-          fotos: Json | null
-          id: string
-          maquina_id: string
-          numero_ticket: string
-          prioridad: string
-          resolucion: string | null
-          tipo: string
-          updated_at: string | null
-          usuario_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          descripcion: string
-          estado?: string
-          fotos?: Json | null
-          id?: string
-          maquina_id: string
-          numero_ticket: string
-          prioridad?: string
-          resolucion?: string | null
-          tipo: string
-          updated_at?: string | null
-          usuario_id: string
-        }
-        Update: {
-          created_at?: string | null
-          descripcion?: string
-          estado?: string
-          fotos?: Json | null
-          id?: string
-          maquina_id?: string
-          numero_ticket?: string
-          prioridad?: string
-          resolucion?: string | null
-          tipo?: string
-          updated_at?: string | null
-          usuario_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "incidencias_maquina_id_fkey"
-            columns: ["maquina_id"]
-            isOneToOne: false
-            referencedRelation: "maquinas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       lecturas_temperatura: {
         Row: {
           created_at: string
@@ -713,7 +628,6 @@ export type Database = {
           canal_email: boolean | null
           canal_push: boolean | null
           id: string
-          incidencias: boolean | null
           nuevas_ventas: boolean | null
           pedidos: boolean | null
           promociones: boolean | null
@@ -727,7 +641,6 @@ export type Database = {
           canal_email?: boolean | null
           canal_push?: boolean | null
           id?: string
-          incidencias?: boolean | null
           nuevas_ventas?: boolean | null
           pedidos?: boolean | null
           promociones?: boolean | null
@@ -741,7 +654,6 @@ export type Database = {
           canal_email?: boolean | null
           canal_push?: boolean | null
           id?: string
-          incidencias?: boolean | null
           nuevas_ventas?: boolean | null
           pedidos?: boolean | null
           promociones?: boolean | null
@@ -1176,7 +1088,6 @@ export type Database = {
     }
     Functions: {
       generate_order_number: { Args: never; Returns: string }
-      generate_ticket_number: { Args: never; Returns: string }
       get_soporte_perfiles: {
         Args: never
         Returns: {
