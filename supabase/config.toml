@@ -38,6 +38,3 @@ verify_jwt = false
 
 [functions.temperatura]
 verify_jwt = false
-
-[functions.incidencia-foto]
-verify_jwt = false

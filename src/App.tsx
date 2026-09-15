@@ -12,20 +12,15 @@ import { Settings } from "./pages/Settings";
 import { Store } from "./pages/Store";
 import { Checkout } from "./pages/Checkout";
 import { Orders } from "./pages/Orders";
-import { Incidents } from "./pages/Incidents";
-import { NewIncident } from "./pages/NewIncident";
 import { Tutorials } from "./pages/Tutorials";
 import { Promotions } from "./pages/Promotions";
 import { NewPromotion } from "./pages/NewPromotion";
 import { Subscription } from "./pages/Subscription";
 import { PaymentMethods } from "./pages/PaymentMethods";
-import { Support } from "./pages/Support";
 import { NotificationSettings } from "./pages/NotificationSettings";
 import { Cupones } from "./pages/Cupones";
 import { NetworkDashboard } from "./pages/NetworkDashboard";
 import { Academy } from "./pages/Academy";
-import { MisIncidencias } from "./pages/MisIncidencias";
-import { IncidenciaPublica } from "./pages/IncidenciaPublica";
 import { InstallBanner } from "@/components/pwa/InstallBanner";
 import NotFound from "./pages/NotFound";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
@@ -45,7 +40,6 @@ import { AdminMachineDetail } from "./pages/admin/AdminMachineDetail";
 import { AdminFranchisees } from "./pages/admin/AdminFranchisees";
 import { AdminStock } from "./pages/admin/AdminStock";
 import { AdminSalesAnalytics } from "./pages/admin/AdminSalesAnalytics";
-import { AdminIncidents } from "./pages/admin/AdminIncidents";
 import { AdminEmailNotifications } from "./pages/admin/AdminEmailNotifications";
 import { AdminCupones } from "./pages/admin/AdminCupones";
 import { AdminExportData } from "./pages/admin/AdminExportData";
@@ -199,9 +193,6 @@ const AppContent = () => {
       <GlobalPrefetch />
       <InstallBanner />
       <Routes>
-        {/* Pública (sin login) */}
-        <Route path="/incidencia" element={<IncidenciaPublica />} />
-
         {/* User routes */}
         <Route path="/" element={<Index />} />
         <Route path="/add-machine" element={<AddMachine />} />
@@ -211,20 +202,16 @@ const AppContent = () => {
         <Route path="/store" element={<Store />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/orders" element={<Orders />} />
-        <Route path="/incidents" element={<Incidents />} />
-        <Route path="/incidents/new" element={<NewIncident />} />
         <Route path="/tutorials" element={<Tutorials />} />
         <Route path="/promotions" element={<Promotions />} />
         <Route path="/promotions/new" element={<NewPromotion />} />
         <Route path="/subscription" element={<Subscription />} />
         <Route path="/payment-methods" element={<PaymentMethods />} />
-        <Route path="/support" element={<Support />} />
         <Route path="/notifications" element={<NotificationSettings />} />
         <Route path="/cupones" element={<Cupones />} />
         <Route path="/network" element={<NetworkDashboard />} />
         <Route path="/export" element={<ExportData />} />
         <Route path="/academy" element={<Academy />} />
-        <Route path="/mis-incidencias" element={<MisIncidencias />} />
 
         {/* Admin routes */}
         <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
@@ -238,7 +225,6 @@ const AppContent = () => {
           <Route path="cupones" element={<AdminCupones />} />
           <Route path="export" element={<AdminExportData />} />
           <Route path="push" element={<AdminPushNotifications />} />
-          <Route path="incidents" element={<AdminIncidents />} />
           <Route path="notifications" element={<AdminEmailNotifications />} />
         </Route>
 

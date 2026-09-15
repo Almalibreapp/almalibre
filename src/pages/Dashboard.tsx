@@ -8,12 +8,10 @@ import { NotificationCenter } from '@/components/notifications/NotificationCente
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useMaquinas } from '@/hooks/useMaquinas';
-import { useTicketsPendientes } from '@/hooks/useTicketsPendientes';
 import { initPushNotifications } from '@/services/pushNotifications';
 import { initLocalNotifications } from '@/services/localNotifications';
-import { Plus, Settings, IceCream, RefreshCw, Network, AlertTriangle, CheckCircle2, ChevronRight } from 'lucide-react';
+import { Plus, Settings, IceCream, RefreshCw, Network } from 'lucide-react';
 import logoAlmalibre from '@/assets/logo-almalibre.png';
-import { AlmaTipModal } from '@/components/alma-tip/AlmaTipModal';
 
 function DashboardLoadingSkeleton() {
   return (
@@ -34,7 +32,6 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const { profile, user } = useAuth();
   const { maquinas, loading, refetch } = useMaquinas(user?.id);
-  const { pendientes, loading: loadingPendientes } = useTicketsPendientes();
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -125,56 +122,6 @@ export const Dashboard = () => {
               <span className="text-sm text-muted-foreground">{maquinas.length} máquina(s)</span>
             </div>
 
-            {/* Alerta de incidencias de clientes */}
-            <button
-              onClick={() => navigate('/mis-incidencias')}
-              className="w-full animate-fade-in"
-              style={{ animationDelay: '50ms' }}
-            >
-              <Card
-                className={`
-                  text-left transition-all duration-200 active:scale-[0.99]
-                  border-l-[3px]
-                  ${pendientes > 0
-                    ? 'border-l-warning bg-warning/5 hover:bg-warning/10'
-                    : 'border-l-success bg-success/5 hover:bg-success/10'}
-                `}
-              >
-                <CardContent className="p-3 flex items-center gap-3">
-                  <div
-                    className={`
-                      h-8 w-8 rounded-full flex items-center justify-center shrink-0
-                      ${pendientes > 0 ? 'bg-warning/15 text-warning' : 'bg-success/15 text-success'}
-                    `}
-                  >
-                    {pendientes > 0 ? (
-                      <AlertTriangle className="h-4 w-4" />
-                    ) : (
-                      <CheckCircle2 className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      {pendientes > 0
-                        ? `${pendientes} pendiente${pendientes === 1 ? '' : 's'}`
-                        : 'Sin incidencias'}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {loadingPendientes
-                        ? 'Comprobando…'
-                        : pendientes > 0
-                          ? 'Tienes tickets de clientes por resolver'
-                          : 'Todo en orden en tus máquinas'}
-                    </p>
-                  </div>
-                  <ChevronRight className={`
-                    h-4 w-4 shrink-0
-                    ${pendientes > 0 ? 'text-warning' : 'text-success'}
-                  `} />
-                </CardContent>
-              </Card>
-            </button>
-
             <div className="grid gap-4">
               {maquinas.map((maquina, index) => (
                 <div
@@ -199,7 +146,6 @@ export const Dashboard = () => {
         </div>
       )}
 
-      <AlmaTipModal imei={maquinas[0]?.mac_address} />
       <BottomNav />
     </div>
   );

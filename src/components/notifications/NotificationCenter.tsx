@@ -136,9 +136,6 @@ export const NotificationCenter = () => {
       case 'pedido_actualizado':
         navigate('/orders');
         break;
-      case 'incidencia_actualizada':
-        navigate('/incidents');
-        break;
       case 'promocion':
         navigate('/promotions');
         break;

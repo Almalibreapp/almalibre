@@ -3,7 +3,6 @@ export type NotificationType =
   | 'temperatura_alerta' 
   | 'nueva_venta' 
   | 'pedido_actualizado' 
-  | 'incidencia_actualizada' 
   | 'promocion';
 
 export interface Notificacion {
@@ -26,7 +25,6 @@ export interface PreferenciasNotificaciones {
   temperatura_alerta: boolean;
   nuevas_ventas: boolean;
   pedidos: boolean;
-  incidencias: boolean;
   promociones: boolean;
   canal_push: boolean;
   canal_email: boolean;
@@ -68,11 +66,6 @@ export const NOTIFICATION_TYPE_CONFIG: Record<NotificationType, {
     icon: '📦',
     color: 'text-blue-500',
     label: 'Pedido actualizado'
-  },
-  incidencia_actualizada: {
-    icon: '🔧',
-    color: 'text-purple-500',
-    label: 'Incidencia actualizada'
   },
   promocion: {
     icon: '🎉',
