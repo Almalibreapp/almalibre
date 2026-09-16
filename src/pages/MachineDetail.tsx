@@ -318,21 +318,8 @@ export const MachineDetail = () => {
   };
   const estadoReal = deriveEstadoFromComponents();
 
-  // Temperature traceability
-  const { data: tempLog } = useTemperatureLog(maquina?.id, tempLogHours, imei);
-  const logTemperature = useLogTemperature();
+  // Temperature traceability (histórico) se renderiza con TemperatureTraceability
 
-  // Auto-log temperature every time we get a new reading
-  useEffect(() => {
-    if (temperatura && maquina?.id) {
-      logTemperature.mutate({
-        maquinaId: maquina.id,
-        temperatura: temperatura.temperatura,
-        unidad: temperatura.unidad || 'C',
-        estado: temperatura.estado,
-      });
-    }
-  }, [temperatura?.temperatura, temperatura?.timestamp]);
 
   // Peak hour calculation
   const calculatePeakHour = () => {
@@ -870,115 +857,9 @@ export const MachineDetail = () => {
                 </CardContent>
               </Card>
 
-              {/* Temperature Traceability Chart */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Thermometer className="h-4 w-4 text-primary" />
-                      Trazabilidad de Temperatura
-                    </CardTitle>
-                    <div className="flex gap-1">
-                      {[6, 12, 24, 48].map(h => (
-                        <Button 
-                          key={h} 
-                          variant={tempLogHours === h ? "default" : "outline"} 
-                          size="sm" 
-                          className="text-xs px-2 h-7"
-                          onClick={() => setTempLogHours(h)}
-                        >
-                          {h}h
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {tempLog && tempLog.length > 0 ? (
-                    <div className="h-56 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={tempLog.map(r => {
-                          const dt = new Date(r.created_at);
-                          // Temperature readings already stored in local time
-                          return {
-                            hora: format(dt, 'HH:mm'),
-                            temperatura: Number(r.temperatura),
-                            estado: r.estado,
-                          };
-                        })} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                          <XAxis 
-                            dataKey="hora" 
-                            tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} 
-                            tickLine={false} axisLine={false}
-                            interval="preserveStartEnd"
-                          />
-                          <YAxis 
-                            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} 
-                            tickLine={false} axisLine={false}
-                            domain={['dataMin - 2', 'dataMax + 2']}
-                          />
-                          <Tooltip
-                            contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
-                            formatter={(value: number) => [`${value.toFixed(1)}°C`, 'Temperatura']}
-                          />
-                          <ReferenceLine y={11} stroke="hsl(var(--critical))" strokeDasharray="5 5" label={{ value: 'Crítico 11°C', fill: 'hsl(var(--critical))', fontSize: 10 }} />
-                          <Line
-                            type="monotone"
-                            dataKey="temperatura"
-                            stroke="hsl(var(--primary))"
-                            strokeWidth={2}
-                            dot={false}
-                            activeDot={{ r: 4, fill: 'hsl(var(--primary))' }}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Thermometer className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Sin registros de temperatura aún</p>
-                      <p className="text-xs mt-1">Los registros se generan automáticamente al consultar la temperatura</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Temperature Traceability (misma vista que administración) */}
+              <TemperatureTraceability maquinaId={maquina?.id} temperatura={temperatura} imei={imei} />
 
-              {/* Temperature stats */}
-              {tempLog && tempLog.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Estadísticas ({tempLogHours}h)</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="text-center p-3 bg-muted/50 rounded-lg">
-                        <p className="text-lg font-bold text-success">
-                          {Math.min(...tempLog.map(r => Number(r.temperatura))).toFixed(1)}°C
-                        </p>
-                        <p className="text-xs text-muted-foreground">Mínima</p>
-                      </div>
-                      <div className="text-center p-3 bg-muted/50 rounded-lg">
-                        <p className="text-lg font-bold">
-                          {(tempLog.reduce((a, r) => a + Number(r.temperatura), 0) / tempLog.length).toFixed(1)}°C
-                        </p>
-                        <p className="text-xs text-muted-foreground">Media</p>
-                      </div>
-                      <div className="text-center p-3 bg-muted/50 rounded-lg">
-                        <p className={cn(
-                          "text-lg font-bold",
-                          Math.max(...tempLog.map(r => Number(r.temperatura))) >= 11 ? 'text-critical' : 'text-success'
-                        )}>
-                          {Math.max(...tempLog.map(r => Number(r.temperatura))).toFixed(1)}°C
-                        </p>
-                        <p className="text-xs text-muted-foreground">Máxima</p>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground text-center mt-3">
-                      {tempLog.length} lecturas registradas
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
             </TabsContent>
 
             {/* Control Tab */}
