@@ -29,9 +29,11 @@ interface DiscountCouponsProps {
   imei: string;
   ubicacion?: string;
   allImeis?: string[];
+  /** Solo el panel de administración puede ver/crear cupones de toda la flota */
+  isAdmin?: boolean;
 }
 
-export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: DiscountCouponsProps) => {
+export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [], isAdmin = false }: DiscountCouponsProps) => {
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedCupon, setSelectedCupon] = useState<CuponDescuento | null>(null);
@@ -42,7 +44,13 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: Discoun
     queryFn: () => fetchCupones(1, imei),
   });
 
-  const cuponesList: CuponDescuento[] = data?.cupones ?? [];
+  // Seguridad: el franquiciado solo ve los cupones asignados a la máquina seleccionada
+  const cuponesList: CuponDescuento[] = (data?.cupones ?? []).filter((c) => {
+    if (isAdmin) return true;
+    const maquinas = String(c.maquinas ?? '');
+    if (!maquinas) return false;
+    return maquinas.split(',').map((m) => m.trim()).includes(imei);
+  });
 
   const deleteMutation = useMutation({
     mutationFn: (cuponId: string) => eliminarCupon([cuponId]),
@@ -156,7 +164,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: Discoun
           <CreateCouponForm
             imei={imei}
             ubicacion={ubicacion}
-            allImeis={allImeis.length > 0 ? allImeis : [imei]}
+            allImeis={isAdmin && allImeis.length > 0 ? allImeis : [imei]}
             onSuccess={() => {
               setIsCreateOpen(false);
               queryClient.invalidateQueries({ queryKey: ['cupones', imei] });
