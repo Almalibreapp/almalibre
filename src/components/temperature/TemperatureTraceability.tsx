@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useTemperatureLog, useLogTemperature } from '@/hooks/useTemperatureLog';
+import { useTemperatureLog } from '@/hooks/useTemperatureLog';
 import { TemperaturaResponse } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -33,25 +33,6 @@ const THRESHOLD = 11;
 export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: TemperatureTraceabilityProps) => {
   const [selectedHours, setSelectedHours] = useState(24);
   const { data: readings, isLoading, isError } = useTemperatureLog(maquinaId, selectedHours, imei);
-  const logTemperature = useLogTemperature();
-  const lastLoggedRef = useRef<string | null>(null);
-
-  // Auto-log each new API reading to the database
-  useEffect(() => {
-    if (!maquinaId || temperatura?.temperatura == null) return;
-
-    const key = `${temperatura.temperatura}-${temperatura.timestamp}`;
-    if (lastLoggedRef.current === key) return;
-    lastLoggedRef.current = key;
-
-    const estado = temperatura.temperatura >= THRESHOLD ? 'critico' : 'normal';
-    logTemperature.mutate({
-      maquinaId,
-      temperatura: temperatura.temperatura,
-      unidad: temperatura.unidad || 'C',
-      estado,
-    });
-  }, [maquinaId, temperatura?.temperatura, temperatura?.timestamp]);
 
   const chartData = useMemo(() => {
     if (!readings?.length) return [];
