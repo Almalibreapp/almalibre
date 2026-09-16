@@ -164,7 +164,7 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [], isAdmin =
           <CreateCouponForm
             imei={imei}
             ubicacion={ubicacion}
-            allImeis={allImeis.length > 0 ? allImeis : [imei]}
+            allImeis={isAdmin && allImeis.length > 0 ? allImeis : [imei]}
             onSuccess={() => {
               setIsCreateOpen(false);
               queryClient.invalidateQueries({ queryKey: ['cupones', imei] });
