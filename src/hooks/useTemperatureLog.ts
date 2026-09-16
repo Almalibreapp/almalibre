@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, subHours, subDays } from 'date-fns';
+import { format } from 'date-fns';
 
 interface TemperatureReading {
   id: string;
@@ -53,22 +53,25 @@ export const useTemperatureLog = (maquinaId: string | undefined, hours: number =
   });
 
   return useQuery<TemperatureReading[]>({
-    queryKey: ['temperature-log', maquinaId, hours],
+    queryKey: ['temperature-log', maquinaId, imei, hours],
     queryFn: async () => {
+      if (!imei?.trim()) return [];
+
       const since = new Date();
       since.setHours(since.getHours() - hours);
 
       const { data, error } = await supabase
         .from('lecturas_temperatura')
-        .select('*')
-        .eq('maquina_id', maquinaId!)
+        .select('id, maquina_id, imei, temperatura, unidad, estado, sensor, fuente, created_at')
+        .eq('imei', imei.trim())
         .gte('created_at', since.toISOString())
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .limit(2000);
 
       if (error) throw error;
       return (data ?? []) as TemperatureReading[];
     },
-    enabled: !!maquinaId,
+    enabled: hasMachineContext,
     staleTime: 30 * 1000,
     refetchInterval: 30 * 1000,
   });
