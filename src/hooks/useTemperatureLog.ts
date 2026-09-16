@@ -14,6 +14,29 @@ interface TemperatureReading {
   imei?: string;
 }
 
+interface RawTemperatureReading {
+  id: string | number;
+  imei: string;
+  temperatura: number;
+  estado?: string | null;
+  sensor?: string | null;
+  fuente?: string | null;
+  timestamp?: string | null;
+  created_at: string;
+}
+
+const getReadingTimestamp = (reading: RawTemperatureReading) => {
+  const rawTimestamp = reading.timestamp?.trim();
+  if (rawTimestamp && /^\d{4}-\d{2}-\d{2}[ T]/.test(rawTimestamp)) {
+    return rawTimestamp.includes('T') ? rawTimestamp : rawTimestamp.replace(' ', 'T');
+  }
+  if (rawTimestamp && /^\d{1,2}:\d{2}/.test(rawTimestamp)) {
+    const day = reading.created_at.slice(0, 10);
+    return `${day}T${rawTimestamp}`;
+  }
+  return reading.created_at;
+};
+
 // Sync temperature history from the new detailed API
 const syncTemperatureHistory = async (imei: string, maquinaId: string, hours: number) => {
   if (!imei?.trim() || !maquinaId?.trim()) return null;
@@ -60,17 +83,29 @@ export const useTemperatureLog = (maquinaId: string | undefined, hours: number =
       const since = new Date();
       since.setHours(since.getHours() - hours);
 
-      const { data, error } = await supabase
-        .from('lecturas_temperatura')
-        .select('id, maquina_id, imei, temperatura, unidad, estado, sensor, fuente, created_at')
+      const { data, error } = await (supabase as any)
+        .from('temperatura_historica')
+        .select('id, imei, temperatura, estado, sensor, fuente, timestamp, created_at')
         .eq('imei', imei.trim())
+        .order('created_at', { ascending: false })
         .limit(5000);
 
       if (error) throw error;
-      return ((data ?? []) as TemperatureReading[])
+      return ((data ?? []) as RawTemperatureReading[])
+        .map((reading) => ({
+          id: String(reading.id),
+          maquina_id: maquinaId ?? '',
+          imei: reading.imei,
+          temperatura: Number(reading.temperatura),
+          unidad: 'C',
+          estado: reading.estado ?? 'normal',
+          sensor: reading.sensor ?? undefined,
+          fuente: reading.fuente ?? undefined,
+          created_at: getReadingTimestamp(reading),
+        }))
         .filter((reading) => {
-          const timestamp = new Date(reading.created_at).getTime();
-          return Number.isFinite(timestamp) && timestamp >= since.getTime();
+          const readingTime = new Date(reading.created_at).getTime();
+          return Number.isFinite(readingTime) && readingTime >= since.getTime();
         })
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     },
