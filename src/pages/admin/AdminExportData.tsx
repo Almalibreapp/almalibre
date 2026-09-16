@@ -62,191 +62,24 @@ export const AdminExportData = () => {
       const selectedImei = imei.trim();
       const dias = enumerateDates(desdeStr, hastaStr);
 
-      const wb = XLSX.utils.book_new();
+      let wb: XLSX.WorkBook;
 
       if (tipo === 'temperatura') {
-        const rows: Array<Record<string, unknown>> = [];
-
-        const maquinaIds = maquinas
-          .filter((m) => m.mac_address?.trim() === selectedImei)
-          .map((m) => m.id);
-
-        const startISO = `${desdeStr}T00:00:00.000Z`;
-        const endISO = `${addDaysISO(hastaStr, 1)}T00:00:00.000Z`;
-
-        const pageSize = 1000;
-        let from = 0;
-        while (true) {
-          let query = supabase
-            .from('lecturas_temperatura')
-            .select('temperatura, estado, sensor, created_at')
-            .gte('created_at', startISO)
-            .lt('created_at', endISO);
-
-          query = maquinaIds.length > 0
-            ? query.or(`imei.eq.${selectedImei},maquina_id.in.(${maquinaIds.join(',')})`)
-            : query.eq('imei', selectedImei);
-
-          const { data: page, error } = await query
-            .order('created_at', { ascending: true })
-            .range(from, from + pageSize - 1);
-          if (error) throw error;
-          if (!page || page.length === 0) break;
-          for (const d of page) {
-            const dt = new Date(d.created_at);
-            const fecha = dt.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-            const hora = dt.toLocaleTimeString('es-ES', {
-              timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-            });
-            const temp = Number(d.temperatura);
-            const esPico = Number.isFinite(temp) && temp >= PASTEURIZATION_MIN;
-            rows.push({
-              Fecha: fecha,
-              Hora: hora,
-              'Temperatura (°C)': Number.isFinite(temp) ? temp : '',
-              Estado: d.estado || '',
-              Sensor: d.sensor || '',
-              Pasteurización: esPico ? `SÍ (≥${PASTEURIZATION_MIN}°C)` : '',
-            });
-          }
-          if (page.length < pageSize) break;
-          from += pageSize;
-        }
-
+        const rows = await fetchTemperaturasParaExportar(selectedImei, dias);
         if (rows.length === 0) {
           toast.error('No hay datos de temperatura en el rango seleccionado');
           setDownloading(false);
           return;
         }
-
-        rows.sort((a, b) => {
-          const ka = `${a.Fecha} ${a.Hora}`;
-          const kb = `${b.Fecha} ${b.Hora}`;
-          return ka < kb ? -1 : ka > kb ? 1 : 0;
-        });
-
-        // HOJA 1: Resumen diario
-        const porDia = new Map<string, { max: number; horaMax: string; count: number; picos: number }>();
-        for (const dia of dias) porDia.set(dia, { max: -Infinity, horaMax: '', count: 0, picos: 0 });
-        for (const r of rows) {
-          const f = String(r.Fecha);
-          const t = Number(r['Temperatura (°C)']);
-          const agg = porDia.get(f) ?? { max: -Infinity, horaMax: '', count: 0, picos: 0 };
-          agg.count++;
-          if (Number.isFinite(t)) {
-            if (t > agg.max) { agg.max = t; agg.horaMax = String(r.Hora); }
-            if (t >= PASTEURIZATION_MIN) agg.picos++;
-          }
-          porDia.set(f, agg);
-        }
-        const resumenRows = dias.map((dia) => {
-          const a = porDia.get(dia)!;
-          const tuvo = a.picos > 0;
-          return {
-            Fecha: dia,
-            'Lecturas': a.count,
-            'Temp. Máxima (°C)': a.max === -Infinity ? '' : a.max,
-            'Hora del Máximo': a.horaMax,
-            'Picos ≥66°C': a.picos,
-            'Pasteurización': tuvo ? `SÍ (${a.picos} picos)` : (a.count === 0 ? 'Sin datos' : 'NO'),
-          };
-        });
-        const wsResumen = XLSX.utils.json_to_sheet(resumenRows);
-        wsResumen['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 22 }];
-        const rgResumen = XLSX.utils.decode_range(wsResumen['!ref']!);
-        for (let R = 1; R <= rgResumen.e.r; R++) {
-          const picoCell = wsResumen[XLSX.utils.encode_cell({ r: R, c: 4 })];
-          if (picoCell && typeof picoCell.v === 'number' && picoCell.v > 0) {
-            for (let C = 0; C <= 5; C++) {
-              const ref = XLSX.utils.encode_cell({ r: R, c: C });
-              if (!wsResumen[ref]) wsResumen[ref] = { t: 's', v: '' };
-              wsResumen[ref].s = {
-                fill: { fgColor: { rgb: 'FFF4CCCC' } },
-                font: { bold: true, color: { rgb: 'FF9C0006' } },
-              };
-            }
-          }
-        }
-        XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen Diario');
-
-        // HOJA 2: Picos
-        const picosRows = rows.filter((r: any) => typeof r['Temperatura (°C)'] === 'number' && r['Temperatura (°C)'] >= PASTEURIZATION_MIN);
-        const totalPicos = picosRows.length;
-        const wsPicos = XLSX.utils.json_to_sheet(picosRows.length ? picosRows : [{ Aviso: `Sin picos ≥${PASTEURIZATION_MIN}°C en el rango seleccionado` }]);
-        wsPicos['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 22 }];
-        XLSX.utils.book_append_sheet(wb, wsPicos, `Picos Pasteurización (${totalPicos})`);
-
-        // HOJA 3: Log completo
-        const ws = XLSX.utils.json_to_sheet(rows);
-        ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 22 }];
-        const range = XLSX.utils.decode_range(ws['!ref']!);
-        for (let R = 1; R <= range.e.r; R++) {
-          const cell = ws[XLSX.utils.encode_cell({ r: R, c: 2 })];
-          if (cell && typeof cell.v === 'number' && cell.v >= PASTEURIZATION_MIN) {
-            for (let C = 0; C <= 5; C++) {
-              const ref = XLSX.utils.encode_cell({ r: R, c: C });
-              if (!ws[ref]) ws[ref] = { t: 's', v: '' };
-              ws[ref].s = {
-                fill: { fgColor: { rgb: 'FFF4CCCC' } },
-                font: { bold: true, color: { rgb: 'FF9C0006' } },
-              };
-            }
-          }
-        }
-        XLSX.utils.book_append_sheet(wb, ws, 'Temperatura Completa');
+        wb = buildTemperaturaWorkbook(rows, dias);
       } else {
-        // Ventas
-        const rows: Array<Record<string, unknown>> = [];
-        // La API agrupa por dia chino (UTC+8), que empieza a las 18:00 ES.
-        // Pedimos un dia extra por cada extremo y filtramos por fecha espanola.
-        const diasFetch = [addDaysISO(desdeStr, -1), ...dias, addDaysISO(hastaStr, 1)];
-        const vistos = new Set<string>();
-        for (const dia of diasFetch) {
-          const data = await fetchOrdenes(selectedImei, dia).catch(() => null);
-          const ventas = Array.isArray(data?.ventas) ? data.ventas : [];
-          for (const v of ventas) {
-            const estado = String(v.estado || '').toLowerCase();
-            if (estado === 'fallido' || estado === 'cancelado' || estado === 'failed' || estado === 'cancelled') continue;
-            // Las ventas ya llegan con fecha/hora en horario español desde la BD.
-            // Solo se convierte cuando el registro trae hora china sin convertir.
-            const conv = v.fecha_hora_china
-              ? convertirVentaAEspana(v.fecha_hora_china, selectedImei)
-              : { fecha: String(v.fecha || dia), hora: String(v.hora || '').substring(0, 5) };
-            const hora = conv.hora;
-            const fechaFinal = conv.fecha || dia;
-            if (fechaFinal < desdeStr || fechaFinal > hastaStr) continue;
-            const uid = String(v.id ?? v.numero_orden ?? `${fechaFinal}|${hora}|${v.precio}|${v.producto}`);
-            if (vistos.has(uid)) continue;
-            vistos.add(uid);
-            rows.push({
-              Fecha: fechaFinal,
-              Hora: hora,
-              Producto: 'AÇAÍ',
-              'Precio (€)': Number(v.precio || 0),
-              Unidades: v.cantidad_unidades || 1,
-              'Método Pago': v.metodo_pago || '',
-              'Nº Orden': v.numero_orden || v.id || '',
-              Estado: v.estado || '',
-              Toppings: Array.isArray(v.toppings) ? v.toppings.map((t: any) => `${t.nombre}${t.cantidad ? ` x${t.cantidad}` : ''}`).join(', ') : '',
-            });
-          }
-        }
-
+        const rows = await fetchVentasParaExportar(selectedImei, desdeStr, hastaStr);
         if (rows.length === 0) {
           toast.error('No hay ventas en el rango seleccionado');
           setDownloading(false);
           return;
         }
-
-        rows.sort((a, b) => {
-          const ka = `${a.Fecha} ${a.Hora}`;
-          const kb = `${b.Fecha} ${b.Hora}`;
-          return ka < kb ? -1 : ka > kb ? 1 : 0;
-        });
-
-        const ws = XLSX.utils.json_to_sheet(rows);
-        ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 24 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 18 }, { wch: 12 }, { wch: 30 }];
-        XLSX.utils.book_append_sheet(wb, ws, 'Ventas');
+        wb = buildVentasWorkbook(rows, dias);
       }
 
       XLSX.writeFile(wb, `${tipo}_${selectedImei}_${desdeStr}_${hastaStr}.xlsx`);
