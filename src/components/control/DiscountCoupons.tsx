@@ -377,12 +377,13 @@ const CreateCouponForm = ({ imei, ubicacion, allImeis, onSuccess }: CreateCoupon
       </div>
 
       <div className="space-y-2">
-        <Label>Ubicación</Label>
+        <Label>Ubicación *</Label>
         <Input
           value={ubicacionInput}
           onChange={(e) => setUbicacionInput(e.target.value)}
           placeholder="Ej: Valencia"
         />
+        <p className="text-xs text-muted-foreground">Obligatorio: la máquina rechaza los cupones sin ubicación.</p>
       </div>
 
       <Button
