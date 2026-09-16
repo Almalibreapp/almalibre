@@ -82,7 +82,7 @@ export const AdminCupones = () => {
       ) : (
         <DiscountCoupons
           imei={selectedImei}
-          ubicacion={selectedMachine?.ubicacion || ''}
+          ubicacion={selectedMachine?.ubicacion || selectedMachine?.nombre_personalizado || ''}
           allImeis={allImeis}
           isAdmin
         />
