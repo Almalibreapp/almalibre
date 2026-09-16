@@ -18,7 +18,7 @@ import { useMaquinas } from '@/hooks/useMaquinas';
 import { useMaquinaData, useVentasDetalle } from '@/hooks/useMaquinaData';
 import { useVentasRealtime } from '@/hooks/useVentasRealtime';
 import { useLocalNotifications } from '@/hooks/useLocalNotifications';
-import { useTemperatureLog, useLogTemperature } from '@/hooks/useTemperatureLog';
+import { TemperatureTraceability } from '@/components/temperature/TemperatureTraceability';
 import { fetchOrdenes, fetchEstadoMaquina } from '@/services/api';
 import { ControlTab } from '@/components/control/ControlTab';
 import { cn } from '@/lib/utils';
@@ -120,7 +120,7 @@ export const MachineDetail = () => {
   // State for date navigation  
   const [selectedDate, setSelectedDate] = useState<string | null>(null); // null = today
   const [showAllSales, setShowAllSales] = useState(false);
-  const [tempLogHours, setTempLogHours] = useState(24);
+  
   
   // Calculate date string
   const getSelectedDateStr = () => {
