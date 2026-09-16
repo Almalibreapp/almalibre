@@ -32,7 +32,7 @@ const THRESHOLD = 11;
 
 export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: TemperatureTraceabilityProps) => {
   const [selectedHours, setSelectedHours] = useState(24);
-  const { data: readings, isLoading } = useTemperatureLog(maquinaId, selectedHours, imei);
+  const { data: readings, isLoading, isError } = useTemperatureLog(maquinaId, selectedHours, imei);
   const logTemperature = useLogTemperature();
   const lastLoggedRef = useRef<string | null>(null);
 
@@ -187,10 +187,15 @@ export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: Temper
           <div className="h-56 flex items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : chartData.length === 0 ? (
-          <div className="h-56 w-full rounded-lg bg-muted/50 animate-pulse flex flex-col items-center justify-center text-muted-foreground gap-2">
+        ) : isError ? (
+          <div className="h-56 w-full rounded-lg bg-muted/50 flex flex-col items-center justify-center text-muted-foreground gap-2">
             <Thermometer className="h-8 w-8 opacity-40" />
-            <p className="text-xs">Recuperando lecturas de temperatura…</p>
+            <p className="text-xs">No se pudieron cargar las lecturas históricas.</p>
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="h-56 w-full rounded-lg bg-muted/50 flex flex-col items-center justify-center text-muted-foreground gap-2">
+            <Thermometer className="h-8 w-8 opacity-40" />
+            <p className="text-xs">Sin lecturas en las últimas {selectedHours} horas.</p>
           </div>
         ) : (
           <div className="h-56 w-full">
