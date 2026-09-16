@@ -12,7 +12,7 @@ import {
   LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine, Area, CartesianGrid,
 } from 'recharts';
 import {
-  Thermometer, Download, Loader2, TrendingDown, TrendingUp, Activity,
+  Thermometer, Download, TrendingDown, TrendingUp, Activity,
 } from 'lucide-react';
 
 interface TemperatureTraceabilityProps {
@@ -165,8 +165,9 @@ export const TemperatureTraceability = ({ maquinaId, temperatura, imei }: Temper
 
         {/* Chart */}
         {isLoading ? (
-          <div className="h-56 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <div className="h-56 space-y-3 pt-5" aria-label="Recuperando lecturas de temperatura">
+            <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+            <div className="h-40 w-full rounded-lg bg-muted/60 animate-pulse" />
           </div>
         ) : isError ? (
           <div className="h-56 w-full rounded-lg bg-muted/50 flex flex-col items-center justify-center text-muted-foreground gap-2">
