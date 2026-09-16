@@ -29,9 +29,11 @@ interface DiscountCouponsProps {
   imei: string;
   ubicacion?: string;
   allImeis?: string[];
+  /** Solo el panel de administración puede ver/crear cupones de toda la flota */
+  isAdmin?: boolean;
 }
 
-export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [] }: DiscountCouponsProps) => {
+export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [], isAdmin = false }: DiscountCouponsProps) => {
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedCupon, setSelectedCupon] = useState<CuponDescuento | null>(null);
