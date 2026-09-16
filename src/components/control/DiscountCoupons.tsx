@@ -213,6 +213,12 @@ const CreateCouponForm = ({ imei, ubicacion, allImeis, onSuccess }: CreateCoupon
 
   const mutation = useMutation({
     mutationFn: () => {
+      if (!nombre.trim()) {
+        throw new Error('Escribe el nombre del cupón');
+      }
+      if (!ubicacionInput.trim()) {
+        throw new Error('La ubicación es obligatoria');
+      }
       if (!fechaInicio || !fechaFin) {
         throw new Error('Selecciona las fechas de validez');
       }
@@ -239,7 +245,7 @@ const CreateCouponForm = ({ imei, ubicacion, allImeis, onSuccess }: CreateCoupon
         endTime: formatDateTime(fechaFin, true),
         validDay: diasValidez,
         deviceImeis: allImeis.join(','),
-        localName: ubicacionInput,
+        localName: ubicacionInput.trim(),
         content,
       });
     },
@@ -371,12 +377,13 @@ const CreateCouponForm = ({ imei, ubicacion, allImeis, onSuccess }: CreateCoupon
       </div>
 
       <div className="space-y-2">
-        <Label>Ubicación</Label>
+        <Label>Ubicación *</Label>
         <Input
           value={ubicacionInput}
           onChange={(e) => setUbicacionInput(e.target.value)}
           placeholder="Ej: Valencia"
         />
+        <p className="text-xs text-muted-foreground">Obligatorio: la máquina rechaza los cupones sin ubicación.</p>
       </div>
 
       <Button
