@@ -213,6 +213,12 @@ const CreateCouponForm = ({ imei, ubicacion, allImeis, onSuccess }: CreateCoupon
 
   const mutation = useMutation({
     mutationFn: () => {
+      if (!nombre.trim()) {
+        throw new Error('Escribe el nombre del cupón');
+      }
+      if (!ubicacionInput.trim()) {
+        throw new Error('La ubicación es obligatoria');
+      }
       if (!fechaInicio || !fechaFin) {
         throw new Error('Selecciona las fechas de validez');
       }
