@@ -27,119 +27,150 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const { imei, maquina_id, start, end } = body
 
-    if (!imei || !maquina_id) {
-      return new Response(JSON.stringify({ error: 'imei and maquina_id are required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+    // Modo flota: sin imei/maquina_id recorremos todas las máquinas.
+    // Para el cron cada 2 minutos el rango por defecto es solo el día en curso
+    // (las lecturas se deduplican; el histórico antiguo ya está guardado).
+    const fleet = !imei || !maquina_id
+
+    let targets: { id: string; imei: string }[]
+    let defaultStart: string
+
+    if (fleet) {
+      const { data: maquinas, error: mErr } = await supabase
+        .from('maquinas')
+        .select('id, mac_address')
+      if (mErr) {
+        return new Response(JSON.stringify({ error: mErr.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const seen = new Set<string>()
+      targets = (maquinas || [])
+        .filter((m: any) => m.mac_address && !seen.has(m.mac_address) && seen.add(m.mac_address))
+        .map((m: any) => ({ id: m.id, imei: m.mac_address }))
+      defaultStart = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' })
+      if (targets.length === 0) {
+        return new Response(JSON.stringify({ success: true, message: 'No hay máquinas' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    } else {
+      targets = [{ id: maquina_id, imei }]
+      defaultStart = (() => {
+        const d = new Date()
+        d.setDate(d.getDate() - 2)
+        return d.toISOString().split('T')[0]
+      })()
     }
 
-    // Default: last 48 hours
-    const endDate = end || new Date().toISOString().split('T')[0]
-    const startDate = start || (() => {
-      const d = new Date()
-      d.setDate(d.getDate() - 2)
-      return d.toISOString().split('T')[0]
-    })()
+    const endDate = end || defaultStart
+    const startDate = start || defaultStart
 
-    const url = `${API_BASE_URL}/temperatura/historial/${imei}?start=${startDate}&end=${endDate}`
-    console.log(`[sync-temperatura] Fetching: ${url}`)
+    const results: any[] = []
 
-    const res = await fetch(url, { headers })
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '')
-      console.error(`[sync-temperatura] HTTP ${res.status}: ${errText}`)
-      return new Response(JSON.stringify({ error: `API returned ${res.status}`, details: errText }), {
-        status: 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const data = await res.json()
-    console.log(`[sync-temperatura] Got ${data.total_lecturas || 0} readings, stats:`, JSON.stringify(data.estadisticas || {}))
-
-    const readings = data.datos || data.data || data.lecturas || []
-    if (!Array.isArray(readings) || readings.length === 0) {
-      return new Response(JSON.stringify({
-        success: true,
-        message: 'No readings from API',
-        estadisticas: data.estadisticas || null,
-        total_lecturas: 0,
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Map readings to DB rows
-    const rows = readings.map((r: any) => {
-      const temp = Number(r.temperatura)
-      // Determine estado based on temperature
-      const estado = temp >= 11 ? 'critico' : temp >= 8 ? 'alerta' : 'normal'
-
-      // Parse timestamp - API returns "2026-02-23 00:00:40" or just time "00:02:56"
-      let createdAt: string
-      if (r.timestamp) {
-        const ts = String(r.timestamp).trim()
-        if (ts.match(/^\d{4}-\d{2}-\d{2}/)) {
-          // Full datetime: "2026-02-23 00:00:40"
-          createdAt = ts.includes('T') ? ts : ts.replace(' ', 'T')
-          if (!createdAt.endsWith('Z') && !createdAt.includes('+')) createdAt += 'Z'
-        } else if (ts.match(/^\d{2}:\d{2}/)) {
-          // Time only: "00:02:56" - prepend the start date
-          createdAt = `${startDate}T${ts}Z`
-        } else {
-          createdAt = new Date().toISOString()
+    for (const target of targets) {
+      try {
+        const url = `${API_BASE_URL}/temperatura/historial/${target.imei}?start=${startDate}&end=${endDate}`
+        const res = await fetch(url, { headers })
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '')
+          results.push({ imei: target.imei, error: `API ${res.status}`, details: errText.slice(0, 200) })
+          continue
         }
-      } else {
-        createdAt = new Date().toISOString()
-      }
 
-      return {
-        maquina_id: maquina_id,
-        temperatura: temp,
-        unidad: data.estadisticas?.unidad || r.unidad || 'C',
-        estado,
-        created_at: createdAt,
-        sensor: r.sensor || '',
-        fuente: r.fuente || 'fabricante',
-        imei: imei,
-      }
-    })
-
-    // Insert in batches of 500, ignoring duplicates
-    let insertedCount = 0
-    const batchSize = 500
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const batch = rows.slice(i, i + batchSize)
-      const { error, data: inserted } = await supabase
-        .from('lecturas_temperatura')
-        .insert(batch)
-        .select('id')
-
-      if (error) {
-        // If batch fails (likely duplicates), insert one by one ignoring errors
-        console.warn(`[sync-temperatura] Batch insert error, falling back to individual: ${error.message}`)
-        for (const row of batch) {
-          const { error: singleErr } = await supabase.from('lecturas_temperatura').insert(row)
-          if (!singleErr) insertedCount++
+        const data = await res.json()
+        const readings = data.datos || data.data || data.lecturas || []
+        if (!Array.isArray(readings) || readings.length === 0) {
+          results.push({ imei: target.imei, total_lecturas: 0, inserted: 0 })
+          continue
         }
-      } else {
-        insertedCount += inserted?.length || batch.length
+
+        // Claves ya presentes en la BD para este rango -> evita duplicados
+        // (el índice único solo cubre lecturas con sensor no vacío).
+        let existingKeys = new Set<string>()
+        const { data: existing } = await supabase
+          .from('lecturas_temperatura')
+          .select('created_at, sensor')
+          .eq('maquina_id', target.id)
+          .gte('created_at', `${startDate}T00:00:00Z`)
+          .lte('created_at', `${endDate}T23:59:59Z`)
+        if (existing) {
+          existingKeys = new Set(existing.map((r: any) => `${r.created_at}|${r.sensor || ''}`))
+        }
+
+        const rows = readings
+          .map((r: any) => {
+            const temp = Number(r.temperatura)
+            const estado = temp >= 11 ? 'critico' : temp >= 8 ? 'alerta' : 'normal'
+
+            // La API devuelve "2026-02-23 00:00:40" o solo la hora "00:02:56"
+            let createdAt: string
+            if (r.timestamp) {
+              const ts = String(r.timestamp).trim()
+              if (ts.match(/^\d{4}-\d{2}-\d{2}/)) {
+                createdAt = ts.includes('T') ? ts : ts.replace(' ', 'T')
+                if (!createdAt.endsWith('Z') && !createdAt.includes('+')) createdAt += 'Z'
+              } else if (ts.match(/^\d{2}:\d{2}/)) {
+                createdAt = `${startDate}T${ts}Z`
+              } else {
+                createdAt = new Date().toISOString()
+              }
+            } else {
+              createdAt = new Date().toISOString()
+            }
+
+            const sensor = r.sensor || ''
+            return {
+              maquina_id: target.id,
+              temperatura: temp,
+              unidad: data.estadisticas?.unidad || r.unidad || 'C',
+              estado,
+              created_at: createdAt,
+              sensor,
+              fuente: r.fuente || 'fabricante',
+              imei: target.imei,
+            }
+          })
+          .filter((row: any) => !existingKeys.has(`${row.created_at}|${row.sensor}`))
+
+        let insertedCount = 0
+        const batchSize = 500
+        for (let i = 0; i < rows.length; i += batchSize) {
+          const batch = rows.slice(i, i + batchSize)
+          const { error, data: inserted } = await supabase
+            .from('lecturas_temperatura')
+            .insert(batch)
+            .select('id')
+
+          if (error) {
+            console.warn(`[sync-temperatura] Batch insert error, falling back to individual: ${error.message}`)
+            for (const row of batch) {
+              const { error: singleErr } = await supabase.from('lecturas_temperatura').insert(row)
+              if (!singleErr) insertedCount++
+            }
+          } else {
+            insertedCount += inserted?.length || batch.length
+          }
+        }
+
+        results.push({
+          imei: target.imei,
+          total_lecturas: readings.length,
+          inserted: insertedCount,
+          rango: { start: startDate, end: endDate },
+        })
+      } catch (e) {
+        results.push({ imei: target.imei, error: (e as Error).message })
       }
     }
 
-    return new Response(JSON.stringify({
-      success: true,
-      total_lecturas: readings.length,
-      inserted: insertedCount,
-      estadisticas: data.estadisticas || null,
-      rango: { start: startDate, end: endDate },
-    }), {
+    return new Response(JSON.stringify({ success: true, fleet, results }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    console.error('[sync-temperatura] Error:', error.message)
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('[sync-temperatura] Error:', (error as Error).message)
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
