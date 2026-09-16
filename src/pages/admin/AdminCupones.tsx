@@ -84,6 +84,7 @@ export const AdminCupones = () => {
           imei={selectedImei}
           ubicacion={selectedMachine?.ubicacion || ''}
           allImeis={allImeis}
+          isAdmin
         />
       )}
     </div>
