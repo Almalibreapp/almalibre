@@ -64,12 +64,15 @@ export const useTemperatureLog = (maquinaId: string | undefined, hours: number =
         .from('lecturas_temperatura')
         .select('id, maquina_id, imei, temperatura, unidad, estado, sensor, fuente, created_at')
         .eq('imei', imei.trim())
-        .gte('created_at', since.toISOString())
-        .order('created_at', { ascending: true })
-        .limit(2000);
+        .limit(5000);
 
       if (error) throw error;
-      return (data ?? []) as TemperatureReading[];
+      return ((data ?? []) as TemperatureReading[])
+        .filter((reading) => {
+          const timestamp = new Date(reading.created_at).getTime();
+          return Number.isFinite(timestamp) && timestamp >= since.getTime();
+        })
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     },
     enabled: hasMachineContext,
     staleTime: 30 * 1000,
