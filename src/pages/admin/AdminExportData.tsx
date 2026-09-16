@@ -12,9 +12,14 @@ import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
-import { fetchOrdenes } from '@/services/api';
-import { convertirVentaAEspana } from '@/lib/timezone-utils';
 import { dedupeMaquinasByImei } from '@/lib/maquinas';
+import {
+  enumerateDates,
+  fetchVentasParaExportar,
+  fetchTemperaturasParaExportar,
+  buildVentasWorkbook,
+  buildTemperaturaWorkbook,
+} from '@/lib/export-data';
 
 interface Maquina {
   id: string;
@@ -23,25 +28,6 @@ interface Maquina {
   ubicacion: string | null;
   usuario_id: string;
 }
-
-const PASTEURIZATION_MIN = 66;
-
-const addDaysISO = (iso: string, days: number) => {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() + days);
-  return dt.toISOString().slice(0, 10);
-};
-
-const enumerateDates = (fromISO: string, toISO: string) => {
-  const out: string[] = [];
-  let cur = fromISO;
-  while (cur <= toISO) {
-    out.push(cur);
-    cur = addDaysISO(cur, 1);
-  }
-  return out;
-};
 
 export const AdminExportData = () => {
   const [tipo, setTipo] = useState<'ventas' | 'temperatura' | null>(null);
