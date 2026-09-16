@@ -245,7 +245,7 @@ const CreateCouponForm = ({ imei, ubicacion, allImeis, onSuccess }: CreateCoupon
         endTime: formatDateTime(fechaFin, true),
         validDay: diasValidez,
         deviceImeis: allImeis.join(','),
-        localName: ubicacionInput,
+        localName: ubicacionInput.trim(),
         content,
       });
     },
