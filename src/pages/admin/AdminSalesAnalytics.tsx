@@ -170,33 +170,54 @@ export const AdminSalesAnalytics = () => {
   const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
+  // Lectura directa desde la base de datos (ventas_historico): una sola consulta
+  // paginada en vez de cientos de llamadas a la API del fabricante.
   const { data: ventasHistorico, isLoading: loadingMonthly, refetch: refetchMonthly } = useQuery({
-    queryKey: ['admin-ventas-historico-v2', selectedMachine, monthStart, monthEnd, maquinas?.map(m => m.id).join(',')],
+    queryKey: ['admin-ventas-historico-db', selectedMachine, monthStart, monthEnd, maquinas?.map(m => m.id).join(',')],
     queryFn: async () => {
       if (!maquinas || maquinas.length === 0) return [];
       const targetMachines = selectedMachine === 'all'
         ? maquinas
         : maquinas.filter(m => m.id === selectedMachine);
-      const uniqueByImei = Array.from(new Map(targetMachines.map(m => [m.mac_address, m])).values());
+      const imeis = Array.from(new Set(targetMachines.map(m => m.mac_address).filter(Boolean)));
+      if (imeis.length === 0) return [];
 
-      const spanishDates = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) })
-        .map(d => formatLocal(d));
-      const validDates = new Set(spanishDates);
+      const imeiToMaquinaId = new Map(targetMachines.map(m => [m.mac_address, m.id]));
 
-      // Process ONE machine at a time, dates in batches of 3 to avoid overwhelming the API
-      const allSales: any[] = [];
-      for (const m of uniqueByImei) {
-        const BATCH_SIZE = 3;
-        for (let i = 0; i < spanishDates.length; i += BATCH_SIZE) {
-          const batch = spanishDates.slice(i, i + BATCH_SIZE);
-          const batchResults = await Promise.all(
-            batch.map(fecha => fetchSpanishDaySales(m.mac_address, m.id, fecha).catch(() => []))
-          );
-          allSales.push(...batchResults.flat());
-        }
+      const PAGE = 1000;
+      const rows: any[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('ventas_historico')
+          .select('id, imei, maquina_id, fecha, hora, producto, precio, cantidad_unidades, metodo_pago, numero_orden, venta_api_id, estado, toppings')
+          .in('imei', imeis)
+          .gte('fecha', monthStart)
+          .lte('fecha', monthEnd)
+          .order('fecha', { ascending: true })
+          .order('hora', { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        rows.push(...(data || []));
+        if (!data || data.length < PAGE) break;
       }
 
-      return deduplicateSales(allSales.filter(s => validDates.has(s.fechaSpain)));
+      const ventas = rows
+        .filter((v: any) => !['fallido', 'cancelado', 'failed', 'cancelled'].includes(String(v.estado || '').toLowerCase()))
+        .map((v: any) => {
+          const hora = String(v.hora || '00:00').slice(0, 8);
+          return {
+            ...v,
+            maquina_id: v.maquina_id || imeiToMaquinaId.get(v.imei) || v.imei,
+            fechaSpain: String(v.fecha),
+            horaSpain: hora,
+            hora,
+            precio: Number(v.precio || 0),
+            cantidad_unidades: v.cantidad_unidades || 1,
+            toppings: Array.isArray(v.toppings) ? v.toppings : [],
+          };
+        });
+
+      return deduplicateSales(ventas);
     },
     staleTime: 5 * 60 * 1000,
     refetchInterval: isCurrentMonth ? 60000 : false,
@@ -208,10 +229,8 @@ export const AdminSalesAnalytics = () => {
     setSyncing(true);
     try {
       if (viewMode === 'monthly') {
-        const { data, error } = await supabase.functions.invoke('sync-ventas', { body: { dias_atras: 30 } });
-        if (error) throw error;
-        toast.success(`Sincronización completada: ${data?.results?.length || 0} registros`);
-        refetchMonthly();
+        await refetchMonthly();
+        toast.success('Datos actualizados');
       } else {
         await refetchDaily();
         toast.success('Datos actualizados');
