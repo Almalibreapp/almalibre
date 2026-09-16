@@ -20,7 +20,6 @@ interface RawTemperatureReading {
   temperatura: number;
   estado?: string | null;
   sensor?: string | null;
-  fuente?: string | null;
   timestamp?: string | null;
   created_at: string;
 }
@@ -85,7 +84,7 @@ export const useTemperatureLog = (maquinaId: string | undefined, hours: number =
 
       const { data, error } = await (supabase as any)
         .from('temperatura_historica')
-        .select('id, imei, temperatura, estado, sensor, fuente, timestamp, created_at')
+        .select('id, imei, temperatura, estado, sensor, timestamp, created_at')
         .eq('imei', imei.trim())
         .gte('created_at', since.toISOString())
         .order('created_at', { ascending: false })
@@ -101,7 +100,7 @@ export const useTemperatureLog = (maquinaId: string | undefined, hours: number =
           unidad: 'C',
           estado: reading.estado ?? 'normal',
           sensor: reading.sensor ?? undefined,
-          fuente: reading.fuente ?? undefined,
+          fuente: 'historico',
           created_at: getReadingTimestamp(reading),
         }))
         .filter((reading) => {
