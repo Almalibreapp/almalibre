@@ -44,12 +44,19 @@ export const DiscountCoupons = ({ imei, ubicacion = '', allImeis = [], isAdmin =
     queryFn: () => fetchCupones(1, imei),
   });
 
-  // Seguridad: el franquiciado solo ve los cupones asignados a la máquina seleccionada
+  // Seguridad: el franquiciado solo ve los cupones de la máquina seleccionada.
+  // Los cupones que abarcan máquinas de otros franquiciados (promos de flota)
+  // son exclusivos del panel de administración.
+  const ownImeis = allImeis.length > 0 ? allImeis : [imei];
   const cuponesList: CuponDescuento[] = (data?.cupones ?? []).filter((c) => {
     if (isAdmin) return true;
-    const maquinas = String(c.maquinas ?? '');
-    if (!maquinas) return false;
-    return maquinas.split(',').map((m) => m.trim()).includes(imei);
+    const maquinas = String(c.maquinas ?? '')
+      .split(',')
+      .map((m) => m.trim())
+      .filter(Boolean);
+    if (maquinas.length === 0) return false;
+    if (!maquinas.includes(imei)) return false;
+    return maquinas.every((m) => ownImeis.includes(m));
   });
 
   const deleteMutation = useMutation({
