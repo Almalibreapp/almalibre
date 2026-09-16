@@ -1,7 +1,7 @@
 import { API_CONFIG } from '@/config/api';
 
 // Cupones: llamar DIRECTAMENTE al proyecto externo del fabricante
-const CUPONES_URL = 'https://nrfhtviwgrkbyiujxlrd.supabase.co/functions/v1/cupones-promo';
+const CUPONES_URL = 'https://nrfhtviwgrkbyiujxlrd.supabase.co/functions/v1/cupones';
 const CUPONES_HEADERS: Record<string, string> = {
   'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZmh0dml3Z3JrYnlpdWp4bHJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODQ5NTMsImV4cCI6MjA5MTI2MDk1M30.TRxGviX8eZ5kty4th38BPqmkHXhQTEhCZ_1Oki_VGmE',
   'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZmh0dml3Z3JrYnlpdWp4bHJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODQ5NTMsImV4cCI6MjA5MTI2MDk1M30.TRxGviX8eZ5kty4th38BPqmkHXhQTEhCZ_1Oki_VGmE',
@@ -257,10 +257,10 @@ export const generarCodigosCupon = async (cuponId: string, cantidad: number) => 
 };
 
 export const eliminarCupon = async (cuponIds: string[]) => {
-  const response = await fetch(`${CUPONES_URL}?action=delete`, {
-    method: 'POST',
+  const params = new URLSearchParams({ action: 'delete', couponIds: cuponIds.join('#') });
+  const response = await fetch(`${CUPONES_URL}?${params.toString()}`, {
+    method: 'DELETE',
     headers: CUPONES_HEADERS,
-    body: JSON.stringify({ couponIds: cuponIds }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data?.success === false) {
@@ -270,10 +270,10 @@ export const eliminarCupon = async (cuponIds: string[]) => {
 };
 
 export const eliminarCodigoCupon = async (recordIds: string[]) => {
-  const response = await fetch(`${CUPONES_URL}?action=deleteCode`, {
-    method: 'POST',
+  const params = new URLSearchParams({ action: 'delete_code', couponRecordIds: recordIds.join('#') });
+  const response = await fetch(`${CUPONES_URL}?${params.toString()}`, {
+    method: 'DELETE',
     headers: CUPONES_HEADERS,
-    body: JSON.stringify({ couponRecordIds: recordIds.join('#') }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data?.success === false) {
