@@ -87,8 +87,9 @@ export const useTemperatureLog = (maquinaId: string | undefined, hours: number =
         .from('temperatura_historica')
         .select('id, imei, temperatura, estado, sensor, fuente, timestamp, created_at')
         .eq('imei', imei.trim())
+        .gte('created_at', since.toISOString())
         .order('created_at', { ascending: false })
-        .limit(5000);
+        .limit(10000);
 
       if (error) throw error;
       return ((data ?? []) as RawTemperatureReading[])
