@@ -15,28 +15,13 @@ import { useMaquinas } from '@/hooks/useMaquinas';
 import { toast } from 'sonner';
 import { BottomNav } from '@/components/layout/BottomNav';
 import * as XLSX from 'xlsx';
-import { fetchOrdenes } from '@/services/api';
-import { convertirVentaAEspana } from '@/lib/timezone-utils';
-import { supabase } from '@/integrations/supabase/client';
-
-const PASTEURIZATION_MIN = 66;
-
-const addDaysISO = (iso: string, days: number) => {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() + days);
-  return dt.toISOString().slice(0, 10);
-};
-
-const enumerateDates = (fromISO: string, toISO: string) => {
-  const out: string[] = [];
-  let cur = fromISO;
-  while (cur <= toISO) {
-    out.push(cur);
-    cur = addDaysISO(cur, 1);
-  }
-  return out;
-};
+import {
+  enumerateDates,
+  fetchVentasParaExportar,
+  fetchTemperaturasParaExportar,
+  buildVentasWorkbook,
+  buildTemperaturaWorkbook,
+} from '@/lib/export-data';
 
 export const ExportData = () => {
   const navigate = useNavigate();
